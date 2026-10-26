@@ -18,6 +18,7 @@
   "dependencies": {
     "@sqlite.org/sqlite-wasm": "3.54.1-build1",
     "comlink": "^4.4.2",
+    "fflate": "^0.8.3",
     "idb-keyval": "^6.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

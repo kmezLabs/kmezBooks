@@ -309,19 +309,41 @@ describe('journal entries (GL-3, GL-6)', () => {
     expect(db.selectValue('SELECT count(*) FROM journal_entry')).toBe(before);
   });
 
-  it('records postings and voids in the audit log (US-5)', () => {
-    const id = post(db, '2026-02-01', 'Meals', 'Checking', 10_00);
+  it('records posting and voiding an entry in the audit log, compactly, with the user (US-5)', () => {
+    const id = post(db, '2026-02-01', 'Meals', 'Checking', 10_00, { ref: 'R1', memo: 'Lunch' });
     voidEntry(db, id, 'test');
-    const actions = db.selectArrays(
-      `SELECT action, entity FROM audit_event WHERE entity IN ('journal_entry', 'journal_line') ORDER BY id`,
+    const rows = db.selectObjects(
+      `SELECT action, entity, entity_id, user_id, before, after FROM audit_event WHERE entity IN ('journal_entry', 'journal_line') ORDER BY id`,
     );
-    expect(actions).toEqual([
-      ['insert', 'journal_entry'],
-      ['insert', 'journal_line'],
-      ['insert', 'journal_line'],
-      ['update', 'journal_entry'],
-      ['update', 'journal_entry'],
+    expect(rows.map((r) => [r.action, r.entity, r.entity_id, r.before])).toEqual([
+      ['post', 'journal_entry', String(id), null],
+      ['void', 'journal_entry', String(id), null],
     ]);
+    expect(rows.every((r) => r.user_id !== null)).toBe(true);
+    expect(JSON.parse(String(rows[0]!.after))).toEqual({
+      date: '2026-02-01',
+      ref: 'R1',
+      memo: 'Lunch',
+      source_type: 'journal',
+      source_id: null,
+      amount: 10_00,
+    });
+    expect(JSON.parse(String(rows[1]!.after))).toEqual({ date: '2026-02-01', void_reason: 'test' });
+  });
+
+  it('does not copy journal lines or drafts into the audit log', () => {
+    post(db, '2026-02-01', 'Meals', 'Checking', 10_00);
+    expect(db.selectValue(`SELECT count(*) FROM audit_event WHERE entity = 'journal_line'`)).toBe(
+      0,
+    );
+    expect(
+      db.selectValue(
+        `SELECT count(*) FROM audit_event WHERE action = 'insert' AND entity = 'journal_entry'`,
+      ),
+    ).toBe(0);
+    expect(
+      db.selectValue(`SELECT count(*) FROM sqlite_schema WHERE name LIKE 'audit__journal%'`),
+    ).toBe(0);
   });
 });
 

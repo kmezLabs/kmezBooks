@@ -7,11 +7,19 @@ import type { Database } from './sqlite';
 
 const PREFIX = 'audit__';
 
-/** Tables that are never audited: the log itself, the session row, SQLite's own, M1 spike data. */
+/**
+ * Tables without generated audit triggers: the log itself, the session row,
+ * SQLite's own, M1 spike data, and the ledger. Journal entries and lines get
+ * compact hand-written triggers instead (migration 0008: one "post" and one
+ * "void" event per entry), because full row copies made a 17-year company
+ * several times larger than its ledger (M4 benchmark).
+ */
 export function isAudited(table: string): boolean {
   return (
     table !== 'audit_event' &&
     table !== 'session' &&
+    table !== 'journal_entry' &&
+    table !== 'journal_line' &&
     !table.startsWith('sqlite_') &&
     !table.startsWith('spike_')
   );

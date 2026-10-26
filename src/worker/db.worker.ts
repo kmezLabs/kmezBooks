@@ -5,6 +5,7 @@ import * as Comlink from 'comlink';
 import type { EntryQuery } from '../ledger/entries';
 import type { EntryInput } from '../ledger/postEntry';
 import type { AccountInput } from '../shared/accounts';
+import type { ReportRequest } from '../shared/report';
 import type { NewCompany, CompanyDetails, Module } from './companyData';
 import { COMPANY_FILE } from './companyFolder';
 import { CompanySession, type OpenMode, type SessionStatus } from './companySession';
@@ -77,6 +78,7 @@ const api = {
   closingDate: () => session.closingDate(),
   setClosingDate: (date: string | null) => session.setClosingDate(date),
   trialBalance: (asOf: string) => session.trialBalance(asOf),
+  report: (req: ReportRequest) => session.report(req),
   addAttachment: (entity: 'journal_entry', entityId: string, file: File) =>
     session.addAttachment(entity, entityId, file),
   openAttachment: (id: string) => session.openAttachment(id),

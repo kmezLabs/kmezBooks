@@ -1,9 +1,18 @@
 // The open company: its in-memory database, unlocked key and folder (DF-1, DF-2).
-// Open = read file → unlock key → decrypt → deserialize → migrate.
+// Open = read file → unlock key → decrypt → deserialize → schema upgrade → session.
 // Save = serialize → encrypt → verify → atomic write with the on-disk check.
 
+import { recordEvent } from './audit';
+import {
+  initCompany,
+  latestActivity,
+  readDetails,
+  startSession,
+  type NewCompany,
+} from './companyData';
 import { COMPANY_FILE, readCompanyFile, writeCompanyFile, type FileStamp } from './companyFolder';
 import {
+  changePassphrase,
   createCompanyKey,
   decryptDatabase,
   encryptDatabase,
@@ -11,9 +20,9 @@ import {
   unlockCompanyKey,
   type CompanyKey,
 } from './ebkFormat';
-import { AppError, CompanyExistsError } from './errors';
-import { migrate, schemaVersion } from './migrations';
-import { MIGRATIONS } from './schema';
+import { AppError, CompanyExistsError, ReadOnlyError } from './errors';
+import { schemaVersion } from './migrations';
+import { LATEST_SCHEMA, applySchema } from './schema';
 import {
   deserializeDatabase,
   loadSqlite,
@@ -37,6 +46,24 @@ export interface SaveResult {
   fileBytes: number;
   dbBytes: number;
   timings: Timings;
+  /** The encrypted bytes just written; the worker copies them as a backup when one is due. */
+  file: Uint8Array<ArrayBuffer>;
+}
+
+export interface OpenOptions {
+  readOnly?: boolean;
+  /** Who and where, for the unlock entry in the audit log. */
+  device?: string;
+  /** Called with the untouched file before a schema upgrade, so it can be backed up (DF-11). */
+  beforeUpgrade?: (file: Uint8Array<ArrayBuffer>, fromVersion: number) => Promise<void>;
+  iterations?: number;
+}
+
+export interface BackupPreview {
+  companyId: string;
+  legalName: string;
+  schemaVersion: number;
+  latestActivity: string | null;
 }
 
 async function timed<T>(timings: Timings, step: string, fn: () => T | Promise<T>): Promise<T> {
@@ -54,65 +81,132 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+async function assertNoCompany(dir: FileSystemDirectoryHandle) {
+  try {
+    await dir.getFileHandle(COMPANY_FILE);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'NotFoundError') return;
+    throw e;
+  }
+  throw new CompanyExistsError(`This folder already holds a company (${COMPANY_FILE}).`);
+}
+
+/** Decrypt and load a file into memory without touching any folder. */
+async function load(
+  bytes: Uint8Array<ArrayBuffer>,
+  passphrase: string,
+  timings: Timings,
+): Promise<{ sqlite3: Sqlite3Static; db: Database; key: CompanyKey }> {
+  const sqlite3 = await timed(timings, 'loadSqlite', loadSqlite);
+  const key = await timed(timings, 'deriveKey', () =>
+    unlockCompanyKey(readHeader(bytes), passphrase),
+  );
+  const plain = await timed(timings, 'decrypt', () => decryptDatabase(key, bytes));
+  const db = await timed(timings, 'deserialize', () => deserializeDatabase(sqlite3, plain));
+  return { sqlite3, db, key };
+}
+
 export class OpenCompany {
+  private savedChanges: number;
+
   private constructor(
     readonly sqlite3: Sqlite3Static,
     readonly db: Database,
     private key: CompanyKey,
-    readonly dir: FileSystemDirectoryHandle,
+    private folder: FileSystemDirectoryHandle,
     private stamp: FileStamp | null,
-  ) {}
+    readonly readOnly: boolean,
+  ) {
+    // Opening writes the session and the unlock entry (US-5), so a company
+    // starts with unsaved changes; the autosave puts them on disk
+    this.savedChanges = -1;
+    if (readOnly) db.exec('PRAGMA query_only = ON');
+  }
 
-  /** Create a new company in an empty (or non-company) folder and save it once (CO-1). */
+  get dir(): FileSystemDirectoryHandle {
+    return this.folder;
+  }
+
+  get id(): string {
+    return String(this.db.selectValue('SELECT id FROM company'));
+  }
+
+  /** Create a new company in a folder without one, and save it once (CO-1). */
   static async create(
     dir: FileSystemDirectoryHandle,
+    details: NewCompany,
     passphrase: string,
-    legalName: string,
     iterations?: number,
   ): Promise<{ company: OpenCompany; timings: Timings }> {
     const timings: Timings = {};
-    try {
-      await dir.getFileHandle(COMPANY_FILE);
-      throw new CompanyExistsError(`This folder already holds a company (${COMPANY_FILE}).`);
-    } catch (e) {
-      if (!(e instanceof DOMException && e.name === 'NotFoundError')) throw e;
-    }
+    await assertNoCompany(dir);
     const sqlite3 = await timed(timings, 'loadSqlite', loadSqlite);
     const key = await timed(timings, 'deriveKey', () => createCompanyKey(passphrase, iterations));
     const db = openEmptyDatabase(sqlite3);
-    await timed(timings, 'migrate', () => migrate(db, MIGRATIONS));
-    db.exec({
-      sql: 'INSERT INTO company (id, legal_name) VALUES (?, ?)',
-      bind: [crypto.randomUUID(), legalName],
-    });
-    const company = new OpenCompany(sqlite3, db, key, dir, null);
+    await timed(timings, 'migrate', () => applySchema(db));
+    initCompany(
+      db,
+      { companyId: crypto.randomUUID(), ownerId: crypto.randomUUID() },
+      details,
+      new Date(),
+    );
+    const company = new OpenCompany(sqlite3, db, key, dir, null, false);
     Object.assign(timings, (await company.save()).timings);
     return { company, timings };
   }
 
-  /** Open and unlock an existing company folder (DF-1, US-1). */
+  /** Open and unlock an existing company folder (DF-1, US-1, DF-11). */
   static async open(
     dir: FileSystemDirectoryHandle,
     passphrase: string,
-  ): Promise<{ company: OpenCompany; timings: Timings }> {
+    opts: OpenOptions = {},
+  ): Promise<{ company: OpenCompany; timings: Timings; upgradedFrom: number | null }> {
     const timings: Timings = {};
-    const sqlite3 = await timed(timings, 'loadSqlite', loadSqlite);
     const { bytes, stamp } = await timed(timings, 'read', () => readCompanyFile(dir));
-    const key = await timed(timings, 'deriveKey', () =>
-      unlockCompanyKey(readHeader(bytes), passphrase),
-    );
-    const plain = await timed(timings, 'decrypt', () => decryptDatabase(key, bytes));
-    const db = await timed(timings, 'deserialize', () => deserializeDatabase(sqlite3, plain));
-    // M2: back up before upgrading the schema (DF-11). Upgrades are saved on the next save.
-    await timed(timings, 'migrate', () => migrate(db, MIGRATIONS));
-    return { company: new OpenCompany(sqlite3, db, key, dir, stamp), timings };
+    const { sqlite3, db, key } = await load(bytes, passphrase, timings);
+    try {
+      const from = schemaVersion(db);
+      // Back up the untouched file before changing its schema (DF-11). A
+      // newer file is refused by applySchema, so it is never "upgraded".
+      if (from < LATEST_SCHEMA && !opts.readOnly) await opts.beforeUpgrade?.(bytes, from);
+      await timed(timings, 'migrate', () => applySchema(db));
+      startSession(db, new Date());
+      if (!opts.readOnly) {
+        if (from < LATEST_SCHEMA)
+          recordEvent(db, 'schema_upgrade', `schema ${from} → ${LATEST_SCHEMA}`);
+        recordEvent(db, 'unlock', opts.device);
+      }
+      const company = new OpenCompany(sqlite3, db, key, dir, stamp, opts.readOnly ?? false);
+      return { company, timings, upgradedFrom: from < LATEST_SCHEMA ? from : null };
+    } catch (e) {
+      db.close();
+      throw e;
+    }
+  }
+
+  /** Open a backup in memory just long enough to describe it (DF-10). */
+  static async inspect(bytes: Uint8Array<ArrayBuffer>, passphrase: string): Promise<BackupPreview> {
+    const { db } = await load(bytes, passphrase, {});
+    try {
+      const version = schemaVersion(db);
+      const row = db.selectObjects('SELECT id, legal_name FROM company')[0];
+      const hasAudit =
+        db.selectValue(`SELECT count(*) FROM sqlite_schema WHERE name = 'audit_event'`) === 1;
+      return {
+        companyId: String(row?.id),
+        legalName: String(row?.legal_name),
+        schemaVersion: version,
+        latestActivity: hasAudit ? latestActivity(db) : null,
+      };
+    } finally {
+      db.close();
+    }
   }
 
   info(): CompanyInfo {
-    const row = this.db.selectObjects('SELECT id, legal_name FROM company')[0];
     return {
-      id: String(row?.id),
-      legalName: String(row?.legal_name),
+      id: this.id,
+      legalName: readDetails(this.db).legalName,
       schemaVersion: schemaVersion(this.db),
       dbBytes:
         Number(this.db.selectValue('PRAGMA page_count')) *
@@ -120,9 +214,20 @@ export class OpenCompany {
     };
   }
 
+  private totalChanges(): number {
+    return this.db.changes(true);
+  }
+
+  /** True when there are changes not yet written to the company file (DF-2). */
+  get dirty(): boolean {
+    return !this.readOnly && this.totalChanges() !== this.savedChanges;
+  }
+
   /** Save the whole database atomically (DF-2), refusing if the file changed on disk (DF-3). */
   async save(): Promise<SaveResult> {
+    if (this.readOnly) throw new ReadOnlyError('This company is open read-only.');
     const timings: Timings = {};
+    const changes = this.totalChanges();
     const plain = await timed(timings, 'serialize', () => serializeDatabase(this.sqlite3, this.db));
     const file = await timed(timings, 'encrypt', () => encryptDatabase(this.key, plain));
     // Never write a file we can't read back (CLAUDE.md rule 2)
@@ -132,8 +237,35 @@ export class OpenCompany {
         throw new AppError('Save aborted: the encrypted file did not read back correctly.');
       }
     });
-    this.stamp = await timed(timings, 'write', () => writeCompanyFile(this.dir, file, this.stamp));
-    return { fileBytes: file.byteLength, dbBytes: plain.byteLength, timings };
+    this.stamp = await timed(timings, 'write', () =>
+      writeCompanyFile(this.folder, file, this.stamp),
+    );
+    this.savedChanges = changes;
+    return { fileBytes: file.byteLength, dbBytes: plain.byteLength, timings, file };
+  }
+
+  /**
+   * Save into a different, empty folder and carry on working there (DF-3: when
+   * the original changed on disk, the owner keeps their work as a copy).
+   */
+  async saveAs(dir: FileSystemDirectoryHandle): Promise<SaveResult> {
+    await assertNoCompany(dir);
+    const previous = { folder: this.folder, stamp: this.stamp };
+    this.folder = dir;
+    this.stamp = null;
+    try {
+      return await this.save();
+    } catch (e) {
+      Object.assign(this, previous);
+      throw e;
+    }
+  }
+
+  /** Re-wrap the data key under a new passphrase (US-1); takes effect on the next save. */
+  async changePassphrase(oldPassphrase: string, newPassphrase: string): Promise<void> {
+    if (this.readOnly) throw new ReadOnlyError('This company is open read-only.');
+    this.key = await changePassphrase(this.key, oldPassphrase, newPassphrase);
+    recordEvent(this.db, 'passphrase_change');
   }
 
   close(): void {

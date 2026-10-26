@@ -9,7 +9,7 @@ How the MVP in `docs/MVP-REQUIREMENTS.md` gets built. M1 is planned in detail; M
 | Milestone | What | Requirements |
 | --- | --- | --- |
 | M1 | Technical test + project scaffold | Risks behind DF-1, DF-2, Client and Performance NFRs |
-| M2 | Company files, owner unlock, audit log | DF-1–DF-4, DF-9–DF-11, CO-1–CO-4, US-1, US-3, US-5 |
+| M2 | Company files, owner unlock, audit log (done) | DF-1–DF-4, DF-9–DF-11, CO-1–CO-4, US-1, US-3, US-5 |
 | M3 | Ledger core and period close | GL-1–GL-4, GL-6–GL-8, PC-1–PC-3 |
 | M4 | Reports | RP-1–RP-6 |
 | M5 | QuickBooks Online migration | MG-1–MG-6 |
@@ -116,18 +116,38 @@ Acme LLC/                    folder the owner picks or creates
 
 **Done when:** the app installs from `localhost`; an encrypted company file round-trips; the atomic-save and change-check tests pass; measurements and the Android result are written up; `npm run check` is green.
 
-## M2 — Company files, owner unlock, audit log (outline)
+## M2 — Company files, owner unlock, audit log (done Oct 26)
 
-- **Create company** (CO-1): pick or create a folder, enter legal name, EIN, address and fiscal year start, then set the passphrase twice. This writes `company.ebk` with the schema.
-- **Open company** (DF-1): recent-folders list, permission prompt, passphrase, lock check, load. **Lock** (US-1) after configurable inactivity, which drops the key and closes the database after a final save.
-- **Save loop** (DF-2): a "dirty" flag after each committed write; save 2 seconds after the last change, and on lock, close or the page being hidden; an unsaved-changes indicator; a `beforeunload` warning while dirty.
-- **One editor** (DF-4): a Web Lock per company id for tabs; `company.lock` with device name and a heartbeat, where a stale heartbeat lets the owner clear it; others open read-only.
-- **Backups** (DF-9, DF-10): first save of the day and every few hours while dirty; keep the last 30; warn after 7 days without one. Restore validates the header, decrypts and shows the date and latest entry before replacing anything.
-- **Schema upgrade** (DF-11): back up, migrate, refuse `user_version` newer than the app.
-- **Company switcher and banner** (CO-2), **module toggles** (CO-4).
-- **Owner** (US-3): a single user row; the app sets the current user in a one-row `session` table at unlock, so triggers can stamp it.
-- **Audit log** (US-5): migration helper that generates insert/update/delete triggers per table writing `audit_event` (before/after as JSON); unlock, lock and restore events written by the app.
-- **Passphrase change**: rewrap the data key (US-1).
+Built on branch `m2-company-files`. Unit tests in Node, plus an end-to-end run of every screen in headless Chrome.
+
+| Requirement | How |
+| --- | --- |
+| CO-1 | New company: legal name, EIN, address, fiscal year start, owner name, passphrase twice, then an empty folder. Company page edits the details. Validation in `src/shared/company.ts`, `CHECK` constraints as the backstop |
+| CO-2 | Active company in the top bar. Switching = **Lock**, then open another company from the start screen |
+| CO-3 | One folder and database per company; every table's `company_id` has a foreign key to the one company row (tested for every table) |
+| CO-4 | Modules page; `company_module` table. Screens for the modules arrive in M5–M7 |
+| DF-1 | Folder picker; recent-folders list (handles in IndexedDB, nothing else); permission asked on the click that opens a company |
+| DF-2 | In-memory database, saved whole 2 s after the last change, and on lock, close or the tab being hidden. Unsaved changes are detected from SQLite's own change counter, so no module can forget to flag them. Save state in the top bar; `beforeunload` warning while unsaved |
+| DF-3 | Every save compares the file's time and size with the last open/save. If they differ the save is refused, and the owner can **Save a copy in another folder** and keep working there, or close without saving. Restoring a backup also goes through this check |
+| DF-4 | `company.lock` (device, owner, heartbeat every 30 s). A fresh lock offers **Open read-only**; a lock silent for 2 minutes also offers **Take over**. A heartbeat that finds another device's lock stops saving and offers a copy. A Web Lock per company stops a second tab. Read-only is enforced by SQLite (`PRAGMA query_only`) |
+| DF-9 | Backup on the first save of each day and every 4 hours while working; newest 30 kept; banner after 7 days without one. Default folder `backups` inside the company folder, or a folder of the owner's choice (remembered per company on this device) |
+| DF-10 | Backups page: restore any backup after checking its passphrase and showing its company and last activity; the current file is backed up first; a backup of another company is refused. Start screen: restore a backup file into an empty folder |
+| DF-11 | Before a schema upgrade the untouched file is copied to `backups` as `…-before-upgrade-vN`; files from a newer app version are refused |
+| US-1 | Passphrase unlock (10 characters minimum); lock after 15 minutes idle (per-device setting); passphrase change re-wraps the key and saves at once; old backups keep their passphrase |
+| US-3 | One owner row (`app_user`, unique owner index); the session row points at the owner |
+| US-5 | Audit triggers on every table are generated from the live schema after each migration (`src/worker/audit.ts`), so new tables and columns are covered automatically; before/after as JSON; unlock, lock, restore, schema upgrade and passphrase change written by the app; the log is append-only; Audit log page |
+
+Decisions made while building (all adjustable):
+
+- Passphrase at least 10 characters; inactivity lock 15 minutes by default.
+- Autosave 2 s after the last change; backup cadence and retention as above.
+- Backups are found by listing the backup folder, not recorded in the database, so writing a backup never makes the company "unsaved" again.
+- Opening an editable company records the unlock and saves it within seconds, so every open touches the file.
+
+Left for later milestones:
+
+- Bulk imports (M5) would write one audit row per imported row; add a bulk-import mode that logs one summary event instead.
+- The M1 technical-test page stays until the M1 hand checks are recorded.
 
 ## M3 — Ledger core and period close (outline)
 

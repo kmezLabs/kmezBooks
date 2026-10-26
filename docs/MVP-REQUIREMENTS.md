@@ -235,9 +235,10 @@ The ledger tables are the only source of truth for the financial statements; inv
 
 | Entity | Key fields | Owned by |
 | --- | --- | --- |
-| Company | id, legal name, EIN, fiscal year start, closing date, enabled modules (one row per company database) | CO |
+| Company | id, legal name, EIN, address, fiscal year start, closing date (one row per company database) | CO |
+| CompanyModule | module, enabled (CO-4) | CO |
 | User | name, role, owner override password hash (owner only in the MVP) | US |
-| Backup | time, destination, file hash | DF |
+| Session | the user working now, set at unlock; one row, read by the audit triggers | US |
 | Checkout | token, holder name, role, checked out at, checked in or cancelled at, schema version (S) | DF |
 | Account | id, company, type, detail type, parent account, active | GL |
 | JournalEntry | id, company, date, source type, source id, memo, status (draft/posted/void) | GL |
@@ -253,6 +254,8 @@ The ledger tables are the only source of truth for the financial statements; inv
 | Reconciliation | account, statement date, ending balance, cleared lines | BK |
 | Attachment | file name in the company folder's attachments, content hash, linked entity | shared |
 | AuditEvent | user, action, entity, before/after, timestamp | shared |
+
+Backups are not tracked in the database: they are files named by time in the backup folder, and the app finds them by listing that folder (DF-9).
 
 The `source type` + `source id` pair on JournalEntry is what keeps modules optional: the ledger never needs to know what an invoice is, only which document produced each entry.
 

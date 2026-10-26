@@ -41,8 +41,8 @@ Context for Claude Code. This project is a standalone, double-entry accounting P
 1. **Integrity rules live in the SQLite schema, and stay small and stable.** Implement as `CHECK` constraints and triggers:
    - Every journal entry balances (debits = credits). SQLite has no deferred constraints, so lines are written while the entry is `draft`, and a trigger checks the balance when its status changes to `posted`
    - No create/edit/void on or before a company's closing date (owner override is logged)
-   - Company isolation: one folder and database per company; every table still has `company_id`
-   - Audit log trigger on every change (user, action, entity, before/after, timestamp); the current user comes from a one-row `session` table set at unlock
+   - Company isolation: one folder and database per company; every table has `company_id TEXT NOT NULL REFERENCES company (id)` (a test checks every table)
+   - Audit log trigger on every change (user, action, entity, before/after, timestamp); the current user comes from a one-row `session` table set at unlock. **Audit triggers are generated** from the live schema by `src/worker/audit.ts` after every migration; never hand-write them in a migration
    - Posted entries are never deleted (a `BEFORE DELETE` trigger aborts); corrections are voids or adjusting entries
    - Cash basis: no postings to A/R or A/P accounts except entries whose source is the QuickBooks migration
 2. **Never lose or clobber a company file.** Saves are whole-file and atomic. Before writing, check that the file on disk hasn't changed since it was opened or last saved (`DF-3`). Respect the folder lock (`DF-4`). Never write a partially encrypted or unverified file over a good one.
@@ -63,8 +63,8 @@ Context for Claude Code. This project is a standalone, double-entry accounting P
 
 Details in `docs/IMPLEMENTATION-PLAN.md`.
 
-1. **M1** Technical test + scaffold: in-memory SQLite worker, encrypted open/save to a picked folder, measurements at 17-year size, Chrome for Android folder-picker check, migration runner, Vitest
-2. **M2** Company files, owner unlock, audit log (`DF`, `CO`, `US-1`, `US-3`, `US-5`)
+1. **M1** Technical test + scaffold (done except the hand checks in `docs/spikes/M1-results.md`): in-memory SQLite worker, encrypted open/save to a picked folder, measurements at 17-year size, Chrome for Android folder-picker check, migration runner, Vitest
+2. **M2** Company files, owner unlock, audit log (`DF`, `CO`, `US-1`, `US-3`, `US-5`) (done)
 3. **M3** `GL` + `PC`: chart of accounts, `postEntry()`, balance check, closing-date lock, voids, `allocateProRata()`
 4. **M4** `RP`: trial balance, GL detail, P&L, balance sheet
 5. **M5** `MG`: QuickBooks Online cash-basis import with dry run and year-end tie-out (`MG-5`), run against real data per company

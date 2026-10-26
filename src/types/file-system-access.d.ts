@@ -18,6 +18,15 @@ interface DirectoryPickerOptions {
   startIn?: FileSystemHandle | 'desktop' | 'documents' | 'downloads';
 }
 
+interface OpenFilePickerOptions {
+  id?: string;
+  multiple?: boolean;
+  excludeAcceptAllOption?: boolean;
+  startIn?: FileSystemHandle | 'desktop' | 'documents' | 'downloads';
+  types?: { description?: string; accept: Record<string, string[]> }[];
+}
+
 interface Window {
   showDirectoryPicker?(options?: DirectoryPickerOptions): Promise<FileSystemDirectoryHandle>;
+  showOpenFilePicker?(options?: OpenFilePickerOptions): Promise<FileSystemFileHandle[]>;
 }

@@ -4,7 +4,7 @@ Double-entry bookkeeping for four US small businesses, as a standalone Chrome PW
 
 - Scope: [docs/MVP-REQUIREMENTS.md](docs/MVP-REQUIREMENTS.md)
 - Build plan: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md)
-- Current milestone: M1 technical test, see [docs/spikes/M1-results.md](docs/spikes/M1-results.md)
+- Progress: M1 (technical test, [results](docs/spikes/M1-results.md)) and M2 (company files, unlock, audit log) are built; M3 (ledger) is next
 
 ## Run it
 
@@ -26,9 +26,10 @@ npm run check      # typecheck + lint + tests
 ## Layout
 
 ```
-src/app/        UI (M1: technical-test screen)
-src/worker/     SQLite worker: company file format, folder access, migrations
-src/shared/     worker client and shared helpers
+src/app/        UI: start screen, workspace, pages
+src/worker/     SQLite worker: company file format, folder access, session
+                (autosave, locks, backups), migrations, audit triggers
+src/shared/     worker client and code shared by UI and worker
 db/migrations/  numbered SQL migrations, one sequence
 db/tests/       schema and integrity-rule tests
 ```

@@ -2,10 +2,10 @@
 // (CLAUDE.md rule 6). The UI calls it through Comlink; see src/shared/workerClient.ts.
 
 import * as Comlink from 'comlink';
-import { OpenCompany, type CompanyInfo, type SaveResult, type Timings } from './company';
+import type { NewCompany, CompanyDetails, Module } from './companyData';
 import { COMPANY_FILE } from './companyFolder';
+import { CompanySession, type OpenMode, type SessionStatus } from './companySession';
 import { createCompanyKey, encryptDatabase } from './ebkFormat';
-import { NoCompanyOpenError } from './errors';
 import {
   createIndexes,
   dropIndexes,
@@ -15,67 +15,77 @@ import {
 } from './spike';
 import { serializeDatabase } from './sqlite';
 
-let current: OpenCompany | undefined;
+let listener: ((status: SessionStatus) => void) | undefined;
 
-function open(): OpenCompany {
-  if (!current) throw new NoCompanyOpenError('No company is open.');
-  return current;
-}
-
-async function replaceCurrent(next: OpenCompany) {
-  current?.close();
-  current = next;
-}
+const session = new CompanySession({
+  locks: navigator.locks,
+  onStatus: (status) => listener?.(status),
+});
 
 const ms = (start: number) => Math.round(performance.now() - start);
 
 const api = {
-  async createCompany(
+  /** Receive every status change (save state, errors, read-only…); returns the current status. */
+  subscribe(callback: (status: SessionStatus) => void): SessionStatus {
+    listener = callback;
+    return session.status();
+  },
+  status: () => session.status(),
+
+  create: (
+    dir: FileSystemDirectoryHandle,
+    details: NewCompany,
+    passphrase: string,
+    device: string,
+  ) => session.create(dir, details, passphrase, device),
+  open: (
     dir: FileSystemDirectoryHandle,
     passphrase: string,
-    legalName: string,
-  ): Promise<{ info: CompanyInfo; timings: Timings }> {
-    const { company, timings } = await OpenCompany.create(dir, passphrase, legalName);
-    await replaceCurrent(company);
-    return { info: company.info(), timings };
-  },
+    opts: { device: string; mode?: OpenMode },
+  ) => session.open(dir, passphrase, opts),
+  save: () => session.save(),
+  close: () => session.close(),
+  discard: () => session.discard(),
+  saveAs: (dir: FileSystemDirectoryHandle) => session.saveAs(dir),
 
-  async openCompany(
-    dir: FileSystemDirectoryHandle,
+  details: () => session.details(),
+  updateDetails: (changes: Partial<CompanyDetails>) => session.updateDetails(changes),
+  modules: () => session.modules(),
+  setModule: (module: Module, enabled: boolean) => session.setModule(module, enabled),
+  changePassphrase: (oldPassphrase: string, newPassphrase: string) =>
+    session.changePassphrase(oldPassphrase, newPassphrase),
+  audit: (opts?: { limit?: number; beforeId?: number; entity?: string }) => session.audit(opts),
+
+  listBackups: () => session.listBackups(),
+  backupNow: () => session.backupNow(),
+  setBackupDir: (dir: FileSystemDirectoryHandle | null) => session.setBackupDir(dir),
+  previewBackup: (name: string, passphrase: string) => session.previewBackup(name, passphrase),
+  restoreBackup: (name: string, passphrase: string) => session.restoreBackup(name, passphrase),
+  previewBackupFile: (file: FileSystemFileHandle, passphrase: string) =>
+    session.previewBackupFile(file, passphrase),
+  restoreInto: (
+    file: FileSystemFileHandle,
     passphrase: string,
-  ): Promise<{ info: CompanyInfo; timings: Timings; wasmHeapBytes: number }> {
-    const { company, timings } = await OpenCompany.open(dir, passphrase);
-    await replaceCurrent(company);
-    return { info: company.info(), timings, wasmHeapBytes: wasmHeapBytes(company.sqlite3) };
-  },
-
-  info(): CompanyInfo | null {
-    return current?.info() ?? null;
-  },
-
-  save(): Promise<SaveResult> {
-    return open().save();
-  },
-
-  close(): void {
-    current?.close();
-    current = undefined;
-  },
+    target: FileSystemDirectoryHandle,
+    device: string,
+  ) => session.restoreInto(file, passphrase, target, device),
 
   // ---- M1 technical test only (remove with src/worker/spike.ts) ----
 
   spikeGenerate(years: number, entriesPerYear: number) {
     const start = performance.now();
-    const counts = generateHistory(open().db, { years, entriesPerYear });
+    const counts = generateHistory(session.current().db, { years, entriesPerYear });
+    session.touch();
     return { ...counts, generateMs: ms(start) };
   },
 
   spikeMeasure() {
-    const company = open();
+    const company = session.current();
     dropIndexes(company.db);
     const noIndex = measureQueries(company.db);
     const indexMs = createIndexes(company.db);
     const withIndex = measureQueries(company.db);
+    session.touch();
     return {
       noIndex,
       indexMs,
@@ -83,6 +93,20 @@ const api = {
       dbBytes: company.info().dbBytes,
       wasmHeapBytes: wasmHeapBytes(company.sqlite3),
     };
+  },
+
+  /** Close and reopen the open company, returning the open timings. */
+  async spikeReopen(passphrase: string, device: string) {
+    const dir = session.current().dir;
+    await session.close();
+    const outcome = await session.open(dir, passphrase, { device });
+    if (outcome.kind !== 'opened') throw new Error('The company is locked by another device.');
+    return { ...outcome.timings, wasmHeapBytes: wasmHeapBytes(session.current().sqlite3) };
+  },
+
+  spikeInfo() {
+    const company = session.current();
+    return { ...company.info(), wasmHeapBytes: wasmHeapBytes(company.sqlite3) };
   },
 
   async spikePbkdf2(): Promise<number> {
@@ -98,7 +122,7 @@ const api = {
    * would no longer open: reopening it afterwards is the test.
    */
   async spikeSlowWrite(seconds: number): Promise<number> {
-    const company = open();
+    const company = session.current();
     const key = await createCompanyKey('throwaway', 1_000);
     const bytes = await encryptDatabase(key, serializeDatabase(company.sqlite3, company.db));
     const handle = await company.dir.getFileHandle(COMPANY_FILE);

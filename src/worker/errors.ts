@@ -39,3 +39,23 @@ export class NewerSchemaError extends AppError {
 export class NoCompanyOpenError extends AppError {
   override name = 'NoCompanyOpenError';
 }
+
+/** The company is open read-only, because another device holds it or the owner chose to (DF-4). */
+export class ReadOnlyError extends AppError {
+  override name = 'ReadOnlyError';
+}
+
+/** Another device has the company open (DF-4). */
+export class CompanyLockedError extends AppError {
+  override name = 'CompanyLockedError';
+}
+
+/** The same company is already open in another tab or window of this browser (DF-4). */
+export class OpenInAnotherTabError extends AppError {
+  override name = 'OpenInAnotherTabError';
+}
+
+/** A backup belongs to a different company than the one it would replace (DF-10). */
+export class WrongCompanyError extends AppError {
+  override name = 'WrongCompanyError';
+}

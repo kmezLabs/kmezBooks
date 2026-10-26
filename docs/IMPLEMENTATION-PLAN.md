@@ -77,24 +77,24 @@ Acme LLC/                    folder the owner picks or creates
 
 - [x] `git init`, `.gitignore`, first commit of the docs
 - [x] Vite + React + TypeScript (strict), ESLint, Prettier; npm scripts `dev`, `build`, `test`, `check` (typecheck + lint + test)
-- [ ] `vite-plugin-pwa` (Workbox): manifest, icons, service worker; confirm the app installs from `localhost` — configured; the install test waits until the PC has free memory (see M1 results)
+- [ ] `vite-plugin-pwa` (Workbox): manifest, icons, service worker; confirm the app installs from `localhost` — production build and service worker work; install needs a manual run in Chrome
 - [x] `@sqlite.org/sqlite-wasm` in a dedicated Web Worker (exclude it from Vite's dependency pre-bundling); typed message API between UI and worker (Comlink)
 
 ### 2. Company file prototype
 
 - [ ] Pick or create a folder with `showDirectoryPicker({ mode: 'readwrite' })`; store the handle in IndexedDB as the recent-folders entry; on reopen, `queryPermission` and then `requestPermission`; check whether the installed app gets "allow on every visit" — built; needs a run in Chrome
 - [x] Encrypted file round trip: create the database, run a migration, write `company.ebk`, close, reopen with the passphrase, read back (Node tests; Chrome run pending)
-- [ ] Atomic save: kill the tab during a save and confirm the old file survives intact — test button built; needs a run in Chrome
+- [x] Atomic save: kill the tab during a save and confirm the old file survives intact (headless Chrome: page reloaded mid-write, company reopens)
 - [x] On-disk change check (DF-3): record `lastModified` and size after open and after each save; refuse the save if either changed (Node tests; manual Chrome check pending)
 - [x] Migration runner: `import.meta.glob('/db/migrations/*.sql', { query: '?raw', eager: true })`; each file in its own transaction with its `PRAGMA user_version`
 
 ### 3. Measurements (recorded, not pass/fail)
 
 - [x] Synthetic-company generator: 17 years, about 6,000 entries a year, 2–6 lines each. Adjust once real QuickBooks volumes are known
-- [ ] Record database size; open time (read, key derivation, decrypt, deserialize); save time (export, encrypt, write); worker memory; cash-basis P&L for one year and for all 17 years, with and without indexes on `(account_id, date)`
-- [ ] PBKDF2 at 600,000 iterations: unlock time on desktop and Android
-- [ ] Desktop Chrome on the owner's PC, and Android Chrome
-- [ ] Write the results to `docs/spikes/M1-results.md`
+- [x] Record database size; open time (read, key derivation, decrypt, deserialize); save time (export, encrypt, write); worker memory; cash-basis P&L for one year and for all 17 years, with and without indexes on `(account_id, date)`
+- [ ] PBKDF2 at 600,000 iterations: unlock time on desktop and Android — desktop 200 ms; Android pending
+- [ ] Desktop Chrome on the owner's PC, and Android Chrome — headless desktop Chrome done; real-disk desktop run and Android pending
+- [x] Write the results to `docs/spikes/M1-results.md` (manual runs to add)
 
 ### 4. Android check
 

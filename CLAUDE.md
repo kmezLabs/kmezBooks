@@ -31,9 +31,9 @@ Context for Claude Code. This project is a standalone, double-entry accounting P
 - **Database:** `@sqlite.org/sqlite-wasm` in a Web Worker. The open company's database is **held in memory**: decrypted and deserialized on open, then serialized, encrypted and written back whole on save (`DF-2`). No OPFS VFS and no SQLite cipher build
 - **File access:** File System Access API (`showDirectoryPicker`, persistent permission for the installed PWA). Saves go through `createWritable()`, which writes to a temporary file and swaps it in on `close()`, so saves are atomic
 - **Encryption:** WebCrypto. A random AES-256-GCM data key encrypts the database and each attachment. It is wrapped (AES-KW) by a key derived from the passphrase with **PBKDF2-SHA256, 600,000 iterations**; the iteration count and salt are stored in the file header. File format in the implementation plan
-- **Money:** **integer cents** (`INTEGER`) in SQLite, because SQLite has no exact decimal type and its `NUMERIC` can store floating point
+- **Money:** **integer cents** (`INTEGER`) in SQLite, because SQLite has no exact decimal type and its `NUMERIC` can store floating point. Every table is declared `STRICT`, so an `INTEGER` column can never hold a float or text
 - **Schema changes:** numbered SQL migration files in `db/migrations/` (one sequence across modules), bundled with the app, applied when a company is opened (`PRAGMA user_version`); take a backup first and refuse companies from a newer version (`DF-11`). Never edit a company database by hand
-- **DB tests:** Vitest against the real schema (SQLite in Node)
+- **DB tests:** Vitest against the real schema (SQLite in Node, same `@sqlite.org/sqlite-wasm` package, migrations loaded through the same `import.meta.glob` as the app). Vitest runs in one reused worker (`isolate: false, maxWorkers: 1`) because the dev PC is short of memory; tests must not depend on module isolation
 - **Backups:** the user's normal file backups cover the company folders; the app adds versioned encrypted backups and restore (`DF-9`, `DF-10`)
 
 ## Architecture rules (follow these when writing code)

@@ -75,22 +75,22 @@ Acme LLC/                    folder the owner picks or creates
 
 ### 1. Scaffold
 
-- [ ] `git init`, `.gitignore`, first commit of the docs
-- [ ] Vite + React + TypeScript (strict), ESLint, Prettier; npm scripts `dev`, `build`, `test`, `check` (typecheck + lint + test)
-- [ ] `vite-plugin-pwa` (Workbox): manifest, icons, service worker; confirm the app installs from `localhost`
-- [ ] `@sqlite.org/sqlite-wasm` in a dedicated Web Worker (exclude it from Vite's dependency pre-bundling); typed message API between UI and worker (Comlink or a small typed wrapper)
+- [x] `git init`, `.gitignore`, first commit of the docs
+- [x] Vite + React + TypeScript (strict), ESLint, Prettier; npm scripts `dev`, `build`, `test`, `check` (typecheck + lint + test)
+- [ ] `vite-plugin-pwa` (Workbox): manifest, icons, service worker; confirm the app installs from `localhost` — configured; the install test waits until the PC has free memory (see M1 results)
+- [x] `@sqlite.org/sqlite-wasm` in a dedicated Web Worker (exclude it from Vite's dependency pre-bundling); typed message API between UI and worker (Comlink)
 
 ### 2. Company file prototype
 
-- [ ] Pick or create a folder with `showDirectoryPicker({ mode: 'readwrite' })`; store the handle in IndexedDB as the recent-folders entry; on reopen, `queryPermission` and then `requestPermission`; check whether the installed app gets "allow on every visit"
-- [ ] Encrypted file round trip: create the database, run a migration, write `company.ebk`, close, reopen with the passphrase, read back
-- [ ] Atomic save: kill the tab during a save and confirm the old file survives intact
-- [ ] On-disk change check (DF-3): record `lastModified` and size after open and after each save; edit the file from outside and confirm the save refuses
-- [ ] Migration runner: `import.meta.glob('/db/migrations/*.sql', { query: '?raw', eager: true })`; apply pending files in one transaction; set `PRAGMA user_version`
+- [ ] Pick or create a folder with `showDirectoryPicker({ mode: 'readwrite' })`; store the handle in IndexedDB as the recent-folders entry; on reopen, `queryPermission` and then `requestPermission`; check whether the installed app gets "allow on every visit" — built; needs a run in Chrome
+- [x] Encrypted file round trip: create the database, run a migration, write `company.ebk`, close, reopen with the passphrase, read back (Node tests; Chrome run pending)
+- [ ] Atomic save: kill the tab during a save and confirm the old file survives intact — test button built; needs a run in Chrome
+- [x] On-disk change check (DF-3): record `lastModified` and size after open and after each save; refuse the save if either changed (Node tests; manual Chrome check pending)
+- [x] Migration runner: `import.meta.glob('/db/migrations/*.sql', { query: '?raw', eager: true })`; each file in its own transaction with its `PRAGMA user_version`
 
 ### 3. Measurements (recorded, not pass/fail)
 
-- [ ] Synthetic-company generator: 17 years, about 6,000 entries a year, 2–6 lines each. Adjust once real QuickBooks volumes are known
+- [x] Synthetic-company generator: 17 years, about 6,000 entries a year, 2–6 lines each. Adjust once real QuickBooks volumes are known
 - [ ] Record database size; open time (read, key derivation, decrypt, deserialize); save time (export, encrypt, write); worker memory; cash-basis P&L for one year and for all 17 years, with and without indexes on `(account_id, date)`
 - [ ] PBKDF2 at 600,000 iterations: unlock time on desktop and Android
 - [ ] Desktop Chrome on the owner's PC, and Android Chrome
@@ -103,9 +103,9 @@ Acme LLC/                    folder the owner picks or creates
 
 ### 5. Test setup
 
-- [ ] Vitest for TypeScript logic
-- [ ] Schema tests in `db/tests`, running the real migrations against an in-memory database in Node with the same `@sqlite.org/sqlite-wasm` package (fall back to `better-sqlite3` on a matching SQLite version if the package won't run under Node)
-- [ ] One example integrity test (a table `CHECK` constraint) to prove the setup
+- [x] Vitest for TypeScript logic
+- [x] Schema tests in `db/tests`, running the real migrations against an in-memory database in Node with the same `@sqlite.org/sqlite-wasm` package
+- [x] One example integrity test (a table `CHECK` constraint) to prove the setup
 - [ ] CI later, once there's a git remote; until then `npm run check` before each commit
 
 ### Owner task, can run in parallel (needed before M5)

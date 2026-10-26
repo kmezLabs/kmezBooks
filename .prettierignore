@@ -1,0 +1,6 @@
+dist
+dev-dist
+coverage
+package-lock.json
+docs
+CLAUDE.md

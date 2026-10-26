@@ -230,3 +230,67 @@ export async function decryptDatabase(
     );
   }
 }
+
+/** True if `passphrase` unlocks this key — for re-confirming it, as the closed-period override does (PC-2). */
+export async function verifyPassphrase(key: CompanyKey, passphrase: string): Promise<boolean> {
+  try {
+    await unwrapDataKey(passphrase, key.salt, key.iterations, key.wrappedKey, false);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---- attachment files (.eba) --------------------------------------------
+//
+//   magic "EBA1" 4 | format version u16 | IV 12 | AES-256-GCM ciphertext
+//
+// Encrypted with the company's data key (no passphrase material in the file),
+// so a passphrase change never touches attachments. The header is the AAD.
+
+const BLOB_MAGIC = [0x45, 0x42, 0x41, 0x31]; // "EBA1"
+const BLOB_HEADER_BYTES = 4 + 2 + IV_BYTES;
+
+export async function encryptBlob(
+  key: CompanyKey,
+  plaintext: Uint8Array<ArrayBuffer>,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const header = new Uint8Array(BLOB_HEADER_BYTES);
+  header.set(BLOB_MAGIC, 0);
+  new DataView(header.buffer).setUint16(4, FORMAT_VERSION);
+  const iv = randomBytes(IV_BYTES);
+  header.set(iv, 6);
+  const body = new Uint8Array(
+    await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: header }, key.dataKey, plaintext),
+  );
+  const out = new Uint8Array(header.byteLength + body.byteLength);
+  out.set(header, 0);
+  out.set(body, header.byteLength);
+  return out;
+}
+
+export async function decryptBlob(
+  key: CompanyKey,
+  file: Uint8Array<ArrayBuffer>,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const view = new DataView(file.buffer, file.byteOffset, file.byteLength);
+  if (
+    file.byteLength < BLOB_HEADER_BYTES ||
+    BLOB_MAGIC.some((b, i) => file[i] !== b) ||
+    view.getUint16(4) !== FORMAT_VERSION
+  ) {
+    throw new NotACompanyFileError('This is not an EasyBooks attachment file.');
+  }
+  const header = file.subarray(0, BLOB_HEADER_BYTES);
+  try {
+    return new Uint8Array(
+      await subtle.decrypt(
+        { name: 'AES-GCM', iv: file.slice(6, BLOB_HEADER_BYTES), additionalData: header },
+        key.dataKey,
+        file.subarray(BLOB_HEADER_BYTES),
+      ),
+    );
+  } catch {
+    throw new DamagedFileError('The attachment file is damaged or belongs to another company.');
+  }
+}

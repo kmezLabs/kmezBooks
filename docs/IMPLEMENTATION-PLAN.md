@@ -10,7 +10,7 @@ How the MVP in `docs/MVP-REQUIREMENTS.md` gets built. M1 is planned in detail; M
 | --- | --- | --- |
 | M1 | Technical test + project scaffold | Risks behind DF-1, DF-2, Client and Performance NFRs |
 | M2 | Company files, owner unlock, audit log (done) | DF-1–DF-4, DF-9–DF-11, CO-1–CO-4, US-1, US-3, US-5 |
-| M3 | Ledger core and period close | GL-1–GL-4, GL-6–GL-8, PC-1–PC-3 |
+| M3 | Ledger core and period close (done) | GL-1–GL-4, GL-6–GL-8, PC-1–PC-3 |
 | M4 | Reports | RP-1–RP-6 |
 | M5 | QuickBooks Online migration | MG-1–MG-6 |
 | M6 | Banking | BK-1, BK-3–BK-9 |
@@ -149,19 +149,31 @@ Left for later milestones:
 - Bulk imports (M5) would write one audit row per imported row; add a bulk-import mode that logs one summary event instead.
 - The M1 technical-test page stays until the M1 hand checks are recorded.
 
-## M3 — Ledger core and period close (outline)
+## M3 — Ledger core and period close (done Oct 26)
 
-- **Accounts** (GL-1, GL-7): five types, detail types, sub-accounts; no deleting an account with lines (trigger), only inactivating it.
-- **Seeded chart of accounts** (GL-2): a US small-business set with no A/R or A/P accounts (cash basis); Undeposited Funds included.
-- **Journal entries** (GL-3): lines are written while the entry is `draft`. A trigger on `draft → posted` rejects unbalanced or empty entries. Posted lines can't be updated or deleted (triggers).
-- **`postEntry()`**: the only writer of ledger rows. It takes header + lines, runs one transaction, emits a `posted` event after commit.
-- **Voids** (GL-6): status `void`, lines kept, excluded from reports, audit logged; no deletes.
-- **Cash-basis rules** (GL-8):
-  - `allocateProRata(amountCents, lineAmounts)` in `src/ledger/`, shared by sales and bills. It works in BigInt and gives leftover cents to the largest remainders, so the parts always sum exactly. Tested with fixed cases and property-based tests (fast-check).
-  - A trigger rejects postings to A/R or A/P detail-type accounts unless the entry's source is the migration.
-- **Closing date** (PC-1, PC-2): a trigger blocks insert, update or void of entries dated on or before the closing date, unless the `session` row carries an owner override. The override needs the owner override password, and each use is audit logged.
-- **Year-end** (PC-3): no closing entries. Reports compute retained earnings as all prior years' net income, as QuickBooks does.
-- **Manual journal entry screen** with attachments (GL-4).
+Built on branch `m3-ledger`. Integrity rules tested against the real schema, including property-based tests; every screen checked end to end in headless Chrome.
+
+| Requirement | How |
+| --- | --- |
+| GL-1 | `account` table: five types, detail types (catalog in `src/shared/accounts.ts`), sub-accounts shown as `Parent:Child`. Triggers keep a sub-account the parent's type, prevent cycles, and keep the type of an account with history or sub-accounts. Names unique among siblings (ignoring case), numbers unique |
+| GL-2 | 40-account cash-basis chart (no A/R or A/P; one each of Undeposited Funds, Retained Earnings and Opening Balance Equity). Seeded at creation unless "Start with the standard chart" is unticked (for companies that will be imported); an empty company can add it later |
+| GL-3 | `postEntry()` (`src/ledger/postEntry.ts`) writes a draft and its lines and posts it in one savepoint, so it can also run inside a document's own transaction later. The posting trigger requires two or more lines, debits = credits and a non-zero total. Entries can only be created as drafts |
+| GL-4 | Journal entry screen: date, ref, memo, lines with running totals, attachments. Attachments are encrypted with the company's data key (`EBA1` format) as `attachments/<id>.eba`, with a copy in the backup folder; the database keeps name, type, size and SHA-256, checked on open |
+| GL-6 | Lines change only while the entry is a draft; posted and void entries never change (except posted → void) and are never deleted. Void keeps the lines and drops the entry from balances |
+| GL-7 | An account with transactions can't be deleted, only made inactive; inactive accounts take no postings |
+| GL-8 | Postings to A/R or A/P accounts are refused unless the entry comes from the QuickBooks migration. `allocateProRata()` (`src/ledger/allocate.ts`) is ready for M7, with property tests |
+| PC-1 | `company.closing_date`; posting or voiding on or before it is refused by a trigger |
+| PC-2 | The owner re-enters the company passphrase; the app sets a one-action override flag in the session row, and the trigger writes a `closed_period_override` audit event for each use. The flag is cleared in the same transaction, even when the change fails, and at every unlock |
+| PC-3 | Nothing to run at year end: the trial balance (`src/ledger/balances.ts`) shows income and expenses for the current fiscal year and puts earlier years' net income in Retained Earnings, following the company's fiscal year start |
+
+Decisions made while building:
+
+- Ledger tables use integer ids (`journal_entry.id`, `journal_line.id`) for speed at 17 years of history; companies, users and accounts keep UUIDs.
+- Posted entries can't be edited at all, not even the memo: corrections are a void plus a new entry. M7 documents follow the same rule (editing an invoice voids and re-posts its payment entries).
+- The closed-period override uses the company passphrase rather than a separate override password, so there is no second secret to manage.
+- The audit log's fixed list of actions became "any lower_snake_case word" (migration 0006), so new kinds of events don't need a table rebuild.
+- Removing an attachment unlinks it; the encrypted file stays, so restoring an older database backup still finds it.
+- The Vitest on-disk module cache is off: it didn't notice new migration files.
 
 ## M4 — Reports (outline)
 

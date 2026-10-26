@@ -14,10 +14,13 @@ import { COMPANY_FILE, readCompanyFile, writeCompanyFile, type FileStamp } from 
 import {
   changePassphrase,
   createCompanyKey,
+  decryptBlob,
   decryptDatabase,
+  encryptBlob,
   encryptDatabase,
   readHeader,
   unlockCompanyKey,
+  verifyPassphrase,
   type CompanyKey,
 } from './ebkFormat';
 import { AppError, CompanyExistsError, ReadOnlyError } from './errors';
@@ -266,6 +269,20 @@ export class OpenCompany {
     if (this.readOnly) throw new ReadOnlyError('This company is open read-only.');
     this.key = await changePassphrase(this.key, oldPassphrase, newPassphrase);
     recordEvent(this.db, 'passphrase_change');
+  }
+
+  /** Re-confirm the passphrase, e.g. for the closed-period override (PC-2). */
+  verifyPassphrase(passphrase: string): Promise<boolean> {
+    return verifyPassphrase(this.key, passphrase);
+  }
+
+  /** Encrypt an attachment with this company's data key (GL-4). */
+  encryptBlob(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+    return encryptBlob(this.key, bytes);
+  }
+
+  decryptBlob(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+    return decryptBlob(this.key, bytes);
   }
 
   close(): void {

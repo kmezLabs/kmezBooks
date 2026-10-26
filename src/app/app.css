@@ -401,3 +401,155 @@ code {
     flex-basis: 100%;
   }
 }
+
+/* ---- workspace layout (M3: sidebar) ---- */
+
+.workspace .body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: start;
+}
+
+.workspace main {
+  max-width: 1000px;
+  margin: 0;
+  width: 100%;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  padding: 12px 8px;
+  border-right: 1px solid var(--line);
+  min-height: calc(100vh - 56px);
+}
+
+.nav-group {
+  margin-bottom: 12px;
+}
+
+.nav-heading {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 4px 8px;
+}
+
+.sidebar button.tab {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-bottom: none;
+  border-left: 3px solid transparent;
+  padding: 6px 8px;
+}
+
+.sidebar button.tab.active {
+  border-left-color: var(--accent);
+  background: var(--panel);
+}
+
+@media (max-width: 760px) {
+  .workspace .body {
+    display: block;
+  }
+  .sidebar {
+    position: static;
+    min-height: 0;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    padding: 0 8px;
+  }
+  .nav-group {
+    display: flex;
+    margin: 0;
+  }
+  .nav-heading {
+    display: none;
+  }
+  .sidebar button.tab {
+    width: auto;
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+  }
+  .sidebar button.tab.active {
+    border-bottom-color: var(--accent);
+    background: none;
+  }
+}
+
+/* ---- ledger ---- */
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+tr.group td {
+  font-weight: 600;
+  background: var(--bg);
+  padding-top: 12px;
+}
+
+tr.inactive td {
+  color: var(--muted);
+}
+
+.badge.small {
+  font-size: 0.7rem;
+  padding: 0 6px;
+  margin-left: 6px;
+}
+
+tfoot td {
+  font-weight: 600;
+  border-bottom: none;
+}
+
+table.lines td {
+  padding: 3px 4px;
+}
+
+table.lines select {
+  min-width: 200px;
+}
+
+input.money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  min-width: 110px;
+}
+
+input.invalid {
+  border-color: var(--error);
+}
+
+input.search {
+  width: auto;
+  flex: 0 1 240px;
+}
+
+label.check.inline {
+  flex: 0 0 auto;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+label.check .hint {
+  display: block;
+}
+
+ul.files {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+label.file-add {
+  margin: 8px 0;
+}

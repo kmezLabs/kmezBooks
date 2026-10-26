@@ -46,5 +46,9 @@ export default defineConfig({
     // small and tests don't rely on module isolation.
     isolate: false,
     maxWorkers: 1,
+    // The on-disk module cache doesn't notice a new file in db/migrations
+    // (schema.ts finds them with import.meta.glob), so tests would silently
+    // run without the newest migration. The suite is fast enough without it.
+    fsModuleCache: false,
   },
 });

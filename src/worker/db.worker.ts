@@ -2,6 +2,9 @@
 // (CLAUDE.md rule 6). The UI calls it through Comlink; see src/shared/workerClient.ts.
 
 import * as Comlink from 'comlink';
+import type { EntryQuery } from '../ledger/entries';
+import type { EntryInput } from '../ledger/postEntry';
+import type { AccountInput } from '../shared/accounts';
 import type { NewCompany, CompanyDetails, Module } from './companyData';
 import { COMPANY_FILE } from './companyFolder';
 import { CompanySession, type OpenMode, type SessionStatus } from './companySession';
@@ -55,6 +58,29 @@ const api = {
   changePassphrase: (oldPassphrase: string, newPassphrase: string) =>
     session.changePassphrase(oldPassphrase, newPassphrase),
   audit: (opts?: { limit?: number; beforeId?: number; entity?: string }) => session.audit(opts),
+
+  // Ledger (M3)
+  accounts: () => session.accounts(),
+  createAccount: (input: AccountInput) => session.createAccount(input),
+  updateAccount: (id: string, input: AccountInput) => session.updateAccount(id, input),
+  setAccountActive: (id: string, active: boolean) => session.setAccountActive(id, active),
+  deleteAccount: (id: string) => session.deleteAccount(id),
+  seedChart: () => session.seedChart(),
+  entries: (query?: EntryQuery) => session.entries(query),
+  entry: (id: number) => session.entry(id),
+  postJournalEntry: (
+    input: Omit<EntryInput, 'sourceType' | 'sourceId'>,
+    overridePassphrase?: string,
+  ) => session.postJournalEntry(input, overridePassphrase),
+  voidEntry: (id: number, reason: string | null, overridePassphrase?: string) =>
+    session.voidEntry(id, reason, overridePassphrase),
+  closingDate: () => session.closingDate(),
+  setClosingDate: (date: string | null) => session.setClosingDate(date),
+  trialBalance: (asOf: string) => session.trialBalance(asOf),
+  addAttachment: (entity: 'journal_entry', entityId: string, file: File) =>
+    session.addAttachment(entity, entityId, file),
+  openAttachment: (id: string) => session.openAttachment(id),
+  removeAttachment: (id: string) => session.removeAttachment(id),
 
   listBackups: () => session.listBackups(),
   backupNow: () => session.backupNow(),

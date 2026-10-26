@@ -101,7 +101,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | ID | Requirement | Pri |
 | --- | --- | --- |
 | PC-1 | Set a closing date per company; edits on or before it are blocked | M |
-| PC-2 | Owner override password to edit a closed period, logged in the audit trail | M |
+| PC-2 | Owner override to change a closed period by re-entering the company passphrase, each use logged in the audit trail | M |
 | PC-3 | Year-end close rolls net income into retained earnings automatically | M |
 
 ### Customers and sales (AR)
@@ -237,7 +237,7 @@ The ledger tables are the only source of truth for the financial statements; inv
 | --- | --- | --- |
 | Company | id, legal name, EIN, address, fiscal year start, closing date (one row per company database) | CO |
 | CompanyModule | module, enabled (CO-4) | CO |
-| User | name, role, owner override password hash (owner only in the MVP) | US |
+| User | name, role (owner only in the MVP) | US |
 | Session | the user working now, set at unlock; one row, read by the audit triggers | US |
 | Checkout | token, holder name, role, checked out at, checked in or cancelled at, schema version (S) | DF |
 | Account | id, company, type, detail type, parent account, active | GL |
@@ -252,7 +252,7 @@ The ledger tables are the only source of truth for the financial statements; inv
 | StatementImport, BankTransaction | file name, format, column mapping, imported line, match status, link to posted transaction | BK |
 | BankRule | conditions, target account, payee | BK |
 | Reconciliation | account, statement date, ending balance, cleared lines | BK |
-| Attachment | file name in the company folder's attachments, content hash, linked entity | shared |
+| Attachment | file name, type, size, content hash, linked entity; the encrypted file is `attachments/<id>.eba` in the company folder | shared |
 | AuditEvent | user, action, entity, before/after, timestamp | shared |
 
 Backups are not tracked in the database: they are files named by time in the backup folder, and the app finds them by listing that folder (DF-9).

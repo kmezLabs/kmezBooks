@@ -9,6 +9,7 @@ import {
   type Module,
   type NewCompany,
 } from '../shared/company';
+import { seedDefaultChart } from '../ledger/accounts';
 import { recordEvent } from './audit';
 import type { Database } from './sqlite';
 
@@ -113,6 +114,8 @@ export function initCompany(
       bind: [ids.ownerId, ids.companyId, details.ownerName.trim()],
     });
     for (const m of MODULES) setModule(db, m, true);
+    // GL-2: the standard chart, unless the company will be filled by the QuickBooks import
+    if (details.standardChart ?? true) seedDefaultChart(db);
     recordEvent(db, 'create_company');
     db.exec('COMMIT');
   } catch (e) {
@@ -133,7 +136,7 @@ export function startSession(db: Database, now: Date): { id: string; name: strin
     const ownerId = user?.id ?? crypto.randomUUID();
     db.exec({
       sql: `INSERT INTO session (id, company_id, user_id, unlocked_at) VALUES (1, (SELECT id FROM company), ?, ?)
-            ON CONFLICT (id) DO UPDATE SET company_id = excluded.company_id, user_id = excluded.user_id, unlocked_at = excluded.unlocked_at`,
+            ON CONFLICT (id) DO UPDATE SET company_id = excluded.company_id, user_id = excluded.user_id, unlocked_at = excluded.unlocked_at, closing_override = 0`,
       bind: [ownerId, now.toISOString()],
     });
     if (!user) {

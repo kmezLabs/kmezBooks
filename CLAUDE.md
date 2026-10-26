@@ -33,7 +33,7 @@ Context for Claude Code. This project is a standalone, double-entry accounting P
 - **Encryption:** WebCrypto. A random AES-256-GCM data key encrypts the database and each attachment. It is wrapped (AES-KW) by a key derived from the passphrase with **PBKDF2-SHA256, 600,000 iterations**; the iteration count and salt are stored in the file header. File format in the implementation plan
 - **Money:** **integer cents** (`INTEGER`) in SQLite, because SQLite has no exact decimal type and its `NUMERIC` can store floating point. Every table is declared `STRICT`, so an `INTEGER` column can never hold a float or text
 - **Schema changes:** numbered SQL migration files in `db/migrations/` (one sequence across modules), bundled with the app, applied when a company is opened (`PRAGMA user_version`); take a backup first and refuse companies from a newer version (`DF-11`). Never edit a company database by hand
-- **DB tests:** Vitest against the real schema (SQLite in Node, same `@sqlite.org/sqlite-wasm` package, migrations loaded through the same `import.meta.glob` as the app). Vitest runs in one reused worker (`isolate: false, maxWorkers: 1`) because the dev PC is short of memory; tests must not depend on module isolation
+- **DB tests:** Vitest against the real schema (SQLite in Node, same `@sqlite.org/sqlite-wasm` package, migrations loaded through the same `import.meta.glob` as the app). Vitest runs in one reused worker (`isolate: false, maxWorkers: 1`) because the dev PC is short of memory; tests must not depend on module isolation. Its on-disk module cache is off (`fsModuleCache: false`) because it missed new migration files
 - **Backups:** the user's normal file backups cover the company folders; the app adds versioned encrypted backups and restore (`DF-9`, `DF-10`)
 
 ## Architecture rules (follow these when writing code)
@@ -45,9 +45,10 @@ Context for Claude Code. This project is a standalone, double-entry accounting P
    - Audit log trigger on every change (user, action, entity, before/after, timestamp); the current user comes from a one-row `session` table set at unlock. **Audit triggers are generated** from the live schema by `src/worker/audit.ts` after every migration; never hand-write them in a migration
    - Posted entries are never deleted (a `BEFORE DELETE` trigger aborts); corrections are voids or adjusting entries
    - Cash basis: no postings to A/R or A/P accounts except entries whose source is the QuickBooks migration
+   - Schema rule messages start with the requirement ID (`RAISE(ABORT, 'GL-3: …')`); `fromRule()` in `src/worker/errors.ts` turns them into readable errors, and `PC-1` into `ClosedPeriodError`
 2. **Never lose or clobber a company file.** Saves are whole-file and atomic. Before writing, check that the file on disk hasn't changed since it was opened or last saved (`DF-3`). Respect the folder lock (`DF-4`). Never write a partially encrypted or unverified file over a good one.
 3. **Workflow logic lives in TypeScript:** bank matching, categorization rules, invoice behavior, payment allocation, report building, the QuickBooks importer, backups. A bug here must never be able to unbalance or corrupt the books, because the schema rejects invalid writes.
-4. **One posting path.** Modules never insert ledger rows directly. They call a single `postEntry()` in the ledger service, which writes the entry and its lines in one transaction. `JournalEntry` carries `source_type` + `source_id`, so the ledger never needs to know what an invoice is.
+4. **One posting path.** Modules never insert ledger rows directly. They call a single `postEntry()` (`src/ledger/postEntry.ts`), which writes the entry and its lines in one transaction. `JournalEntry` carries `source_type` + `source_id`, so the ledger never needs to know what an invoice is.
 5. **One allocation function.** Payments against invoices and bills are split over the document's lines only by `allocateProRata()` in `src/ledger/` (BigInt, largest-remainder rounding, parts always sum to the payment). Covered by property-based tests.
 6. **Database and file access only through the worker.** UI code talks to the SQLite worker through a typed message API; no module opens the database or company files itself.
 7. **Modules are optional.** Each module = a folder of PWA screens + its own tables + its migrations, toggleable per company (`CO-4`). Removing a module must not affect the ledger or reports.
@@ -65,7 +66,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 
 1. **M1** Technical test + scaffold (done except the hand checks in `docs/spikes/M1-results.md`): in-memory SQLite worker, encrypted open/save to a picked folder, measurements at 17-year size, Chrome for Android folder-picker check, migration runner, Vitest
 2. **M2** Company files, owner unlock, audit log (`DF`, `CO`, `US-1`, `US-3`, `US-5`) (done)
-3. **M3** `GL` + `PC`: chart of accounts, `postEntry()`, balance check, closing-date lock, voids, `allocateProRata()`
+3. **M3** `GL` + `PC`: chart of accounts, `postEntry()`, balance check, closing-date lock, voids, `allocateProRata()` (done)
 4. **M4** `RP`: trial balance, GL detail, P&L, balance sheet
 5. **M5** `MG`: QuickBooks Online cash-basis import with dry run and year-end tie-out (`MG-5`), run against real data per company
 6. **M6** `BK`: `.qbo` import, duplicate detection, review queue, rules, reconciliation

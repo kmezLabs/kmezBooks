@@ -4,9 +4,12 @@
 import { useState } from 'react';
 import type { SessionStatus } from '../worker/companySession';
 import { db } from '../shared/workerClient';
+import { AccountsPage } from './pages/AccountsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { BackupsPage } from './pages/BackupsPage';
+import { CloseBooksPage } from './pages/CloseBooksPage';
 import { CompanyPage } from './pages/CompanyPage';
+import { JournalPage } from './pages/JournalPage';
 import { M1LabPage } from './pages/M1LabPage';
 import { ModulesPage } from './pages/ModulesPage';
 import { SecurityPage } from './pages/SecurityPage';
@@ -14,6 +17,9 @@ import { pickFolder, rememberFolder } from './recentFolders';
 import { ErrorText, formatDateTime, formatTime, useAction } from './ui';
 
 const PAGES = {
+  journal: 'Journal entries',
+  accounts: 'Accounts',
+  close: 'Close books',
   company: 'Company',
   modules: 'Modules',
   backups: 'Backups',
@@ -22,6 +28,12 @@ const PAGES = {
   m1: 'Technical test (M1)',
 } as const;
 type Page = keyof typeof PAGES;
+
+const NAV: { group: string; pages: Page[] }[] = [
+  { group: 'Books', pages: ['journal', 'accounts', 'close'] },
+  { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
+  { group: 'Development', pages: ['m1'] },
+];
 
 function SaveState({ status }: { status: SessionStatus }) {
   if (status.readOnly) return <span className="badge">Read-only</span>;
@@ -100,8 +112,14 @@ function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () 
 }
 
 export function Workspace({ status }: { status: SessionStatus }) {
-  const [page, setPage] = useState<Page>('company');
+  const [page, setPage] = useState<Page>('journal');
+  const [accountFilter, setAccountFilter] = useState<string | null>(null);
   const { busy, run } = useAction();
+
+  const go = (p: Page) => {
+    setPage(p);
+    if (p !== 'journal') setAccountFilter(null);
+  };
 
   return (
     <div className="workspace">
@@ -119,27 +137,53 @@ export function Workspace({ status }: { status: SessionStatus }) {
           Lock
         </button>
       </header>
-      <nav className="tabs">
-        {(Object.keys(PAGES) as Page[]).map((p) => (
-          <button
-            key={p}
-            className={p === page ? 'tab active' : 'tab'}
-            aria-current={p === page ? 'page' : undefined}
-            onClick={() => setPage(p)}
-          >
-            {PAGES[p]}
-          </button>
-        ))}
-      </nav>
-      <main>
-        <Problems status={status} onBackups={() => setPage('backups')} />
-        {page === 'company' && <CompanyPage status={status} />}
-        {page === 'modules' && <ModulesPage status={status} />}
-        {page === 'backups' && <BackupsPage status={status} />}
-        {page === 'audit' && <AuditLogPage status={status} />}
-        {page === 'security' && <SecurityPage status={status} />}
-        {page === 'm1' && <M1LabPage status={status} />}
-      </main>
+      <div className="body">
+        <nav className="sidebar" aria-label="Pages">
+          {NAV.map(({ group, pages }) => (
+            <div key={group} className="nav-group">
+              <div className="nav-heading">{group}</div>
+              {pages.map((p) => (
+                <button
+                  key={p}
+                  className={p === page ? 'tab active' : 'tab'}
+                  aria-current={p === page ? 'page' : undefined}
+                  onClick={() => go(p)}
+                >
+                  {PAGES[p]}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <main>
+          <Problems status={status} onBackups={() => go('backups')} />
+          {page === 'journal' && (
+            <JournalPage
+              // Remount when the filter changes, so the list starts over
+              key={accountFilter ?? 'all'}
+              status={status}
+              accountFilter={accountFilter}
+              onClearAccountFilter={() => setAccountFilter(null)}
+            />
+          )}
+          {page === 'accounts' && (
+            <AccountsPage
+              status={status}
+              onShowEntries={(id) => {
+                setAccountFilter(id);
+                setPage('journal');
+              }}
+            />
+          )}
+          {page === 'close' && <CloseBooksPage status={status} />}
+          {page === 'company' && <CompanyPage status={status} />}
+          {page === 'modules' && <ModulesPage status={status} />}
+          {page === 'backups' && <BackupsPage status={status} />}
+          {page === 'audit' && <AuditLogPage status={status} />}
+          {page === 'security' && <SecurityPage status={status} />}
+          {page === 'm1' && <M1LabPage status={status} />}
+        </main>
+      </div>
     </div>
   );
 }

@@ -3,10 +3,13 @@ import {
   PBKDF2_ITERATIONS,
   changePassphrase,
   createCompanyKey,
+  decryptBlob,
   decryptDatabase,
+  encryptBlob,
   encryptDatabase,
   readHeader,
   unlockCompanyKey,
+  verifyPassphrase,
 } from './ebkFormat';
 
 // Low iteration count keeps tests fast; the count is stored in the header,
@@ -114,5 +117,33 @@ describe('ebk format (DF-1, Security NFR)', () => {
     await expect(changePassphrase(key, 'nope', 'new', FAST)).rejects.toMatchObject({
       name: 'WrongPassphraseError',
     });
+  });
+});
+
+describe('attachment files (GL-4, EX-2)', () => {
+  it('round-trips with the data key, and survives a passphrase change', async () => {
+    const key = await createCompanyKey('pw', FAST);
+    const blob = await encryptBlob(key, plaintext);
+    expect(Buffer.from(blob).includes(Buffer.from('SQLite'))).toBe(false);
+    const rekeyed = await changePassphrase(key, 'pw', 'new pw', FAST);
+    expect(await decryptBlob(rekeyed, blob)).toEqual(plaintext);
+  });
+
+  it("refuses tampering and another company's key", async () => {
+    const key = await createCompanyKey('pw', FAST);
+    const other = await createCompanyKey('pw', FAST);
+    const blob = await encryptBlob(key, plaintext);
+    await expect(decryptBlob(other, blob)).rejects.toMatchObject({ name: 'DamagedFileError' });
+    blob[blob.length - 1]! ^= 1;
+    await expect(decryptBlob(key, blob)).rejects.toMatchObject({ name: 'DamagedFileError' });
+    await expect(decryptBlob(key, plaintext)).rejects.toMatchObject({
+      name: 'NotACompanyFileError',
+    });
+  });
+
+  it('verifies a passphrase without changing anything (PC-2)', async () => {
+    const key = await createCompanyKey('right one', FAST);
+    expect(await verifyPassphrase(key, 'right one')).toBe(true);
+    expect(await verifyPassphrase(key, 'wrong')).toBe(false);
   });
 });

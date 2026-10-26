@@ -19,6 +19,7 @@ const EMPTY: NewCompany = {
   postalCode: '',
   fiscalYearStartMonth: 1,
   ownerName: '',
+  standardChart: true,
 };
 
 export function CreateCompanyDialog({ onClose }: { onClose: () => void }) {
@@ -61,6 +62,21 @@ export function CreateCompanyDialog({ onClose }: { onClose: () => void }) {
             onChange={(ownerName) => setDetails({ ...details, ownerName })}
           />
         </div>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={details.standardChart ?? true}
+            onChange={(e) => setDetails({ ...details, standardChart: e.target.checked })}
+          />
+          <span>
+            Start with the standard chart of accounts
+            <span className="hint">
+              {' '}
+              Untick if this company's history will be imported from QuickBooks, which brings its
+              own accounts.
+            </span>
+          </span>
+        </label>
         <h3>Passphrase</h3>
         <p className="muted">
           The company's books are encrypted with this passphrase. It cannot be recovered: if it is

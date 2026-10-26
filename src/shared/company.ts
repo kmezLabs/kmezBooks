@@ -18,6 +18,8 @@ export interface CompanyDetails {
 
 export interface NewCompany extends CompanyDetails {
   ownerName: string;
+  /** Start with the default chart of accounts (GL-2); default true. */
+  standardChart?: boolean;
 }
 
 const blankToNull = (s: string | null | undefined) => {

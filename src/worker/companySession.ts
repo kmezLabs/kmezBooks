@@ -4,6 +4,32 @@
 // browser-only pieces (Web Locks, timers, clock) are passed in so the whole
 // flow can be tested in Node.
 
+import {
+  createAccount,
+  deleteAccount,
+  listAccounts,
+  seedDefaultChart,
+  setAccountActive,
+  updateAccount,
+} from '../ledger/accounts';
+import { trialBalance, type TrialBalance } from '../ledger/balances';
+import {
+  getEntry,
+  listEntries,
+  type EntryDetail,
+  type EntryQuery,
+  type EntrySummary,
+} from '../ledger/entries';
+import { emitLedgerEvent } from '../ledger/events';
+import { isIsoDate, postEntry, voidEntry, type EntryInput } from '../ledger/postEntry';
+import type { AccountInput, AccountRow } from '../shared/accounts';
+import {
+  addAttachment,
+  listAttachments,
+  openAttachment,
+  removeAttachment,
+  type AttachmentRow,
+} from './attachments';
 import { recordEvent } from './audit';
 import {
   backupDue,
@@ -31,10 +57,12 @@ import {
 import { readCompanyFile, writeCompanyFile } from './companyFolder';
 import {
   CompanyLockedError,
+  LedgerRuleError,
   NoCompanyOpenError,
   OpenInAnotherTabError,
   ReadOnlyError,
   WrongCompanyError,
+  WrongPassphraseError,
 } from './errors';
 import { HEARTBEAT_MS, checkLock, releaseLock, writeLock, type LockInfo } from './lockFile';
 
@@ -484,6 +512,132 @@ export class CompanySession {
 
   audit(opts?: { limit?: number; beforeId?: number; entity?: string }): AuditEvent[] {
     return readAuditEvents(this.open_().db, opts);
+  }
+
+  // ---- ledger (M3) ----
+
+  accounts(): AccountRow[] {
+    return listAccounts(this.open_().db);
+  }
+
+  createAccount(input: AccountInput): string {
+    const id = createAccount(this.writable().db, input);
+    this.touch();
+    return id;
+  }
+
+  updateAccount(id: string, input: AccountInput): void {
+    updateAccount(this.writable().db, id, input);
+    this.touch();
+  }
+
+  setAccountActive(id: string, active: boolean): void {
+    setAccountActive(this.writable().db, id, active);
+    this.touch();
+  }
+
+  deleteAccount(id: string): void {
+    deleteAccount(this.writable().db, id);
+    this.touch();
+  }
+
+  seedChart(): number {
+    const n = seedDefaultChart(this.writable().db);
+    this.touch();
+    return n;
+  }
+
+  entries(query?: EntryQuery): EntrySummary[] {
+    return listEntries(this.open_().db, query);
+  }
+
+  entry(id: number): (EntryDetail & { files: AttachmentRow[] }) | null {
+    const db = this.open_().db;
+    const e = getEntry(db, id);
+    return e && { ...e, files: listAttachments(db, 'journal_entry', String(id)) };
+  }
+
+  /** A closed-period override needs the passphrase again (PC-2). */
+  private async override(passphrase: string | undefined): Promise<boolean> {
+    if (!passphrase) return false;
+    if (!(await this.writable().verifyPassphrase(passphrase))) {
+      throw new WrongPassphraseError('Wrong passphrase.');
+    }
+    return true;
+  }
+
+  /** Post a manual journal entry (GL-4) through the one posting path. */
+  async postJournalEntry(
+    input: Omit<EntryInput, 'sourceType' | 'sourceId'>,
+    overridePassphrase?: string,
+  ): Promise<number> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const id = postEntry(db, { ...input, sourceType: 'journal' }, { closingOverride });
+    this.touch();
+    emitLedgerEvent('posted', { entryId: id, sourceType: 'journal', sourceId: null });
+    return id;
+  }
+
+  async voidEntry(id: number, reason: string | null, overridePassphrase?: string): Promise<void> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    voidEntry(db, id, reason, { closingOverride });
+    this.touch();
+    const source = db.selectObjects(
+      'SELECT source_type, source_id FROM journal_entry WHERE id = ?',
+      [id],
+    )[0];
+    emitLedgerEvent('voided', {
+      entryId: id,
+      sourceType: String(source?.source_type),
+      sourceId: source?.source_id === null ? null : String(source?.source_id),
+    });
+  }
+
+  closingDate(): string | null {
+    const v = this.open_().db.selectValue('SELECT closing_date FROM company');
+    return v === null || v === undefined ? null : String(v);
+  }
+
+  /** Set or clear the closing date (PC-1). Owner only, like everything in the MVP (US-3). */
+  setClosingDate(date: string | null): void {
+    if (date !== null && !isIsoDate(date)) throw new LedgerRuleError('Enter a valid date.');
+    this.writable().db.exec({ sql: 'UPDATE company SET closing_date = ?', bind: [date] });
+    this.touch();
+  }
+
+  trialBalance(asOf: string): TrialBalance {
+    if (!isIsoDate(asOf)) throw new LedgerRuleError('Enter a valid date.');
+    return trialBalance(this.open_().db, asOf);
+  }
+
+  // ---- attachments (GL-4) ----
+
+  async addAttachment(
+    entity: 'journal_entry',
+    entityId: string,
+    file: File,
+  ): Promise<AttachmentRow> {
+    const c = this.writable();
+    const exists = c.db.selectValue(
+      `SELECT count(*) FROM journal_entry WHERE id = ? AND status <> 'draft'`,
+      [Number(entityId)],
+    );
+    if (exists !== 1) throw new LedgerRuleError('That entry does not exist.');
+    const backupDir = await this.backupDir().catch(() => null);
+    const row = await addAttachment(c, backupDir, entity, entityId, file);
+    this.touch();
+    return row;
+  }
+
+  openAttachment(id: string) {
+    return openAttachment(this.open_(), id);
+  }
+
+  removeAttachment(id: string): void {
+    removeAttachment(this.writable().db, id);
+    this.touch();
   }
 
   /** The open company, for the M1 test screen only. */

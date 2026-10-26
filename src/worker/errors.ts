@@ -59,3 +59,32 @@ export class OpenInAnotherTabError extends AppError {
 export class WrongCompanyError extends AppError {
   override name = 'WrongCompanyError';
 }
+
+/** A ledger rule refused the change (GL-*): unbalanced entry, inactive account… */
+export class LedgerRuleError extends AppError {
+  override name = 'LedgerRuleError';
+}
+
+/** The date is on or before the closing date; the owner can override (PC-1, PC-2). */
+export class ClosedPeriodError extends AppError {
+  override name = 'ClosedPeriodError';
+}
+
+/** An attachment's file is missing from the company folder or doesn't match its record. */
+export class AttachmentMissingError extends AppError {
+  override name = 'AttachmentMissingError';
+}
+
+/**
+ * Turn an error raised by one of the schema's triggers ("… GL-3: debits and
+ * credits must be equal") into a readable error. Other errors pass through.
+ */
+export function fromRule(e: unknown): unknown {
+  const message = e instanceof Error ? e.message : String(e);
+  const m = /\b([A-Z]{2}-\d+): (.+)$/.exec(message);
+  if (!m) return e;
+  const text = m[2]!.charAt(0).toUpperCase() + m[2]!.slice(1);
+  return m[1] === 'PC-1'
+    ? new ClosedPeriodError(`${text}. Enter your passphrase to make this change anyway.`)
+    : new LedgerRuleError(`${text}.`);
+}

@@ -16,12 +16,12 @@ npm run dev        # http://localhost:5173
 npm run check      # typecheck + lint + tests
 ```
 
-| Script | What |
-| --- | --- |
-| `npm run dev` | Development server. `PWA_DEV=1 npm run dev` also serves the service worker |
-| `npm test` | Vitest: TypeScript logic and integrity rules against the real schema |
-| `npm run build` / `preview` | Production build (needs free memory; see the M1 results) |
-| `npm run icons` | Redraw `public/icons` |
+| Script                      | What                                                                       |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `npm run dev`               | Development server. `PWA_DEV=1 npm run dev` also serves the service worker |
+| `npm test`                  | Vitest: TypeScript logic and integrity rules against the real schema       |
+| `npm run build` / `preview` | Production build (needs free memory; see the M1 results)                   |
+| `npm run icons`             | Redraw `public/icons`                                                      |
 
 ## Layout
 

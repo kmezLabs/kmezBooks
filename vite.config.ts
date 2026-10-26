@@ -11,7 +11,8 @@ export default defineConfig({
       manifest: {
         name: 'EasyBooks',
         short_name: 'EasyBooks',
-        description: 'Double-entry bookkeeping for your companies, stored in folders on your own disk.',
+        description:
+          'Double-entry bookkeeping for your companies, stored in folders on your own disk.',
         theme_color: '#1f4e79',
         background_color: '#ffffff',
         display: 'standalone',

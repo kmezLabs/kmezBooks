@@ -46,9 +46,15 @@ const ACCOUNT_TYPES: [string, number][] = [
   ['expense', 55],
 ];
 
-const WORDS = 'office supplies rent utilities consulting fees software travel meals insurance repairs fuel parking deposit payment invoice refund'.split(' ');
+const WORDS =
+  'office supplies rent utilities consulting fees software travel meals insurance repairs fuel parking deposit payment invoice refund'.split(
+    ' ',
+  );
 
-export function generateHistory(db: Database, opts: GenerateOptions): { entries: number; lines: number } {
+export function generateHistory(
+  db: Database,
+  opts: GenerateOptions,
+): { entries: number; lines: number } {
   const rand = mulberry32(opts.seed ?? 42);
   const pick = <T>(xs: T[]) => xs[Math.floor(rand() * xs.length)]!;
   const phrase = (n: number) => Array.from({ length: n }, () => pick(WORDS)).join(' ');
@@ -88,11 +94,25 @@ export function generateHistory(db: Database, opts: GenerateOptions): { entries:
           const cents = 100 + Math.floor(rand() * 250_000);
           total += cents;
           insLine
-            .bind([entryId, pick(accounts), debitSide ? cents : 0, debitSide ? 0 : cents, phrase(2), phrase(4)])
+            .bind([
+              entryId,
+              pick(accounts),
+              debitSide ? cents : 0,
+              debitSide ? 0 : cents,
+              phrase(2),
+              phrase(4),
+            ])
             .stepReset();
         }
         insLine
-          .bind([entryId, pick(accounts), debitSide ? 0 : total, debitSide ? total : 0, phrase(2), null])
+          .bind([
+            entryId,
+            pick(accounts),
+            debitSide ? 0 : total,
+            debitSide ? total : 0,
+            phrase(2),
+            null,
+          ])
           .stepReset();
         entries++;
         lines += splits + 1;

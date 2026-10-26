@@ -21,16 +21,17 @@ describe('in-memory database serialize/deserialize (DF-2)', () => {
 
   it('rejects bytes that are not a database', async () => {
     const sqlite3 = await loadSqlite();
-    expect(() => deserializeDatabase(sqlite3, new TextEncoder().encode('not a db'.repeat(100)))).toThrow(
-      expect.objectContaining({ name: 'DamagedFileError' }),
-    );
+    expect(() =>
+      deserializeDatabase(sqlite3, new TextEncoder().encode('not a db'.repeat(100))),
+    ).toThrow(expect.objectContaining({ name: 'DamagedFileError' }));
   });
 
   it('rejects a truncated database', async () => {
     const sqlite3 = await loadSqlite();
     const db = openEmptyDatabase(sqlite3);
     db.exec(`CREATE TABLE t (x TEXT) STRICT;`);
-    for (let i = 0; i < 200; i++) db.exec({ sql: 'INSERT INTO t VALUES (?)', bind: ['x'.repeat(500)] });
+    for (let i = 0; i < 200; i++)
+      db.exec({ sql: 'INSERT INTO t VALUES (?)', bind: ['x'.repeat(500)] });
     const bytes = serializeDatabase(sqlite3, db);
     expect(() => deserializeDatabase(sqlite3, bytes.slice(0, bytes.length / 2))).toThrow(
       expect.objectContaining({ name: 'DamagedFileError' }),

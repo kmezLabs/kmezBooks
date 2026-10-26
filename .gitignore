@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dev-dist/
+coverage/
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+# Company folders and real QuickBooks exports never go in git
+*.ebk
+/private/

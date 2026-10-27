@@ -14,6 +14,8 @@ export class FakeDir {
   files = new Map<string, FakeFile>();
   dirs = new Map<string, FakeDir>();
   failNextWrite = false;
+  /** Act like Chrome after it withdrew the folder permission. */
+  denyAccess = false;
   readonly kind = 'directory';
 
   constructor(readonly name = 'folder') {}
@@ -29,7 +31,17 @@ export class FakeDir {
     return new TextDecoder().decode(this.files.get(name)!.data);
   }
 
+  private checkAccess() {
+    if (this.denyAccess) {
+      throw new DOMException(
+        'The request is not allowed by the user agent or the platform in the current context.',
+        'NotAllowedError',
+      );
+    }
+  }
+
   async getFileHandle(name: string, opts?: { create?: boolean }) {
+    this.checkAccess();
     let file = this.files.get(name);
     if (!file) {
       if (!opts?.create) throw new DOMException('not found', 'NotFoundError');
@@ -41,6 +53,7 @@ export class FakeDir {
   }
 
   async getDirectoryHandle(name: string, opts?: { create?: boolean }) {
+    this.checkAccess();
     let dir = this.dirs.get(name);
     if (!dir) {
       if (!opts?.create) throw new DOMException('not found', 'NotFoundError');

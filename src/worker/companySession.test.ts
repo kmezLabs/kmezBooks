@@ -208,6 +208,48 @@ describe('one editor at a time (DF-3, DF-4)', () => {
     expect(check.details().city).toBe('Mine');
   });
 
+  it('says so when the folder permission is withdrawn, and saves once it is back (DF-2)', async () => {
+    const dir = await createdCompany();
+    const { session } = newSession({ saveDelayMs: 10_000 });
+    await session.open(asDir(dir), 'pw', { device: 'PC' });
+    const before = dir.files.get(COMPANY_FILE)!.data;
+    expect(session.folder()).toBe(asDir(dir));
+
+    dir.denyAccess = true;
+    session.updateDetails({ city: 'Kept' });
+    await expect(session.save()).rejects.toMatchObject({ name: 'FolderAccessError' });
+    expect(session.status()).toMatchObject({
+      dirty: true,
+      error: { name: 'FolderAccessError', message: expect.stringContaining('“Acme LLC”') },
+    });
+    // Still no access: the error stays and nothing is written
+    await session.folderAccessRegained();
+    expect(session.status()).toMatchObject({ dirty: true, error: { name: 'FolderAccessError' } });
+    expect(dir.files.get(COMPANY_FILE)!.data).toBe(before);
+
+    dir.denyAccess = false;
+    await session.folderAccessRegained();
+    expect(session.status()).toMatchObject({ dirty: false, error: null });
+    await session.close();
+
+    const check = newSession().session;
+    await check.open(asDir(dir), 'pw', { device: 'PC' });
+    expect(check.details().city).toBe('Kept');
+  });
+
+  it('clears a lost-permission error from the heartbeat once access is back', async () => {
+    const dir = await createdCompany();
+    const { session } = newSession({ heartbeatMs: 10, saveDelayMs: 10_000 });
+    await session.open(asDir(dir), 'pw', { device: 'PC' });
+    dir.denyAccess = true;
+    await wait(40);
+    expect(session.status().error?.name).toBe('FolderAccessError');
+    dir.denyAccess = false;
+    await wait(40);
+    expect(session.status().error).toBeNull();
+    await session.close();
+  });
+
   it('refuses to open a company that another tab of this browser holds (Web Locks)', async () => {
     const held = new Set<string>();
     const locks = {

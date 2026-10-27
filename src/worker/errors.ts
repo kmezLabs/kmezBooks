@@ -55,6 +55,14 @@ export class OpenInAnotherTabError extends AppError {
   override name = 'OpenInAnotherTabError';
 }
 
+/**
+ * Chrome no longer lets the app write to the company folder: the permission
+ * was withdrawn, e.g. after a reload. Only the page can ask for it again (DF-2).
+ */
+export class FolderAccessError extends AppError {
+  override name = 'FolderAccessError';
+}
+
 /** A backup belongs to a different company than the one it would replace (DF-10). */
 export class WrongCompanyError extends AppError {
   override name = 'WrongCompanyError';
@@ -73,6 +81,19 @@ export class ClosedPeriodError extends AppError {
 /** An attachment's file is missing from the company folder or doesn't match its record. */
 export class AttachmentMissingError extends AppError {
   override name = 'AttachmentMissingError';
+}
+
+/**
+ * Turn Chrome's "The request is not allowed by the user agent…" from a folder
+ * operation into a readable FolderAccessError. Other errors pass through.
+ */
+export function fromFolderAccess(e: unknown, folderName: string): unknown {
+  if (e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
+    return new FolderAccessError(
+      `EasyBooks no longer has permission to save in the folder “${folderName}”. Allow access, and your changes will be saved.`,
+    );
+  }
+  return e;
 }
 
 /**

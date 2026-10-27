@@ -67,6 +67,7 @@ import {
 import { readCompanyFile, writeCompanyFile } from './companyFolder';
 import {
   CompanyLockedError,
+  fromFolderAccess,
   LedgerRuleError,
   NoCompanyOpenError,
   OpenInAnotherTabError,
@@ -316,10 +317,28 @@ export class CompanySession {
         return;
       }
       await this.writeOurLock();
+      if (this.error?.name === 'FolderAccessError') {
+        this.error = null;
+        this.emit();
+      }
     } catch (e) {
-      this.error = errorInfo(e);
+      this.error = errorInfo(fromFolderAccess(e, c.dir.name));
       this.emit();
     }
+  }
+
+  /** The company folder, so the page can ask Chrome for access to it again. */
+  folder(): FileSystemDirectoryHandle {
+    return this.open_().dir;
+  }
+
+  /**
+   * Call once the page has regained write access to the folder: refresh the
+   * lock and save what is waiting. A failure shows as the session's error again.
+   */
+  async folderAccessRegained(): Promise<void> {
+    await this.beat();
+    if (this.error?.name !== 'FolderAccessError') await this.save();
   }
 
   // ---- saving ----
@@ -368,8 +387,9 @@ export class CompanySession {
         }
       }
     } catch (e) {
-      this.error = errorInfo(e);
-      throw e;
+      const err = fromFolderAccess(e, c.dir.name);
+      this.error = errorInfo(err);
+      throw err;
     } finally {
       this.saving = false;
       this.emit();

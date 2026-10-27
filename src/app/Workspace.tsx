@@ -16,7 +16,7 @@ import { M1LabPage } from './pages/M1LabPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ModulesPage } from './pages/ModulesPage';
 import { SecurityPage } from './pages/SecurityPage';
-import { pickFolder, rememberFolder } from './recentFolders';
+import { ensureReadWrite, pickFolder, rememberFolder } from './recentFolders';
 import { ErrorText, formatDateTime, formatTime, useAction } from './ui';
 
 const PAGES = {
@@ -62,6 +62,7 @@ function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () 
   const err = status.error;
   const cannotSaveHere =
     err?.name === 'FileChangedOnDiskError' || err?.name === 'CompanyLockedError';
+  const accessLost = err?.name === 'FolderAccessError';
 
   const saveCopy = () =>
     run(async () => {
@@ -69,6 +70,13 @@ function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () 
       if (!dir) return;
       const s = await db.saveAs(dir);
       if (s.legalName) await rememberFolder(`${s.legalName} (copy)`, dir);
+    });
+  // Chrome only asks for permission in response to a click, so this runs from one
+  const allowAndSave = () =>
+    run(async () => {
+      if (!(await ensureReadWrite(await db.folder())))
+        throw new Error('Nothing was saved: Chrome did not allow access to the folder.');
+      await db.folderAccessRegained();
     });
   const discard = () =>
     run(async () => {
@@ -82,7 +90,16 @@ function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () 
         <div className="banner error-banner" role="alert">
           <p>{err.message}</p>
           <div className="buttons">
-            {cannotSaveHere ? (
+            {accessLost ? (
+              <>
+                <button disabled={busy} onClick={allowAndSave}>
+                  Allow access and save
+                </button>
+                <button className="secondary" disabled={busy} onClick={saveCopy}>
+                  Save a copy in another folder…
+                </button>
+              </>
+            ) : cannotSaveHere ? (
               <>
                 <button disabled={busy} onClick={saveCopy}>
                   Save a copy in another folder…

@@ -49,6 +49,8 @@ const api = {
     opts: { device: string; mode?: OpenMode },
   ) => session.open(dir, passphrase, opts),
   save: () => session.save(),
+  folder: () => session.folder(),
+  folderAccessRegained: () => session.folderAccessRegained(),
   close: () => session.close(),
   discard: () => session.discard(),
   saveAs: (dir: FileSystemDirectoryHandle) => session.saveAs(dir),

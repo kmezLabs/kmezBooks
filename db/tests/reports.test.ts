@@ -229,11 +229,11 @@ describe('general ledger detail (RP-4, RP-5)', () => {
       accountId: accountId(db, 'Checking'),
     });
     expect(r.rows.map((x) => x.cells)).toEqual([
-      ['Checking', null, null, null, null, null, null, null],
-      ['Beginning balance', null, null, null, null, null, null, 1_000_00],
-      ['2026-01-05', '2', 'C101', 'Lunch', 'Meals', null, 40_00, 960_00],
-      ['2026-01-06', '3', null, 'Supplies and fees', '-Split-', null, 35_00, 925_00],
-      ['Total for Checking', null, null, null, null, 0, 75_00, 925_00],
+      ['Checking', null, null, null, null, null, null, null, null],
+      ['Beginning balance', null, null, null, null, null, null, null, 1_000_00],
+      ['2026-01-05', '2', 'C101', null, 'Lunch', 'Meals', null, 40_00, 960_00],
+      ['2026-01-06', '3', null, null, 'Supplies and fees', '-Split-', null, 35_00, 925_00],
+      ['Total for Checking', null, null, null, null, null, 0, 75_00, 925_00],
     ]);
     expect(r.rows[2]!.drill).toEqual({ kind: 'entry', entryId: 2 });
   });
@@ -249,7 +249,7 @@ describe('general ledger detail (RP-4, RP-5)', () => {
       'Office Supplies and Software',
     ]);
     const owner = r.rows.find((x) => x.cells[0] === "Total for Owner's Investment")!;
-    expect(owner.cells[7]).toBe(1_000_00);
+    expect(owner.cells[8]).toBe(1_000_00);
   });
 
   it('starts income and expense accounts at zero each fiscal year', () => {

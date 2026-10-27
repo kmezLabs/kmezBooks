@@ -14,11 +14,15 @@ export interface EntryLineInput {
   debit: Cents;
   credit: Cents;
   memo?: string | null;
+  /** Someone other than the entry's payee, when a line names its own (MG-3) */
+  name?: string | null;
 }
 
 export interface EntryInput {
   date: string;
   ref?: string | null;
+  /** Payee, customer or vendor (MG-3) */
+  name?: string | null;
   memo?: string | null;
   /** Which kind of document produced the entry: 'journal', 'qbo_migration', … */
   sourceType: string;
@@ -78,11 +82,12 @@ export function postEntry(db: Database, input: EntryInput, opts: PostOptions = {
     withOverride(db, opts.closingOverride, () => {
       const id = Number(
         db.selectValue(
-          `INSERT INTO journal_entry (company_id, date, ref, memo, source_type, source_id)
-           VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?) RETURNING id`,
+          `INSERT INTO journal_entry (company_id, date, ref, name, memo, source_type, source_id)
+           VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?) RETURNING id`,
           [
             input.date,
             input.ref?.trim() || null,
+            input.name?.trim() || null,
             input.memo?.trim() || null,
             input.sourceType,
             input.sourceId ?? null,
@@ -90,13 +95,21 @@ export function postEntry(db: Database, input: EntryInput, opts: PostOptions = {
         ),
       );
       const insert = db.prepare(
-        `INSERT INTO journal_line (company_id, entry_id, line_no, account_id, debit, credit, memo)
-         VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO journal_line (company_id, entry_id, line_no, account_id, debit, credit, memo, name)
+         VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?, ?)`,
       );
       try {
         lines.forEach((l, i) =>
           insert
-            .bind([id, i + 1, l.accountId, l.debit, l.credit, l.memo?.trim() || null])
+            .bind([
+              id,
+              i + 1,
+              l.accountId,
+              l.debit,
+              l.credit,
+              l.memo?.trim() || null,
+              l.name?.trim() || null,
+            ])
             .stepReset(),
         );
       } finally {

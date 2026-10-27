@@ -670,3 +670,22 @@ table.report-gl td:first-child {
     break-inside: avoid;
   }
 }
+
+/* ---- QuickBooks import (M5) ---- */
+
+table.mapping td {
+  padding: 3px 6px;
+}
+
+.target {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.target select {
+  width: auto;
+  max-width: 100%;
+  padding: 3px 6px;
+  font-size: 0.85rem;
+}

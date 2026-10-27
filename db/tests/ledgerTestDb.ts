@@ -37,6 +37,15 @@ export function simple(
   };
 }
 
+/** Start a QuickBooks import run, the only way migrated history can be posted (MG-6). */
+export function startImportRun(db: Database, id = 'run-1'): string {
+  db.exec({
+    sql: `INSERT INTO qbo_import_run (id, company_id) VALUES (?, (SELECT id FROM company))`,
+    bind: [id],
+  });
+  return id;
+}
+
 export function post(
   db: Database,
   date: string,

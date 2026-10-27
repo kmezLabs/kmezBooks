@@ -11,7 +11,7 @@ import { trialBalance, fiscalYearStart } from '../../src/ledger/balances';
 import { postEntry, validateEntry, voidEntry } from '../../src/ledger/postEntry';
 import { DEFAULT_CHART } from '../../src/shared/accounts';
 import type { Database } from '../../src/worker/sqlite';
-import { accountId, newLedgerDb, post, simple } from './ledgerTestDb';
+import { accountId, newLedgerDb, post, simple, startImportRun } from './ledgerTestDb';
 
 const raise =
   (db: Database, sql: string, bind: (string | number | null)[] = []) =>
@@ -323,6 +323,7 @@ describe('journal entries (GL-3, GL-6)', () => {
     expect(JSON.parse(String(rows[0]!.after))).toEqual({
       date: '2026-02-01',
       ref: 'R1',
+      name: null,
       memo: 'Lunch',
       source_type: 'journal',
       source_id: null,
@@ -366,11 +367,13 @@ describe('cash-basis ledger (GL-8)', () => {
     expect(() => post(db, '2026-01-10', 'Rent or Lease', 'Accounts Payable', 100_00)).toThrow(
       /cash basis/,
     );
+    const run = startImportRun(db);
     expect(() =>
       postEntry(
         db,
         simple(db, '2016-01-10', 'Accounts Receivable', 'Sales', 100_00, {
           sourceType: 'qbo_migration',
+          sourceId: run,
         }),
       ),
     ).not.toThrow();

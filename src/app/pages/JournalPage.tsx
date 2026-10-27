@@ -120,8 +120,8 @@ function EntryList(props: {
         <input
           className="search"
           type="search"
-          placeholder="Search ref or memo"
-          aria-label="Search ref or memo"
+          placeholder="Search ref, name or memo"
+          aria-label="Search ref, name or memo"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -151,6 +151,7 @@ function EntryList(props: {
               <th>Date</th>
               <th>No.</th>
               <th>Ref</th>
+              <th>Name</th>
               <th>Memo</th>
               <th className="num">Amount</th>
               <th />
@@ -166,6 +167,7 @@ function EntryList(props: {
                 <td>{formatDate(e.date)}</td>
                 <td className="muted">{e.id}</td>
                 <td>{e.ref}</td>
+                <td>{e.name}</td>
                 <td>
                   {e.memo}
                   {e.sourceType !== 'journal' && (
@@ -465,6 +467,7 @@ function EntryView(props: {
       <p>
         <strong>{formatDate(entry.date)}</strong>
         {entry.ref && <> · Ref {entry.ref}</>}
+        {entry.name && <> · {entry.name}</>}
         {entry.memo && <> · {entry.memo}</>}
         <br />
         <span className="muted">
@@ -493,7 +496,15 @@ function EntryView(props: {
               <td>{l.account}</td>
               <td className="num">{l.debit ? formatMoney(l.debit) : ''}</td>
               <td className="num">{l.credit ? formatMoney(l.credit) : ''}</td>
-              <td>{l.memo}</td>
+              <td>
+                {l.memo}
+                {l.name && (
+                  <span className="muted">
+                    {l.memo ? ' · ' : ''}
+                    {l.name}
+                  </span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

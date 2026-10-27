@@ -226,6 +226,18 @@ export class OpenCompany {
     return !this.readOnly && this.totalChanges() !== this.savedChanges;
   }
 
+  /**
+   * Run `fn`, which must leave the database exactly as it was (a dry run that
+   * rolls back). SQLite counts rolled-back writes as changes; this keeps them
+   * from showing as unsaved work when there was none before.
+   */
+  unchanged<T>(fn: () => T, rolledBack: (result: T) => boolean = () => true): T {
+    const wasDirty = this.dirty;
+    const result = fn();
+    if (!wasDirty && rolledBack(result)) this.savedChanges = this.totalChanges();
+    return result;
+  }
+
   /** Save the whole database atomically (DF-2), refusing if the file changed on disk (DF-3). */
   async save(): Promise<SaveResult> {
     if (this.readOnly) throw new ReadOnlyError('This company is open read-only.');

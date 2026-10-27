@@ -241,9 +241,10 @@ The ledger tables are the only source of truth for the financial statements; inv
 | Session | the user working now, set at unlock; one row, read by the audit triggers | US |
 | Checkout | token, holder name, role, checked out at, checked in or cancelled at, schema version (S) | DF |
 | Account | id, company, type, detail type, parent account, active | GL |
-| JournalEntry | id, company, date, source type, source id, memo, status (draft/posted/void) | GL |
-| JournalLine | entry id, account, debit, credit (integer cents), customer/vendor (optional), source document line (optional, for payments) | GL |
-| Customer, Vendor | contact details, terms, default accounts | AR / AP |
+| JournalEntry | id, company, date, ref, name (payee, customer or vendor), source type, source id, memo, status (draft/posted/void) | GL |
+| JournalLine | entry id, account, debit, credit (integer cents), memo, name (when the line names someone else), source document line (optional, for payments) | GL |
+| Customer, Vendor | contact details (imported from QuickBooks in M5); terms and default accounts arrive with AR / AP | AR / AP |
+| QboImportRun, QboEntry | one row per QuickBooks import (status, summary, tie-out); per migrated entry its QuickBooks transaction type and source file and row | MG |
 | Item | name, rate, income or expense account | AR |
 | Invoice, Estimate, SalesReceipt | header, lines, totals, status | AR |
 | Payment, PaymentApplication | amount, method, deposit account, invoices paid and amount applied to each | AR |
@@ -307,6 +308,6 @@ Still open:
 - [x] ~~Full self-hosted Supabase chosen over PostgREST plus a separate login service.~~ Replaced Oct 26 by a standalone PWA with encrypted company folders on your disk.
 - [x] ~~Accrual ledger with a cash view for reports.~~ Replaced Oct 26 by a cash-basis ledger.
 - [x] ~~Payment-to-invoice and payment-to-bill links in QuickBooks exports (MG-10).~~ Not needed with cash-basis history.
-- [ ] Before the migration milestone: export one year of one company from QuickBooks Online on Cash basis and confirm the rows can be grouped back into balanced transactions. Check the Journal report first (already grouped by transaction, if it offers cash basis), then General Ledger.
+- [x] Before the migration milestone: export one year of one company from QuickBooks Online on Cash basis and confirm the rows can be grouped back into balanced transactions. Done Oct 27 (one company's 2025): QuickBooks's Export data gives the Journal (no accounting method; grouped by transaction) and cash-basis General Ledger, Trial Balance and Balance Sheet. The import uses the Journal where it matches the cash-basis General Ledger, and rebuilds from the General Ledger where it doesn't; that year tied out exactly.
 - [ ] First technical test results: Chrome for Android folder support, and time and memory to open and save a company with 17 years of history.
 - [ ] Where to host the app, once it's ready to leave the development machine.

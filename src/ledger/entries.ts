@@ -8,6 +8,7 @@ export interface EntrySummary {
   id: number;
   date: string;
   ref: string | null;
+  name: string | null;
   memo: string | null;
   sourceType: string;
   status: 'posted' | 'void';
@@ -22,6 +23,7 @@ export interface EntryLine {
   debit: Cents;
   credit: Cents;
   memo: string | null;
+  name: string | null;
 }
 
 export interface EntryDetail extends EntrySummary {
@@ -36,7 +38,7 @@ export interface EntryQuery {
   /** Continue after this entry (newest first). */
   after?: { date: string; id: number };
   includeVoid?: boolean;
-  /** Matches ref or memo. */
+  /** Matches ref, name or memo. */
   search?: string;
   accountId?: string;
 }
@@ -45,6 +47,7 @@ const summary = (r: Record<string, unknown>): EntrySummary => ({
   id: Number(r.id),
   date: String(r.date),
   ref: r.ref === null ? null : String(r.ref),
+  name: r.name === null ? null : String(r.name),
   memo: r.memo === null ? null : String(r.memo),
   sourceType: String(r.source_type),
   status: r.status as 'posted' | 'void',
@@ -53,7 +56,7 @@ const summary = (r: Record<string, unknown>): EntrySummary => ({
 });
 
 const SELECT = `
-  SELECT e.id, e.date, e.ref, e.memo, e.source_type, e.status, e.posted_at, e.voided_at, e.void_reason,
+  SELECT e.id, e.date, e.ref, e.name, e.memo, e.source_type, e.status, e.posted_at, e.voided_at, e.void_reason,
          (SELECT coalesce(sum(debit), 0) FROM journal_line WHERE entry_id = e.id) AS amount,
          (SELECT count(*) FROM attachment WHERE entity = 'journal_entry' AND entity_id = CAST(e.id AS TEXT)) AS attachments
   FROM journal_entry e`;
@@ -67,9 +70,11 @@ export function listEntries(db: Database, q: EntryQuery = {}): EntrySummary[] {
     bind.push(q.after.date, q.after.date, q.after.id);
   }
   if (q.search?.trim()) {
-    where.push(`(e.ref LIKE ? ESCAPE '\\' OR e.memo LIKE ? ESCAPE '\\')`);
+    where.push(
+      `(e.ref LIKE ? ESCAPE '\\' OR e.name LIKE ? ESCAPE '\\' OR e.memo LIKE ? ESCAPE '\\')`,
+    );
     const like = `%${q.search.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    bind.push(like, like);
+    bind.push(like, like, like);
   }
   if (q.accountId) {
     where.push(
@@ -97,7 +102,7 @@ export function getEntry(db: Database, id: number): EntryDetail | null {
     voidReason: row.void_reason === null ? null : String(row.void_reason),
     lines: db
       .selectObjects(
-        'SELECT line_no, account_id, debit, credit, memo FROM journal_line WHERE entry_id = ? ORDER BY line_no',
+        'SELECT line_no, account_id, debit, credit, memo, name FROM journal_line WHERE entry_id = ? ORDER BY line_no',
         [id],
       )
       .map((l) => ({
@@ -107,6 +112,7 @@ export function getEntry(db: Database, id: number): EntryDetail | null {
         debit: Number(l.debit),
         credit: Number(l.credit),
         memo: l.memo === null ? null : String(l.memo),
+        name: l.name === null ? null : String(l.name),
       })),
   };
 }

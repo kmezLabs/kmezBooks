@@ -23,6 +23,14 @@ import {
 import { emitLedgerEvent } from '../ledger/events';
 import { isIsoDate, postEntry, voidEntry, type EntryInput } from '../ledger/postEntry';
 import { runReport } from '../ledger/reports';
+import { analyze, type Analysis, type AnalysisSummary } from '../modules/migration/analysis';
+import {
+  proposeChoices,
+  runImport,
+  type AccountChoices,
+  type ImportResult,
+} from '../modules/migration/importer';
+import { readExportFolder, readPickedFiles } from '../modules/migration/sources';
 import type { Report, ReportRequest } from '../shared/report';
 import type { AccountInput, AccountRow } from '../shared/accounts';
 import {
@@ -95,6 +103,15 @@ export interface SessionDeps {
 
 export type OpenMode = 'edit' | 'readOnly' | 'takeOver';
 
+/** What the dry-run screen shows before the owner imports (MG-4). */
+export interface MigrationPlan {
+  summary: AnalysisSummary;
+  /** The proposed target for each QuickBooks account */
+  choices: AccountChoices;
+  /** The company already has transactions, so it can't take an import (MG-6) */
+  companyHasTransactions: boolean;
+}
+
 export type OpenOutcome =
   | { kind: 'opened'; status: SessionStatus; upgradedFrom: number | null; timings: Timings }
   | { kind: 'locked'; lock: LockInfo; stale: boolean };
@@ -130,6 +147,8 @@ export class CompanySession {
   private heartbeat: ReturnType<typeof setInterval> | undefined;
   private releaseTabLock: (() => void) | undefined;
   private saveQueue: Promise<void> = Promise.resolve();
+  /** QuickBooks exports read for the migration, kept between dry run and import */
+  private migration: Analysis | null = null;
   private readonly now: () => Date;
   private readonly saveDelayMs: number;
   private readonly heartbeatMs: number;
@@ -647,6 +666,51 @@ export class CompanySession {
     this.touch();
   }
 
+  // ---- QuickBooks migration (M5) ----
+
+  /** Read a folder (or picked files) of QuickBooks exports and plan the import (MG-2, MG-4). */
+  async migrationAnalyze(source: FileSystemDirectoryHandle | File[]): Promise<MigrationPlan> {
+    const db = this.open_().db;
+    const files = Array.isArray(source)
+      ? await readPickedFiles(source)
+      : await readExportFolder(source);
+    const analysis = analyze(files);
+    this.migration = analysis;
+    return {
+      summary: analysis.summary,
+      choices: proposeChoices(db, analysis.summary.accounts),
+      companyHasTransactions:
+        Number(db.selectValue(`SELECT count(*) FROM journal_entry WHERE status <> 'draft'`)) > 0,
+    };
+  }
+
+  /**
+   * Dry run (commit false) or import the analysed exports (MG-4, MG-5, MG-6).
+   * Migrated history doesn't announce each posting as a ledger event: it is
+   * history, not new activity for other modules to act on.
+   */
+  migrationRun(
+    choices: AccountChoices,
+    opts: { commit: boolean; acceptDifferences?: boolean },
+    onProgress?: (done: number, total: number) => void,
+  ): ImportResult {
+    const c = this.writable();
+    if (!this.migration) throw new LedgerRuleError('Choose the QuickBooks exports first.');
+    const analysis = this.migration;
+    const run = () => runImport(c.db, analysis, choices, { ...opts, onProgress });
+    // A dry run always rolls back, and so does an import that didn't commit
+    const result = c.unchanged(run, (r) => !r.committed);
+    if (result.committed) {
+      this.migration = null;
+      this.touch();
+    }
+    return result;
+  }
+
+  migrationDiscard(): void {
+    this.migration = null;
+  }
+
   /** The open company, for the M1 test screen only. */
   current(): OpenCompany {
     return this.open_();
@@ -679,6 +743,7 @@ export class CompanySession {
     this.releaseTabLock = undefined;
     c.close();
     this.company = undefined;
+    this.migration = null;
     this.lockLost = false;
     this.error = null;
     this.emit();

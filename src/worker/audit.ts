@@ -12,7 +12,8 @@ const PREFIX = 'audit__';
  * SQLite's own, M1 spike data, and the ledger. Journal entries and lines get
  * compact hand-written triggers instead (migration 0008: one "post" and one
  * "void" event per entry), because full row copies made a 17-year company
- * several times larger than its ledger (M4 benchmark).
+ * several times larger than its ledger (M4 benchmark). qbo_entry (one row per
+ * migrated entry) can't change, and its import run is audited (migration 0010).
  */
 export function isAudited(table: string): boolean {
   return (
@@ -20,6 +21,7 @@ export function isAudited(table: string): boolean {
     table !== 'session' &&
     table !== 'journal_entry' &&
     table !== 'journal_line' &&
+    table !== 'qbo_entry' &&
     !table.startsWith('sqlite_') &&
     !table.startsWith('spike_')
   );

@@ -48,7 +48,7 @@ it.runIf(process.env.REPORT_BENCH)(
             lines.push({ accountId: ids[3 + Math.floor(rand() * 7)]!, debit: cents, credit: 0 });
           }
           lines.push({ accountId: ids[Math.floor(rand() * 3)]!, debit: 0, credit: total });
-          postEntry(db, { date, sourceType: 'qbo_migration', memo: 'benchmark entry', lines });
+          postEntry(db, { date, sourceType: 'journal', memo: 'benchmark entry', lines });
         }
       }
       db.exec('COMMIT');

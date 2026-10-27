@@ -31,6 +31,58 @@ import {
   type ImportResult,
 } from '../modules/migration/importer';
 import { readExportFolder, readPickedFiles } from '../modules/migration/sources';
+import { bankAccounts, type BankAccount } from '../modules/banking/bankAccounts';
+import {
+  cancelReconciliation,
+  entryReconciliations,
+  finishReconciliation,
+  reconcileState,
+  reconciliationHistory,
+  reconciliationReport,
+  setAllCleared,
+  setCleared,
+  startReconciliation,
+  updateReconciliation,
+  type ReconcileState,
+  type ReconciliationReport,
+  type ReconciliationSummary,
+} from '../modules/banking/reconcile';
+import {
+  acceptSuggestions,
+  BANK_SOURCE,
+  categorize,
+  exclude,
+  listQueue,
+  match,
+  restore,
+  transfer,
+  undo,
+  type CategorizeInput,
+  type QueueItem,
+  type QueueView,
+} from '../modules/banking/review';
+import {
+  createRule,
+  deleteRule,
+  listRules,
+  moveRule,
+  updateRule,
+  type RuleInput,
+  type RuleRow,
+} from '../modules/banking/rules';
+import {
+  importStatements,
+  listImports,
+  previewStatements,
+  readStatements,
+  undoImport,
+  type FileProblem,
+  type ImportRow,
+  type PendingStatement,
+  type StatementImportResult,
+  type StatementPreview,
+} from '../modules/banking/statements';
+import type { Cents } from '../shared/money';
 import type { Report, ReportRequest } from '../shared/report';
 import type { AccountInput, AccountRow } from '../shared/accounts';
 import {
@@ -113,6 +165,12 @@ export interface MigrationPlan {
   companyHasTransactions: boolean;
 }
 
+/** An entry as the journal shows it: attachments, and where it was reconciled (BK-8). */
+export interface EntryView extends EntryDetail {
+  files: AttachmentRow[];
+  reconciled: { account: string; statementDate: string }[];
+}
+
 export type OpenOutcome =
   | { kind: 'opened'; status: SessionStatus; upgradedFrom: number | null; timings: Timings }
   | { kind: 'locked'; lock: LockInfo; stale: boolean };
@@ -150,6 +208,8 @@ export class CompanySession {
   private saveQueue: Promise<void> = Promise.resolve();
   /** QuickBooks exports read for the migration, kept between dry run and import */
   private migration: Analysis | null = null;
+  /** Statements read for import, kept until the owner confirms their accounts (BK-1) */
+  private bankPending: PendingStatement[] | null = null;
   private readonly now: () => Date;
   private readonly saveDelayMs: number;
   private readonly heartbeatMs: number;
@@ -592,10 +652,17 @@ export class CompanySession {
     return listEntries(this.open_().db, query);
   }
 
-  entry(id: number): (EntryDetail & { files: AttachmentRow[] }) | null {
+  /** An entry with its attachments, and the reconciliations it was cleared in (BK-8). */
+  entry(id: number): EntryView | null {
     const db = this.open_().db;
     const e = getEntry(db, id);
-    return e && { ...e, files: listAttachments(db, 'journal_entry', String(id)) };
+    return (
+      e && {
+        ...e,
+        files: listAttachments(db, 'journal_entry', String(id)),
+        reconciled: entryReconciliations(db, id),
+      }
+    );
   }
 
   /** A closed-period override needs the passphrase again (PC-2). */
@@ -731,6 +798,197 @@ export class CompanySession {
     this.migration = null;
   }
 
+  // ---- banking (M6) ----
+
+  /** Announce entries the review posted, like any other posting (CLAUDE.md rule 8). */
+  private announcePosted(entryIds: number[]) {
+    const db = this.open_().db;
+    for (const entryId of entryIds) {
+      const sourceId = db.selectValue('SELECT source_id FROM journal_entry WHERE id = ?', [
+        entryId,
+      ]);
+      emitLedgerEvent('posted', {
+        entryId,
+        sourceType: BANK_SOURCE,
+        sourceId: sourceId === null || sourceId === undefined ? null : String(sourceId),
+      });
+    }
+  }
+
+  bankAccounts(): BankAccount[] {
+    return bankAccounts(this.open_().db);
+  }
+
+  /** Read statement files and show what's in them (BK-1). */
+  async bankReadStatements(
+    files: File[],
+  ): Promise<{ statements: StatementPreview[]; problems: FileProblem[] }> {
+    const db = this.open_().db;
+    const read = readStatements(
+      await Promise.all(
+        files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })),
+      ),
+    );
+    this.bankPending = read.pending;
+    return { statements: previewStatements(db, read.pending), problems: read.problems };
+  }
+
+  /** Import the statements read last, each into the account chosen for it (key to account). */
+  bankImport(accounts: Record<string, string>): StatementImportResult {
+    const c = this.writable();
+    if (!this.bankPending) throw new LedgerRuleError('Choose the statement files first.');
+    const result = importStatements(c.db, this.bankPending, accounts);
+    this.bankPending = null;
+    this.touch();
+    this.announcePosted(result.postedEntryIds);
+    return result;
+  }
+
+  bankDiscardStatements(): void {
+    this.bankPending = null;
+  }
+
+  bankImports(accountId: string): ImportRow[] {
+    return listImports(this.open_().db, accountId);
+  }
+
+  bankUndoImport(importId: string): number {
+    const removed = undoImport(this.writable().db, importId);
+    this.touch();
+    return removed;
+  }
+
+  bankQueue(accountId: string, view?: QueueView): QueueItem[] {
+    return listQueue(this.open_().db, accountId, view);
+  }
+
+  async bankCategorize(
+    id: number,
+    input: CategorizeInput,
+    overridePassphrase?: string,
+  ): Promise<number> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const entryId = categorize(db, id, input, { closingOverride });
+    this.touch();
+    this.announcePosted([entryId]);
+    return entryId;
+  }
+
+  async bankTransfer(id: number, otherTxnId: number, overridePassphrase?: string): Promise<number> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const entryId = transfer(db, id, otherTxnId, { closingOverride });
+    this.touch();
+    this.announcePosted([entryId]);
+    return entryId;
+  }
+
+  async bankAcceptSuggestions(ids: number[], overridePassphrase?: string): Promise<number> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const entryIds = acceptSuggestions(db, ids, { closingOverride });
+    this.touch();
+    this.announcePosted(entryIds);
+    return entryIds.length;
+  }
+
+  bankMatch(id: number, entryId: number): void {
+    match(this.writable().db, id, entryId);
+    this.touch();
+  }
+
+  bankExclude(id: number): void {
+    exclude(this.writable().db, id);
+    this.touch();
+  }
+
+  bankRestore(id: number): void {
+    restore(this.writable().db, id);
+    this.touch();
+  }
+
+  /** Send a reviewed transaction back to the queue, voiding the entry the review posted. */
+  async bankUndo(id: number, overridePassphrase?: string): Promise<void> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const voided = undo(db, id, { closingOverride });
+    this.touch();
+    if (voided !== null) {
+      emitLedgerEvent('voided', { entryId: voided, sourceType: BANK_SOURCE, sourceId: String(id) });
+    }
+  }
+
+  bankRules(): RuleRow[] {
+    return listRules(this.open_().db);
+  }
+
+  bankCreateRule(input: RuleInput): string {
+    const id = createRule(this.writable().db, input);
+    this.touch();
+    return id;
+  }
+
+  bankUpdateRule(id: string, input: RuleInput): void {
+    updateRule(this.writable().db, id, input);
+    this.touch();
+  }
+
+  bankDeleteRule(id: string): void {
+    deleteRule(this.writable().db, id);
+    this.touch();
+  }
+
+  bankMoveRule(id: string, direction: 'up' | 'down'): void {
+    moveRule(this.writable().db, id, direction);
+    this.touch();
+  }
+
+  // ---- reconciliation (BK-7, BK-8) ----
+
+  reconcileState(accountId: string): ReconcileState {
+    return reconcileState(this.open_().db, accountId);
+  }
+
+  reconcileStart(accountId: string, statementDate: string, endingBalance: Cents): string {
+    const id = startReconciliation(this.writable().db, accountId, statementDate, endingBalance);
+    this.touch();
+    return id;
+  }
+
+  reconcileUpdate(id: string, statementDate: string, endingBalance: Cents): void {
+    updateReconciliation(this.writable().db, id, statementDate, endingBalance);
+    this.touch();
+  }
+
+  reconcileSetCleared(id: string, lineIds: number[], cleared: boolean): void {
+    setCleared(this.writable().db, id, lineIds, cleared);
+    this.touch();
+  }
+
+  reconcileSetAllCleared(id: string, cleared: boolean): void {
+    setAllCleared(this.writable().db, id, cleared);
+    this.touch();
+  }
+
+  reconcileFinish(id: string): void {
+    finishReconciliation(this.writable().db, id);
+    this.touch();
+  }
+
+  reconcileCancel(id: string): void {
+    cancelReconciliation(this.writable().db, id);
+    this.touch();
+  }
+
+  reconcileHistory(accountId: string): ReconciliationSummary[] {
+    return reconciliationHistory(this.open_().db, accountId);
+  }
+
+  reconcileReport(id: string): ReconciliationReport {
+    return reconciliationReport(this.open_().db, id);
+  }
+
   /** The open company, for the M1 test screen only. */
   current(): OpenCompany {
     return this.open_();
@@ -764,6 +1022,7 @@ export class CompanySession {
     c.close();
     this.company = undefined;
     this.migration = null;
+    this.bankPending = null;
     this.lockLost = false;
     this.error = null;
     this.emit();

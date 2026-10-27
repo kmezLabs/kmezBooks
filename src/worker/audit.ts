@@ -14,6 +14,8 @@ const PREFIX = 'audit__';
  * "void" event per entry), because full row copies made a 17-year company
  * several times larger than its ledger (M4 benchmark). qbo_entry (one row per
  * migrated entry) can't change, and its import run is audited (migration 0010).
+ * bank_txn and reconciled_line are bulk too: compact events for reviews, and
+ * the imports and reconciliations themselves are audited (migration 0011).
  */
 export function isAudited(table: string): boolean {
   return (
@@ -22,6 +24,8 @@ export function isAudited(table: string): boolean {
     table !== 'journal_entry' &&
     table !== 'journal_line' &&
     table !== 'qbo_entry' &&
+    table !== 'bank_txn' &&
+    table !== 'reconciled_line' &&
     !table.startsWith('sqlite_') &&
     !table.startsWith('spike_')
   );

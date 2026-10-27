@@ -4,7 +4,7 @@ Double-entry bookkeeping for four US small businesses, as a standalone Chrome PW
 
 - Scope: [docs/MVP-REQUIREMENTS.md](docs/MVP-REQUIREMENTS.md)
 - Build plan: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md)
-- Progress: M1 (technical test, [results](docs/spikes/M1-results.md)) M2 (company files, unlock, audit log), M3 (ledger, period close), M4 (reports) and M5 (QuickBooks migration) are built; M6 (banking) is next
+- Progress: M1 (technical test, [results](docs/spikes/M1-results.md)) M2 (company files, unlock, audit log), M3 (ledger, period close), M4 (reports), M5 (QuickBooks migration) and M6 (banking) are built; M7 (expenses, bills, sales) is next
 
 ## Run it
 
@@ -31,7 +31,7 @@ src/worker/     SQLite worker: company file format, folder access, session
                 (autosave, locks, backups), migrations, audit triggers
 src/ledger/     ledger service: postEntry(), accounts, balances, reports, allocation
 src/shared/     worker client and code shared by UI and worker (money, accounts)
-src/modules/    optional modules: screens, logic and tests (migration: QuickBooks import)
+src/modules/    optional modules: screens, logic and tests (migration: QuickBooks import; banking: statements, review, rules, reconciliation)
 db/migrations/  numbered SQL migrations, one sequence
 db/tests/       schema and integrity-rule tests
 ```

@@ -167,30 +167,55 @@ function transferCandidate(
     : null;
 }
 
-/** How this payee was categorized the last time, if that was a single category. */
-function historySuggestion(db: Database, t: BankTxn): Suggestion | null {
-  if (!t.payee) return null;
-  const last = db.selectObjects(
-    `SELECT b.entry_id, e.name FROM bank_txn b JOIN journal_entry e ON e.id = b.entry_id
-     WHERE b.account_id = ? AND b.status = 'posted' AND b.payee = ? COLLATE NOCASE AND e.source_type = ?
-     ORDER BY b.date DESC, b.id DESC LIMIT 1`,
-    [t.accountId, t.payee, BANK_SOURCE],
-  )[0];
-  if (!last) return null;
-  const others = db.selectArrays(
-    `SELECT DISTINCT l.account_id FROM journal_line l JOIN account a ON a.id = l.account_id
-     WHERE l.entry_id = ? AND l.account_id <> ? AND a.active = 1`,
-    [Number(last.entry_id), t.accountId],
-  );
-  if (others.length !== 1) return null;
-  return {
-    source: 'history',
-    categoryId: String(others[0]![0]),
-    payee: last.name === null ? null : String(last.name),
-  };
+/**
+ * A payee the way banks vary it between statements: "DP FRANCH DES:FEES ID:DP_67 I"
+ * and "DP Franch des:fees" are the same payee. Capitals, anything from " ID:"
+ * or " INDN:" on, and words with digits are ignored; the first four words count.
+ */
+export function payeeKey(payee: string | null): string {
+  if (!payee) return '';
+  return payee
+    .toUpperCase()
+    .replace(/\s(ID|INDN|CO ID|CONF)[:#].*$/, '')
+    .split(/\s+/)
+    .filter((w) => w && !/\d/.test(w))
+    .slice(0, 4)
+    .join(' ');
 }
 
-function suggest(db: Database, t: BankTxn, rules: RuleRow[]): Suggestion | null {
+export type History = Map<string, Suggestion>;
+
+/**
+ * How each payee was last put in the books in this account, when that was a
+ * single category: from the review here, and from transactions matched to
+ * entries already in the books, such as QuickBooks history.
+ */
+export function historyIndex(db: Database, accountId: string): History {
+  const index: History = new Map();
+  const rows = db.selectObjects(
+    `SELECT b.payee, e.name, min(l.account_id) AS category, count(DISTINCT l.account_id) AS n
+     FROM bank_txn b
+     JOIN journal_entry e ON e.id = b.entry_id AND e.status = 'posted'
+     JOIN journal_line l ON l.entry_id = e.id AND l.account_id <> b.account_id
+     JOIN account a ON a.id = l.account_id AND a.active = 1
+     WHERE b.account_id = ? AND b.status IN ('posted', 'matched') AND b.payee IS NOT NULL
+     GROUP BY b.id ORDER BY b.date DESC, b.id DESC LIMIT 5000`,
+    [accountId],
+  );
+  for (const r of rows) {
+    const key = payeeKey(String(r.payee));
+    // The newest single-category use wins; splits say nothing about a category
+    if (!key || index.has(key) || Number(r.n) !== 1) continue;
+    index.set(key, {
+      source: 'history',
+      categoryId: String(r.category),
+      payee: r.name === null ? null : String(r.name),
+    });
+  }
+  return index;
+}
+
+function suggest(t: BankTxn, rules: RuleRow[], history: History): Suggestion | null {
   const rule = firstRule(rules, t);
   if (rule) {
     return {
@@ -202,7 +227,7 @@ function suggest(db: Database, t: BankTxn, rules: RuleRow[]): Suggestion | null 
       memo: rule.memo,
     };
   }
-  return historySuggestion(db, t);
+  return history.get(payeeKey(t.payee)) ?? null;
 }
 
 export type QueueView = 'new' | 'excluded' | 'reviewed';
@@ -224,6 +249,7 @@ export function listQueue(
     .map(txn);
   const names = accountFullNames(db);
   const rules = view === 'new' ? listRules(db).filter((r) => r.active) : [];
+  const history: History = view === 'new' ? historyIndex(db, accountId) : new Map();
   return rows.map((t) => {
     if (t.status !== 'new') {
       return {
@@ -238,7 +264,7 @@ export function listQueue(
     const matches = matchCandidates(db, t, names);
     return {
       ...t,
-      suggestion: suggest(db, t, rules),
+      suggestion: suggest(t, rules, history),
       matches,
       transfer: matches.length ? null : transferCandidate(db, t, names),
       possibleDuplicate:
@@ -534,7 +560,7 @@ export function acceptSuggestions(db: Database, ids: number[], opts: PostOptions
     for (const id of ids) {
       const t = getTxn(db, id);
       if (t.status !== 'new' || matchCandidates(db, t).length > 0) continue;
-      const s = suggest(db, t, rules);
+      const s = suggest(t, rules, historyIndex(db, t.accountId));
       if (!s) continue;
       posted.push(
         categorize(

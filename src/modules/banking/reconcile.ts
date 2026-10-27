@@ -112,16 +112,22 @@ export function reconcileState(
     suggested: null,
   };
   if (!open) {
+    // Some banks (Bank of America) date the statement's ending balance when it
+    // was downloaded; it is the balance on the statement's last day
     const s = db.selectObjects(
-      `SELECT balance_date, balance FROM bank_import
-       WHERE account_id = ? AND balance IS NOT NULL AND balance_date IS NOT NULL AND balance_date > ?
-       ORDER BY balance_date DESC, imported_at DESC LIMIT 1`,
+      `SELECT statement_date, balance FROM (
+         SELECT CASE WHEN end_date IS NOT NULL AND balance_date > end_date THEN end_date
+                     ELSE balance_date END AS statement_date,
+                balance, imported_at
+         FROM bank_import WHERE account_id = ? AND balance IS NOT NULL AND balance_date IS NOT NULL)
+       WHERE statement_date > ?
+       ORDER BY statement_date DESC, imported_at DESC LIMIT 1`,
       [accountId, last?.statementDate ?? '0000-00-00'],
     )[0];
     return {
       ...base,
       suggested: s
-        ? { statementDate: String(s.balance_date), endingBalance: Number(s.balance) }
+        ? { statementDate: String(s.statement_date), endingBalance: Number(s.balance) }
         : null,
     };
   }

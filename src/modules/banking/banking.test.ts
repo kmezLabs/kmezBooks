@@ -25,6 +25,7 @@ import {
   exclude,
   listQueue,
   match,
+  payeeKey,
   queueCounts,
   restore,
   transfer,
@@ -424,6 +425,59 @@ describe('rules (BK-5)', () => {
     expect(listQueue(db, checking)).toHaveLength(2);
   });
 
+  it('learns categories from transactions matched to history, despite bank payee variations', () => {
+    const run = startImportRun(db);
+    postEntry(db, {
+      date: '2026-01-02',
+      name: 'Acme Franchising',
+      sourceType: 'qbo_migration',
+      sourceId: run,
+      lines: [
+        { accountId: accountId(db, 'Rent or Lease'), debit: 700_00, credit: 0 },
+        { accountId: checking, debit: 0, credit: 700_00 },
+      ],
+    });
+    db.exec(`UPDATE qbo_import_run SET status = 'done', finished_at = '2026-01-31T00:00:00Z'`);
+    importFiles(
+      file('jan.qbo', {
+        txns: [
+          {
+            fitid: 'R1',
+            date: '2026-01-02',
+            amount: '-700.00',
+            name: 'ACME FRANCH DES:FEES ID:AC_12 I',
+          },
+        ],
+      }),
+    );
+    const [jan] = listQueue(db, checking);
+    match(db, jan!.id, jan!.matches[0]!.entryId);
+    importFiles(
+      file('feb.qbo', {
+        txns: [
+          { fitid: 'R2', date: '2026-02-02', amount: '-725.00', name: 'Acme Franch des:fees' },
+        ],
+      }),
+    );
+    expect(listQueue(db, checking)[0]!.suggestion).toEqual({
+      source: 'history',
+      categoryId: accountId(db, 'Rent or Lease'),
+      payee: 'Acme Franchising',
+    });
+  });
+
+  it('compares payees the way banks vary them', () => {
+    expect(payeeKey('ACME FRANCH DES:FEES ID:AC_12 I')).toBe('ACME FRANCH DES:FEES');
+    expect(payeeKey('Acme Franch des:fees')).toBe('ACME FRANCH DES:FEES');
+    expect(payeeKey('LOAN 504 SVC DES:TO 01234 ID:5678')).toBe('LOAN SVC DES:TO');
+    expect(payeeKey('ONLINE MKTPL*2K4AB1 SEATTLE WA')).toBe('ONLINE SEATTLE WA');
+    expect(payeeKey('Online scheduled transfer from checking 1234')).toBe(
+      'ONLINE SCHEDULED TRANSFER FROM',
+    );
+    expect(payeeKey('12345')).toBe('');
+    expect(payeeKey(null)).toBe('');
+  });
+
   it('refuses rules that look for nothing or post to their own account', () => {
     expect(() => createRule(db, rule({}))).toThrow('Say what the rule looks for');
     expect(() =>
@@ -501,6 +555,22 @@ describe('reconciliation (BK-7, BK-8)', () => {
     setAllCleared(db, feb, false);
     cancelReconciliation(db, feb);
     expect(reconcileState(db, checking).open).toBeNull();
+  });
+
+  it('takes a balance dated after the statement period as the period’s ending balance', () => {
+    // Some banks date it when the file was downloaded
+    importFiles(
+      file('jan.qbo', {
+        ...JAN,
+        start: '2026-01-01',
+        end: '2026-01-31',
+        balanceDate: '2026-03-16',
+      }),
+    );
+    expect(reconcileState(db, checking).suggested).toEqual({
+      statementDate: '2026-01-31',
+      endingBalance: 2_454_90,
+    });
   });
 
   it('suggests the latest imported statement balance, signed for a card', () => {

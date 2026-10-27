@@ -229,7 +229,7 @@ Still to do (owner, with the app):
 - The rebuild from the General Ledger is tested on fixtures only; the first company with invoices or bills will show whether QuickBooks's cash-basis General Ledger groups as expected.
 - Run per company against real data. The QuickBooks Online subscription stays active until all four pass.
 
-## M6 — Banking (built Oct 27; real statement files still to try)
+## M6 — Banking (built Oct 27; tried on real bank statements, card statements still to try)
 
 Built on branch `m6-banking` in the `banking` module (`src/modules/banking/`, migration 0011). Tested in Node on made-up statements in both OFX dialects, and end to end in headless Chrome: two statement files imported through the file picker, a check matched to an entry already in the books, a card payment recorded as a transfer with both sides matched, a rule's suggestion added, a split, a reconciliation finished at zero with its report, and the warning before voiding a reconciled entry.
 
@@ -252,9 +252,15 @@ Decisions made while building:
 - Suggestions are worked out when the queue is read, so a new or edited rule applies at once to everything waiting.
 - Rules and the review never post into a closed period without the passphrase override; a rule's automatic post skips it and leaves the transaction for review.
 
+Tried on real files (Oct 27): two Bank of America checking statements for one company, with its 2025 QuickBooks history imported first (`realStatements.test.ts`, opt-in with `QBO_DIR`; no real data committed). All January 2025 transactions were offered as matches to the migrated entries; importing the files again added nothing; the January 2025 statement reconciled to a zero difference. What they taught:
+
+- Bank of America dates a statement's ending balance when the file was downloaded, not at the statement's end. A balance dated after the statement period is taken as the balance on its last day.
+- Banks shorten and vary payee text between statements ("… DES:ROYALTY ID:DP_67 I" one month, "… DES:ROYALTY" the next). Suggestions compare payees ignoring capitals, ids and words with digits, using the first four words.
+- "Like last time" also learns from transactions matched to existing entries, so matching the QuickBooks history once gives suggestions (category and the QuickBooks payee name) for the following statements: five of January 2026's seven transactions.
+
 Still to do:
 
-- Try real `.qbo` downloads from each bank and card; each surprise becomes a fixture case in `ofx.test.ts`.
+- Try real card statements, and other banks; each surprise becomes a fixture case in `ofx.test.ts` or `banking.test.ts`.
 - BK-2 (S): CSV and Excel statements with a saved column mapping.
 
 ## M7 — Expenses, bills, sales (outline)

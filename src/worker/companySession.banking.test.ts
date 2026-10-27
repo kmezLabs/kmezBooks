@@ -9,6 +9,7 @@ const statement = (name: string) =>
   new File(
     [
       qboFile({
+        end: '2026-01-31',
         balance: '954.90',
         balanceDate: '2026-01-31',
         txns: [

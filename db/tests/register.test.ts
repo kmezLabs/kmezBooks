@@ -62,6 +62,45 @@ describe('transactions register (GL-9)', () => {
     expect(register(db, { limit: 1, offset: 1 }).rows.map((x) => x.name)).toEqual(['Power Co']);
   });
 
+  it('pages oldest first from the latest, so a register opens at its end', () => {
+    const r = register(db, { scope: 'all', order: 'asc', limit: 2 });
+    expect(r.rows.map((x) => x.date)).toEqual(['2026-01-07', '2026-01-09']);
+    expect(
+      register(db, { scope: 'all', order: 'asc', limit: 2, offset: 2 }).rows.map((x) => x.date),
+    ).toEqual(['2026-01-03', '2026-01-05']);
+  });
+
+  it('gives an account’s balance after each entry, counting entries the filter leaves out', () => {
+    const r = register(db, {
+      scope: 'all',
+      accountId: checking,
+      balanceAccountId: checking,
+      order: 'asc',
+    });
+    expect(r.rows.map((x) => [x.date, x.accountAmount, x.balance])).toEqual([
+      ['2026-01-03', 5_000_00, 5_000_00],
+      ['2026-01-05', -45_00, 4_955_00],
+      ['2026-01-07', -1_000_00, 3_955_00],
+    ]);
+    // Only the last one shown: its balance still includes the earlier ones
+    const searched = register(db, {
+      scope: 'all',
+      accountId: checking,
+      balanceAccountId: checking,
+      search: 'savings',
+    });
+    expect(searched.rows.map((x) => x.balance)).toEqual([3_955_00]);
+    // A card: charges lower the balance (what's owed is negative, debit minus credit)
+    const card = accountId(db, 'Credit Card');
+    expect(
+      register(db, { accountId: card, balanceAccountId: card }).rows.map((x) => x.balance),
+    ).toEqual([-100_00]);
+    // No balance without an account
+    expect(register(db).rows.every((x) => x.balance === null && x.accountAmount === null)).toBe(
+      true,
+    );
+  });
+
   it('shows each entry as paid from or deposited to one account, split over categories', () => {
     const rows = register(db, { scope: 'all' }).rows;
     const byName = (n: string | null) => rows.find((x) => x.name === n)!.simple;

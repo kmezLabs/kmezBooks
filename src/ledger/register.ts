@@ -19,9 +19,15 @@ export interface RegisterQuery {
   /** Matches ref, name or memo */
   search?: string;
   includeVoid?: boolean;
+  /**
+   * desc: newest first. asc: oldest first, but the page is the latest `limit`
+   * entries (after `offset` newer ones), so a register opens at its end.
+   */
   order?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  /** Add the balance of this account after each entry, as a bank register does */
+  balanceAccountId?: string | null;
 }
 
 /** An entry as money out of (expense) or into (income) one account, split over categories. */
@@ -49,6 +55,10 @@ export interface RegisterRow {
   attachments: number;
   /** The quick form's shape, when the entry has one */
   simple: SimpleEntry | null;
+  /** With a balance account: the entry's movement in it, debit minus credit */
+  accountAmount: Cents | null;
+  /** The balance account's debit-minus-credit balance after this entry; null for void ones */
+  balance: Cents | null;
 }
 
 export interface RegisterResult {
@@ -163,16 +173,58 @@ function where(q: RegisterQuery): { sql: string; bind: (string | number)[] } {
   return { sql: parts.join(' AND '), bind };
 }
 
+/**
+ * The account's balance after each posted entry in rows, in date order: the
+ * balance before the earliest, then each entry's movement in the account,
+ * including entries a filter leaves out of the page.
+ */
+function runningBalances(
+  db: Database,
+  accountId: string,
+  rows: { id: number; date: string; status: string }[],
+) {
+  const balances = new Map<number, Cents>();
+  const posted = rows
+    .filter((r) => r.status === 'posted')
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+  const first = posted[0];
+  const last = posted.at(-1);
+  if (!first || !last) return balances;
+  let balance = Number(
+    db.selectValue(
+      `SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
+       JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+       WHERE l.account_id = ? AND (e.date < ? OR (e.date = ? AND e.id < ?))`,
+      [accountId, first.date, first.date, first.id],
+    ),
+  );
+  for (const [id, net] of db.selectArrays(
+    `SELECT e.id, sum(l.debit - l.credit) FROM journal_line l
+     JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+     WHERE l.account_id = ?
+       AND (e.date > ? OR (e.date = ? AND e.id >= ?))
+       AND (e.date < ? OR (e.date = ? AND e.id <= ?))
+     GROUP BY e.id ORDER BY e.date, e.id`,
+    [accountId, first.date, first.date, first.id, last.date, last.date, last.id],
+  )) {
+    balance += Number(net);
+    balances.set(Number(id), balance);
+  }
+  return balances;
+}
+
 export function register(db: Database, q: RegisterQuery = {}): RegisterResult {
   const w = where(q);
-  const dir = q.order === 'asc' ? 'ASC' : 'DESC';
+  // Oldest first shows the latest page too, so fetch newest first and turn it around
+  const ascending = q.order === 'asc';
   const entries = db.selectObjects(
     `SELECT e.id, e.date, e.ref, e.name, e.memo, e.source_type, e.status,
             (SELECT count(*) FROM attachment WHERE entity = 'journal_entry' AND entity_id = CAST(e.id AS TEXT)) AS attachments
      FROM journal_entry e WHERE ${w.sql}
-     ORDER BY e.date ${dir}, e.id ${dir} LIMIT ? OFFSET ?`,
+     ORDER BY e.date DESC, e.id DESC LIMIT ? OFFSET ?`,
     [...w.bind, q.limit ?? 200, q.offset ?? 0],
   );
+  if (ascending) entries.reverse();
   const ids = entries.map((e) => Number(e.id));
   const lines = new Map<number, Line[]>();
   if (ids.length) {
@@ -215,8 +267,18 @@ export function register(db: Database, q: RegisterQuery = {}): RegisterResult {
       expense: sum('expense', (l) => l.debit - l.credit),
       attachments: Number(e.attachments),
       simple: simpleShape(ls),
+      accountAmount: q.balanceAccountId
+        ? ls
+            .filter((l) => l.accountId === q.balanceAccountId)
+            .reduce((t, l) => t + l.debit - l.credit, 0)
+        : null,
+      balance: null,
     };
   });
+  if (q.balanceAccountId) {
+    const balances = runningBalances(db, q.balanceAccountId, rows);
+    for (const r of rows) r.balance = balances.get(r.id) ?? null;
+  }
   // SQLite refuses an empty bind list on a statement without parameters
   const bind = w.bind.length ? w.bind : undefined;
   const count = Number(db.selectValue(`SELECT count(*) FROM journal_entry e WHERE ${w.sql}`, bind));

@@ -1,8 +1,10 @@
-// Transactions (GL-9): the home panel. Every income and expense (or every
-// entry) in date order, with a quick form to add one and quick changes from
+// Transactions (GL-9): the home panel. Every entry (or every income and
+// expense) in date order, opening at the latest; filters at the top, totals
+// and Add Transaction at the bottom. With one account chosen it reads like a
+// bank register, with the balance after each transaction. Quick changes from
 // the list: edit, void and, where the company allows it, delete (GL-6).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type {
   RegisterQuery,
   RegisterResult,
@@ -10,7 +12,7 @@ import type {
   SimpleEntry,
 } from '../../ledger/register';
 import type { AccountRow } from '../../shared/accounts';
-import { formatMoney } from '../../shared/money';
+import { formatMoney, type Cents } from '../../shared/money';
 import { RANGE_PRESETS, rangeFor, type RangePreset } from '../../shared/periods';
 import { db } from '../../shared/workerClient';
 import type { SessionStatus } from '../../worker/companySession';
@@ -22,7 +24,8 @@ import {
   todayIso,
   useClosedPeriodOverride,
 } from '../ledgerUi';
-import { ErrorText } from '../ui';
+import { registerAccount, setRegisterAccount } from '../settings';
+import { Dialog, ErrorText } from '../ui';
 
 const PAGE = 200;
 type Period = RangePreset | 'all';
@@ -34,20 +37,50 @@ const SOURCES: Record<string, string> = {
   register: 'Quick entry',
 };
 
+/** With one account chosen: how its money in and out are named, and how its balance reads. */
+interface AccountView {
+  out: string;
+  in: string;
+  /** A card or loan shows what's owed as a positive balance */
+  sign: 1 | -1;
+}
+
+function accountView(a: AccountRow | undefined): AccountView | null {
+  if (!a) return null;
+  if (a.type === 'liability') return { out: 'Charge', in: 'Payment', sign: -1 };
+  if (a.type === 'asset') return { out: 'Payment', in: 'Deposit', sign: 1 };
+  return { out: 'Decrease', in: 'Increase', sign: a.type === 'expense' ? 1 : -1 };
+}
+
 export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: number) => void }) {
+  const companyId = props.status.companyId ?? '';
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [fyStartMonth, setFyStartMonth] = useState(1);
   const [postedEdits, setPostedEdits] = useState(false);
   const [period, setPeriod] = useState<Period>('all');
-  const [query, setQuery] = useState<RegisterQuery>({ scope: 'pl', order: 'desc' });
+  const [query, setQuery] = useState<RegisterQuery>(() => ({
+    scope: 'all',
+    order: 'asc',
+    accountId: registerAccount(companyId),
+  }));
   const [limit, setLimit] = useState(PAGE);
   const [result, setResult] = useState<RegisterResult | null>(null);
   const [open, setOpen] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
   const [version, setVersion] = useState(0);
+  // Where to put the view after the next result: at the latest transaction,
+  // or where it was after loading earlier ones
+  const scroll = useRef<'latest' | { fromBottom: number } | null>('latest');
   const readOnly = props.status.readOnly;
 
   useEffect(() => {
-    void db.accounts().then(setAccounts);
+    void db.accounts().then((list) => {
+      setAccounts(list);
+      // A remembered account that no longer exists is forgotten
+      setQuery((q) =>
+        q.accountId && !list.some((a) => a.id === q.accountId) ? { ...q, accountId: null } : q,
+      );
+    });
     void db.details().then((d) => setFyStartMonth(d.fiscalYearStartMonth));
     void db.postedEdits().then(setPostedEdits);
   }, [props.status.companyId, props.status.lastSavedAt]);
@@ -55,7 +88,9 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
   useEffect(() => {
     let current = true;
     const t = setTimeout(() => {
-      void db.register({ ...query, limit }).then((r) => current && setResult(r));
+      void db
+        .register({ ...query, limit, balanceAccountId: query.accountId ?? null })
+        .then((r) => current && setResult(r));
     }, 150);
     return () => {
       current = false;
@@ -63,12 +98,25 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
     };
   }, [query, limit, props.status.lastSavedAt, version]);
 
+  useLayoutEffect(() => {
+    const target = scroll.current;
+    if (!result || !target) return;
+    scroll.current = null;
+    const root = document.documentElement;
+    if (target === 'latest') {
+      window.scrollTo(0, query.order === 'asc' ? root.scrollHeight : 0);
+    } else {
+      window.scrollTo(0, root.scrollHeight - target.fromBottom);
+    }
+  }, [result, query.order]);
+
   const changed = () => {
     setOpen(null);
     setVersion((v) => v + 1);
   };
   const setQ = (q: Partial<RegisterQuery>) => {
     setLimit(PAGE);
+    scroll.current = 'latest';
     setQuery({ ...query, ...q });
   };
   const choosePeriod = (p: Period) => {
@@ -76,13 +124,29 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
     if (p === 'all') setQ({ from: null, to: null });
     else if (p !== 'custom') setQ(rangeFor(p, todayIso(), fyStartMonth));
   };
+  const more = () => {
+    if (query.order === 'asc') {
+      const root = document.documentElement;
+      scroll.current = { fromBottom: root.scrollHeight - window.scrollY };
+    }
+    setLimit(limit + PAGE);
+  };
+
+  const chosen = accounts.find((a) => a.id === query.accountId);
+  const view = accountView(chosen);
   const net = result ? result.totals.income - result.totals.expense : 0;
+  const remaining = result ? result.count - result.rows.length : 0;
+  const moreButton = remaining > 0 && (
+    <div className="buttons">
+      <button className="secondary" onClick={more}>
+        {query.order === 'asc' ? 'Show earlier' : 'Show more'} ({remaining.toLocaleString('en-US')}{' '}
+        more)
+      </button>
+    </div>
+  );
 
   return (
     <section className="register">
-      <h2>Transactions</h2>
-      {!readOnly && <QuickAdd accounts={accounts} onAdded={changed} />}
-
       <div className="fields register-filters">
         <label className="short">
           Period
@@ -121,7 +185,10 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
           label="Account"
           accounts={accounts}
           value={query.accountId ?? ''}
-          onChange={(id) => setQ({ accountId: id || null })}
+          onChange={(id) => {
+            setRegisterAccount(companyId, id || null);
+            setQ({ accountId: id || null });
+          }}
           emptyLabel="Any account"
         />
         <label>
@@ -132,14 +199,14 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
             onChange={(e) => setQ({ search: e.target.value })}
           />
         </label>
-        <label>
+        <label className="medium">
           Show
           <select
             value={query.scope}
             onChange={(e) => setQ({ scope: e.target.value as 'pl' | 'all' })}
           >
-            <option value="pl">Income and expenses</option>
             <option value="all">All transactions</option>
+            <option value="pl">Income and expenses</option>
           </select>
         </label>
         <label className="short">
@@ -148,8 +215,8 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
             value={query.order}
             onChange={(e) => setQ({ order: e.target.value as 'asc' | 'desc' })}
           >
-            <option value="desc">Newest first</option>
             <option value="asc">Oldest first</option>
+            <option value="desc">Newest first</option>
           </select>
         </label>
         <label className="check inline">
@@ -164,21 +231,7 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
 
       {result && (
         <>
-          <p className="register-totals">
-            <span>
-              Income <strong>{formatMoney(result.totals.income)}</strong>
-            </span>
-            <span>
-              Expenses <strong>{formatMoney(result.totals.expense)}</strong>
-            </span>
-            <span>
-              Net <strong className={net < 0 ? 'error-text' : undefined}>{formatMoney(net)}</strong>
-            </span>
-            <span className="muted">
-              {result.count.toLocaleString('en-US')}{' '}
-              {result.count === 1 ? 'transaction' : 'transactions'}
-            </span>
-          </p>
+          {query.order === 'asc' && moreButton}
           {result.rows.length === 0 ? (
             <p className="muted">No transactions match.</p>
           ) : (
@@ -190,8 +243,18 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
                   <th>Payee</th>
                   <th>Category</th>
                   <th>Account</th>
-                  <th className="num">Income</th>
-                  <th className="num">Expense</th>
+                  {view ? (
+                    <>
+                      <th className="num">{view.out}</th>
+                      <th className="num">{view.in}</th>
+                      <th className="num">Balance</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="num">Income</th>
+                      <th className="num">Expense</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -199,6 +262,7 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
                   <RegisterLine
                     key={r.id}
                     row={r}
+                    view={view}
                     open={open === r.id}
                     onToggle={() => setOpen(open === r.id ? null : r.id)}
                     accounts={accounts}
@@ -211,14 +275,43 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
               </tbody>
             </table>
           )}
-          {result.rows.length < result.count && (
-            <div className="buttons">
-              <button className="secondary" onClick={() => setLimit(limit + PAGE)}>
-                Show more ({(result.count - result.rows.length).toLocaleString('en-US')} more)
-              </button>
-            </div>
-          )}
+          {query.order === 'desc' && moreButton}
+          <div className="register-foot">
+            <p className="register-totals">
+              <span>
+                Income <strong>{formatMoney(result.totals.income)}</strong>
+              </span>
+              <span>
+                Expenses <strong>{formatMoney(result.totals.expense)}</strong>
+              </span>
+              <span>
+                Net{' '}
+                <strong className={net < 0 ? 'error-text' : undefined}>{formatMoney(net)}</strong>
+              </span>
+              <span className="muted">
+                {result.count.toLocaleString('en-US')}{' '}
+                {result.count === 1 ? 'transaction' : 'transactions'}
+              </span>
+            </p>
+            {!readOnly && <button onClick={() => setAdding(true)}>Add Transaction</button>}
+          </div>
         </>
+      )}
+      {adding && (
+        <Dialog title="Add transaction" onClose={() => setAdding(false)}>
+          <QuickAdd
+            accounts={accounts}
+            defaultMoneyAccount={
+              chosen && (chosen.type === 'asset' || chosen.type === 'liability') ? chosen.id : ''
+            }
+            onAdded={() => {
+              setAdding(false);
+              scroll.current = 'latest';
+              changed();
+            }}
+            onCancel={() => setAdding(false)}
+          />
+        </Dialog>
       )}
     </section>
   );
@@ -226,6 +319,7 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
 
 function RegisterLine(props: {
   row: RegisterRow;
+  view: AccountView | null;
   open: boolean;
   onToggle: () => void;
   accounts: AccountRow[];
@@ -235,7 +329,10 @@ function RegisterLine(props: {
   onOpenEntry: (id: number) => void;
 }) {
   const r = props.row;
+  const v = props.view;
   const isVoid = r.status === 'void';
+  const money = (c: Cents | null) => (c ? formatMoney(c) : '');
+  const moved = r.accountAmount ?? 0;
   return (
     <>
       <tr
@@ -256,12 +353,23 @@ function RegisterLine(props: {
         </td>
         <td>{r.categories}</td>
         <td>{r.accounts}</td>
-        <td className="num">{r.income ? formatMoney(r.income) : ''}</td>
-        <td className="num">{r.expense ? formatMoney(r.expense) : ''}</td>
+        {v ? (
+          <>
+            {/* Money out lowers the balance as it reads: a credit for a bank, a charge for a card */}
+            <td className="num">{money(moved * v.sign < 0 ? Math.abs(moved) : null)}</td>
+            <td className="num">{money(moved * v.sign > 0 ? Math.abs(moved) : null)}</td>
+            <td className="num">{r.balance === null ? '' : formatMoney(r.balance * v.sign)}</td>
+          </>
+        ) : (
+          <>
+            <td className="num">{money(r.income)}</td>
+            <td className="num">{money(r.expense)}</td>
+          </>
+        )}
       </tr>
       {props.open && (
         <tr className="editor">
-          <td colSpan={7}>
+          <td colSpan={v ? 8 : 7}>
             <EntryEditor {...props} />
           </td>
         </tr>
@@ -508,16 +616,20 @@ function CategoryLines(props: {
   );
 }
 
-/** Add an income or expense in one line. */
-function QuickAdd(props: { accounts: AccountRow[]; onAdded: () => void }) {
+/** Add an income or expense: the Add Transaction dialog. */
+function QuickAdd(props: {
+  accounts: AccountRow[];
+  defaultMoneyAccount: string;
+  onAdded: () => void;
+  onCancel: () => void;
+}) {
   const [kind, setKind] = useState<'expense' | 'income'>('expense');
   const [date, setDate] = useState(todayIso());
   const [payee, setPayee] = useState('');
-  const [money, setMoney] = useState('');
+  const [money, setMoney] = useState(props.defaultMoneyAccount);
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
-  const [added, setAdded] = useState<string | null>(null);
   const { attempt, busy, error, dialog } = useClosedPeriodOverride();
   const exclude = new Set(money ? [money] : []);
   const categories = props.accounts.filter(
@@ -536,13 +648,6 @@ function QuickAdd(props: { accounts: AccountRow[]; onAdded: () => void }) {
         { date, name: payee, memo },
         passphrase,
       );
-      setAdded(
-        `Added ${kind === 'expense' ? 'expense' : 'income'} ${formatMoney(cents(amount))}${payee ? ` (${payee})` : ''}.`,
-      );
-      setPayee('');
-      setAmount('');
-      setMemo('');
-      setCategory('');
       props.onAdded();
     });
 
@@ -604,14 +709,16 @@ function QuickAdd(props: { accounts: AccountRow[]; onAdded: () => void }) {
           Memo
           <input value={memo} onChange={(e) => setMemo(e.target.value)} />
         </label>
-        <div className="buttons">
-          <button type="submit" disabled={busy || !money || !category || cents(amount) <= 0}>
-            Add {kind}
-          </button>
-        </div>
       </div>
       <ErrorText>{error}</ErrorText>
-      {added && !error && <p className="muted small">{added}</p>}
+      <div className="buttons">
+        <button type="submit" disabled={busy || !money || !category || cents(amount) <= 0}>
+          Add {kind}
+        </button>
+        <button type="button" className="secondary" disabled={busy} onClick={props.onCancel}>
+          Cancel
+        </button>
+      </div>
       {dialog}
     </form>
   );

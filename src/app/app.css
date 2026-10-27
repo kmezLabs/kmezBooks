@@ -789,20 +789,25 @@ table.reconcile-items tr.cleared td {
 
 /* ---- transactions register (GL-9) ---- */
 
-form.quick-add {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-}
-
 form.quick-add .fields {
-  margin: 6px 0 0;
+  margin: 10px 0 0;
 }
 
-form.quick-add .fields .buttons {
-  margin: 0;
+.register-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+
+.register-filters {
+  margin-top: 0;
+}
+
+.register-filters label.medium {
+  flex: 0 1 190px;
 }
 
 .segmented {

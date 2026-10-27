@@ -11,7 +11,7 @@ How the MVP in `docs/MVP-REQUIREMENTS.md` gets built. M1 is planned in detail; M
 | M1 | Technical test + project scaffold | Risks behind DF-1, DF-2, Client and Performance NFRs |
 | M2 | Company files, owner unlock, audit log (done) | DF-1–DF-4, DF-9–DF-11, CO-1–CO-4, US-1, US-3, US-5 |
 | M3 | Ledger core and period close (done) | GL-1–GL-4, GL-6–GL-8, PC-1–PC-3 |
-| M4 | Reports (done) | RP-1–RP-6 |
+| M4 | Reports (done) | RP-1–RP-6, RP-10 |
 | M5 | QuickBooks Online migration | MG-1–MG-6 |
 | M6 | Banking | BK-1, BK-3–BK-9 |
 | M7 | Expenses, bills, sales | EX-1, EX-2, AP-1–AP-5, AR-1–AR-8 |
@@ -187,6 +187,7 @@ Built on branch `m4-reports`. Report builders tested in Node, including property
 | RP-4 | Trial Balance, and General Ledger detail with the balance before the period, every line with a running balance, the "split" account (or "-Split-"), and totals. General ledger shows at most 20,000 lines and says so; choose one account or a shorter period |
 | RP-5 | Every account figure opens the general ledger for that account and period; Retained Earnings and Net Income open the P&L behind them; a ledger line opens its journal entry, with "Back to report". A Back button retraces drill-downs |
 | RP-6 | Export CSV (UTF-8, Excel-friendly) and Excel (.xlsx with numbers as numbers, bold totals); "Print or save as PDF" uses a print stylesheet that shows only the report, and Chrome's print dialog saves it as PDF |
+| RP-10 | Added Oct 27 at the owner's request: a "% of income" checkbox on the P&L adds a "% of Income" column (each figure over total income, to 0.01%, rounded half away from zero; blank when there is no income). It stays ticked across report switches and drill-downs, and exports as percentages (CSV "12.34%", Excel numbers formatted 0.00%) |
 
 All reports are cash basis with no conversion step, because the ledger is cash basis (GL-8).
 

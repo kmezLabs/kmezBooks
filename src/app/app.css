@@ -615,6 +615,11 @@ table.report tr.clickable:hover td {
   color: var(--accent);
 }
 
+/* Sit level with the date inputs beside it */
+.report-controls label.check.inline {
+  min-height: 2.1rem;
+}
+
 table.report-gl td:first-child {
   white-space: nowrap;
 }

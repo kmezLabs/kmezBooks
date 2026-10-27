@@ -6,6 +6,7 @@ import { postEntry, voidEntry } from '../../src/ledger/postEntry';
 import {
   balanceSheet,
   generalLedger,
+  percentOf,
   profitAndLoss,
   runReport,
   trialBalanceReport,
@@ -92,6 +93,52 @@ describe('profit and loss (RP-1)', () => {
       'Net Income',
     ]);
     expect(amount(r, 'Net Income')).toBe(0);
+  });
+
+  it('adds each figure as a percentage of total income when asked (RP-10)', () => {
+    const plain = profitAndLoss(db, { kind: 'pl', from: '2026-01-01', to: '2026-01-31' });
+    expect(plain.columns).toHaveLength(2);
+    expect(plain.rows.every((x) => x.cells.length === 2)).toBe(true);
+
+    const r = profitAndLoss(db, {
+      kind: 'pl',
+      from: '2026-01-01',
+      to: '2026-01-31',
+      percentOfIncome: true,
+    });
+    expect(r.columns[2]).toEqual({ label: '% of Income', numeric: true, unit: 'percent' });
+    const pct = (label: string) => row(r, label)?.cells[2];
+    expect(pct('Income')).toBeNull(); // heading
+    expect(pct('Sales')).toBe(16_67);
+    expect(pct('Services')).toBe(83_33);
+    expect(pct('Total Income')).toBe(100_00);
+    expect(pct('Gross Profit')).toBe(93_33);
+    expect(pct('Utilities')).toBe(1_67);
+    expect(pct('Phone')).toBe(1_00);
+    expect(pct('Total Utilities')).toBe(2_67);
+    expect(pct('Total Expenses')).toBe(27_67);
+    expect(pct('Net Income')).toBe(65_67);
+    expect(amount(r, 'Net Income')).toBe(3_940_00);
+  });
+
+  it('leaves percentages blank when there is no income (RP-10)', () => {
+    const r = profitAndLoss(db, {
+      kind: 'pl',
+      from: '2027-01-01',
+      to: '2027-01-31',
+      percentOfIncome: true,
+    });
+    expect(r.rows.map((x) => x.cells[2])).toEqual([null, null, null, null, null]);
+  });
+
+  it('rounds percentages half away from zero, by the sign of income too (RP-10)', () => {
+    expect(percentOf(1, 20_000n)).toBe(1); // 0.005% → 0.01%
+    expect(percentOf(-1, 20_000n)).toBe(-1);
+    expect(percentOf(1, 30_000n)).toBe(0);
+    expect(percentOf(100, -1_000n)).toBe(-10_00);
+    expect(percentOf(-100, -1_000n)).toBe(10_00);
+    expect(percentOf(5, 0n)).toBeNull();
+    expect(percentOf(Number.MAX_SAFE_INTEGER, 1n)).toBeNull(); // too large to show
   });
 });
 

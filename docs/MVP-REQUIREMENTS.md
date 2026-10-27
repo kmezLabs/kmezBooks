@@ -163,6 +163,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | RP-7 | Columns by month or quarter, and prior-period comparison | S |
 | RP-8 | Statement of cash flows | S |
 | RP-9 | Combined view across all four companies, side by side (opens all four company folders) | S |
+| RP-10 | Profit and loss option to show each line as a percentage of total income ("% of Income" column, on screen and in exports) | S |
 
 ### QuickBooks migration (MG)
 

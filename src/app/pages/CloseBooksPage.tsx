@@ -1,12 +1,9 @@
-// Period close (PC-1, PC-2, PC-3) and a trial balance to check the books.
+// Period close (PC-1, PC-2, PC-3). The trial balance is in Reports.
 
 import { useEffect, useState } from 'react';
-import { TYPE_LABELS } from '../../shared/accounts';
-import { formatMoney } from '../../shared/money';
-import type { TrialBalance } from '../../ledger/balances';
 import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
-import { formatDate, todayIso } from '../ledgerUi';
+import { formatDate } from '../ledgerUi';
 import { ErrorText, useAction } from '../ui';
 
 function ClosingDate({ status }: { status: SessionStatus }) {
@@ -78,76 +75,18 @@ function ClosingDate({ status }: { status: SessionStatus }) {
   );
 }
 
-function TrialBalanceView({ status }: { status: SessionStatus }) {
-  const [asOf, setAsOf] = useState(todayIso());
-  const [tb, setTb] = useState<TrialBalance | null>(null);
-  const { error, run } = useAction();
-
-  useEffect(() => {
-    if (!asOf) return;
-    void run(async () => setTb(await db.trialBalance(asOf)));
-  }, [asOf, run, status.lastSavedAt]);
-
-  return (
-    <>
-      <h3>Trial balance</h3>
-      <div className="fields">
-        <label className="short">
-          As of
-          <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
-        </label>
-      </div>
-      <ErrorText>{error}</ErrorText>
-      {tb && (
-        <>
-          <p className="muted">
-            Income and expenses since the fiscal year began on {formatDate(tb.fiscalYearStart)};
-            earlier years' net income is in Retained Earnings. Nothing needs to be run at year end
-            (PC-3).
-          </p>
-          {tb.rows.length === 0 ? (
-            <p className="muted">No posted entries by this date.</p>
-          ) : (
-            <table className="list">
-              <thead>
-                <tr>
-                  <th>Account</th>
-                  <th className="num">Debit</th>
-                  <th className="num">Credit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tb.rows.map((r) => (
-                  <tr key={r.accountId ?? r.account}>
-                    <td>
-                      {r.account} <span className="muted">· {TYPE_LABELS[r.type]}</span>
-                    </td>
-                    <td className="num">{r.debit ? formatMoney(r.debit) : ''}</td>
-                    <td className="num">{r.credit ? formatMoney(r.credit) : ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Total</td>
-                  <td className="num">{formatMoney(tb.totalDebit)}</td>
-                  <td className="num">{formatMoney(tb.totalCredit)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          )}
-        </>
-      )}
-    </>
-  );
-}
-
 export function CloseBooksPage({ status }: { status: SessionStatus }) {
   return (
     <section>
       <h2>Close books</h2>
       <ClosingDate status={status} />
-      <TrialBalanceView status={status} />
+      <h3>Year end</h3>
+      <p className="muted">
+        Nothing needs to be run at year end (PC-3). The balance sheet and trial balance show each
+        earlier year's net income in Retained Earnings, and income and expenses start again from
+        zero at the start of each fiscal year. Check the books in Reports, for example with the
+        trial balance as of the closing date.
+      </p>
     </section>
   );
 }

@@ -553,3 +553,120 @@ ul.files {
 label.file-add {
   margin: 8px 0;
 }
+
+/* ---- reports (M4) ---- */
+
+.report-sheet {
+  margin-top: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 16px 20px;
+}
+
+.report-head {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.report-head h2 {
+  margin: 2px 0;
+  font-size: 1.2rem;
+}
+
+.report-company {
+  font-weight: 600;
+}
+
+table.report td,
+table.report th {
+  border-bottom: none;
+  padding: 3px 8px;
+}
+
+table.report thead th {
+  border-bottom: 1px solid var(--line);
+}
+
+table.report tr.section td {
+  font-weight: 600;
+  padding-top: 10px;
+}
+
+table.report tr.subtotal td {
+  font-weight: 600;
+}
+
+table.report tr.subtotal td.num {
+  border-top: 1px solid var(--line);
+}
+
+table.report tr.total td {
+  font-weight: 700;
+  padding-top: 6px;
+}
+
+table.report tr.total td.num {
+  border-top: 1px solid var(--fg);
+}
+
+table.report tr.clickable:hover td {
+  background: var(--panel);
+  color: var(--accent);
+}
+
+table.report-gl td:first-child {
+  white-space: nowrap;
+}
+
+.report-foot {
+  margin-top: 12px;
+  font-size: 0.8rem;
+}
+
+/* ---- print: just the report ---- */
+
+@media print {
+  :root {
+    --fg: #000;
+    --muted: #444;
+    --bg: #fff;
+    --line: #999;
+  }
+  body {
+    background: #fff;
+  }
+  .topbar,
+  .sidebar,
+  .banner,
+  .report-controls,
+  .report-foot + *,
+  button {
+    display: none !important;
+  }
+  .workspace .body {
+    display: block;
+  }
+  .workspace main,
+  section.reports {
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    max-width: none;
+  }
+  .report-sheet {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+  table.report {
+    font-size: 10pt;
+  }
+  table.report thead {
+    display: table-header-group;
+  }
+  table.report tr {
+    break-inside: avoid;
+  }
+}

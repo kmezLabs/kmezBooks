@@ -22,6 +22,8 @@ import {
 } from '../ledger/entries';
 import { emitLedgerEvent } from '../ledger/events';
 import { isIsoDate, postEntry, voidEntry, type EntryInput } from '../ledger/postEntry';
+import { runReport } from '../ledger/reports';
+import type { Report, ReportRequest } from '../shared/report';
 import type { AccountInput, AccountRow } from '../shared/accounts';
 import {
   addAttachment,
@@ -605,6 +607,11 @@ export class CompanySession {
     if (date !== null && !isIsoDate(date)) throw new LedgerRuleError('Enter a valid date.');
     this.writable().db.exec({ sql: 'UPDATE company SET closing_date = ?', bind: [date] });
     this.touch();
+  }
+
+  /** Run a report (RP-1, RP-2, RP-4). */
+  report(req: ReportRequest): Report {
+    return runReport(this.open_().db, req);
   }
 
   trialBalance(asOf: string): TrialBalance {

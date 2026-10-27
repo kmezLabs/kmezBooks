@@ -19,6 +19,8 @@ const ACTIONS: Record<string, string> = {
   schema_upgrade: 'Upgraded the company file',
   passphrase_change: 'Changed the passphrase',
   closed_period_override: 'Changed a closed period',
+  post: 'Posted an entry',
+  void: 'Voided an entry',
 };
 
 /** For an update, just the fields that changed. */

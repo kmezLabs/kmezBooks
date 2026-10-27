@@ -11,6 +11,7 @@ import { CloseBooksPage } from './pages/CloseBooksPage';
 import { CompanyPage } from './pages/CompanyPage';
 import { JournalPage } from './pages/JournalPage';
 import { M1LabPage } from './pages/M1LabPage';
+import { ReportsPage } from './pages/ReportsPage';
 import { ModulesPage } from './pages/ModulesPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { pickFolder, rememberFolder } from './recentFolders';
@@ -19,6 +20,7 @@ import { ErrorText, formatDateTime, formatTime, useAction } from './ui';
 const PAGES = {
   journal: 'Journal entries',
   accounts: 'Accounts',
+  reports: 'Reports',
   close: 'Close books',
   company: 'Company',
   modules: 'Modules',
@@ -30,7 +32,7 @@ const PAGES = {
 type Page = keyof typeof PAGES;
 
 const NAV: { group: string; pages: Page[] }[] = [
-  { group: 'Books', pages: ['journal', 'accounts', 'close'] },
+  { group: 'Books', pages: ['journal', 'accounts', 'reports', 'close'] },
   { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
   { group: 'Development', pages: ['m1'] },
 ];
@@ -114,11 +116,20 @@ function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () 
 export function Workspace({ status }: { status: SessionStatus }) {
   const [page, setPage] = useState<Page>('journal');
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
+  // An entry opened from a report, so its Back button returns to the report
+  const [openEntry, setOpenEntry] = useState<number | null>(null);
+  // Reports stay mounted once visited, so drilling to an entry and back keeps the report
+  const [reportsVisited, setReportsVisited] = useState(false);
+  // Counts sidebar clicks, so clicking the current page's item returns to its list
+  const [visit, setVisit] = useState(0);
   const { busy, run } = useAction();
 
   const go = (p: Page) => {
     setPage(p);
+    setVisit((v) => v + 1);
+    setOpenEntry(null);
     if (p !== 'journal') setAccountFilter(null);
+    if (p === 'reports') setReportsVisited(true);
   };
 
   return (
@@ -159,11 +170,20 @@ export function Workspace({ status }: { status: SessionStatus }) {
           <Problems status={status} onBackups={() => go('backups')} />
           {page === 'journal' && (
             <JournalPage
-              // Remount when the filter changes, so the list starts over
-              key={accountFilter ?? 'all'}
+              // Remount when the filter or opened entry changes, so the page starts over
+              key={`${accountFilter ?? 'all'}:${openEntry ?? ''}:${visit}`}
               status={status}
               accountFilter={accountFilter}
               onClearAccountFilter={() => setAccountFilter(null)}
+              initialEntryId={openEntry}
+              onBackToReport={
+                openEntry
+                  ? () => {
+                      setOpenEntry(null);
+                      setPage('reports');
+                    }
+                  : undefined
+              }
             />
           )}
           {page === 'accounts' && (
@@ -174,6 +194,17 @@ export function Workspace({ status }: { status: SessionStatus }) {
                 setPage('journal');
               }}
             />
+          )}
+          {reportsVisited && (
+            <div hidden={page !== 'reports'}>
+              <ReportsPage
+                status={status}
+                onOpenEntry={(id) => {
+                  setOpenEntry(id);
+                  setPage('journal');
+                }}
+              />
+            </div>
           )}
           {page === 'close' && <CloseBooksPage status={status} />}
           {page === 'company' && <CompanyPage status={status} />}

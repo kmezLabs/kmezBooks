@@ -46,3 +46,12 @@ describe('money (CLAUDE.md rule 9)', () => {
     expect(sumCents([10, 20])).toBe(30);
   });
 });
+
+describe('centsToDecimal', () => {
+  it('writes plain decimals for exports', async () => {
+    const { centsToDecimal } = await import('./money');
+    expect(centsToDecimal(123456789)).toBe('1234567.89');
+    expect(centsToDecimal(-5)).toBe('-0.05');
+    expect(centsToDecimal(0)).toBe('0.00');
+  });
+});

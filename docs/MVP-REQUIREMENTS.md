@@ -159,7 +159,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | RP-3 | Run either report on demand for any company, with presets (this month, this quarter, year to date, last year) and custom dates | M |
 | RP-4 | Trial balance and general ledger detail (also used to verify the QuickBooks migration) | M |
 | RP-5 | Drill down from any report figure to the underlying transactions | M |
-| RP-6 | Export to PDF and CSV/Excel; print | M |
+| RP-6 | Export to PDF and CSV/Excel; print (PDF through the browser's print dialog, which prints only the report) | M |
 | RP-7 | Columns by month or quarter, and prior-period comparison | S |
 | RP-8 | Statement of cash flows | S |
 | RP-9 | Combined view across all four companies, side by side (opens all four company folders) | S |

@@ -11,7 +11,7 @@ How the MVP in `docs/MVP-REQUIREMENTS.md` gets built. M1 is planned in detail; M
 | M1 | Technical test + project scaffold | Risks behind DF-1, DF-2, Client and Performance NFRs |
 | M2 | Company files, owner unlock, audit log (done) | DF-1–DF-4, DF-9–DF-11, CO-1–CO-4, US-1, US-3, US-5 |
 | M3 | Ledger core and period close (done) | GL-1–GL-4, GL-6–GL-8, PC-1–PC-3 |
-| M4 | Reports | RP-1–RP-6 |
+| M4 | Reports (done) | RP-1–RP-6 |
 | M5 | QuickBooks Online migration | MG-1–MG-6 |
 | M6 | Banking | BK-1, BK-3–BK-9 |
 | M7 | Expenses, bills, sales | EX-1, EX-2, AP-1–AP-5, AR-1–AR-8 |
@@ -146,7 +146,7 @@ Decisions made while building (all adjustable):
 
 Left for later milestones:
 
-- Bulk imports (M5) would write one audit row per imported row; add a bulk-import mode that logs one summary event instead.
+- Bulk imports (M5) would write one audit row per imported entry; add a bulk-import mode that logs one summary event instead (see M5).
 - The M1 technical-test page stays until the M1 hand checks are recorded.
 
 ## M3 — Ledger core and period close (done Oct 26)
@@ -175,15 +175,31 @@ Decisions made while building:
 - Removing an attachment unlinks it; the encrypted file stays, so restoring an older database backup still finds it.
 - The Vitest on-disk module cache is off: it didn't notice new migration files.
 
-## M4 — Reports (outline)
+## M4 — Reports (done Oct 26)
 
-- Trial balance, general ledger detail, P&L, balance sheet (RP-1, RP-2, RP-4), straight from posted ledger lines.
-- Date presets and custom ranges (RP-3); drill-down from any figure to the entries behind it (RP-5); CSV/Excel and PDF export, print (RP-6).
-- Use the M1 measurements. If 17-year reports are slow, add a monthly account-balance table maintained by triggers, and test that it matches the raw lines.
+Built on branch `m4-reports`. Report builders tested in Node, including property tests; the Reports page checked end to end in headless Chrome, with real CSV and Excel downloads and a printed PDF.
+
+| Requirement | How |
+| --- | --- |
+| RP-1 | Profit and Loss for any range: Income, Cost of Goods Sold and Gross Profit (when there is any), Expenses, Net Income. Sub-accounts nest under their parent with a "Total" line |
+| RP-2 | Balance Sheet as of any date: Assets, Liabilities, Equity with Retained Earnings (earlier years' net income) and Net Income (this fiscal year). A property test checks it always balances and that its net income equals the P&L's |
+| RP-3 | Presets: this month, quarter, year to date and year; last month, quarter and year; custom dates. As-of presets for the balance sheet and trial balance. Quarters and years follow the company's fiscal year |
+| RP-4 | Trial Balance, and General Ledger detail with the balance before the period, every line with a running balance, the "split" account (or "-Split-"), and totals. General ledger shows at most 20,000 lines and says so; choose one account or a shorter period |
+| RP-5 | Every account figure opens the general ledger for that account and period; Retained Earnings and Net Income open the P&L behind them; a ledger line opens its journal entry, with "Back to report". A Back button retraces drill-downs |
+| RP-6 | Export CSV (UTF-8, Excel-friendly) and Excel (.xlsx with numbers as numbers, bold totals); "Print or save as PDF" uses a print stylesheet that shows only the report, and Chrome's print dialog saves it as PDF |
+
+All reports are cash basis with no conversion step, because the ledger is cash basis (GL-8).
+
+Benchmark (`REPORT_BENCH=1`, Node, 17 years × 6,000 entries posted through `postEntry()`): one-year P&L 30 ms, 17-year P&L 0.4 s, balance sheet 0.7 s, trial balance 0.4 s, one account's general ledger for a year 0.35 s.
+
+The same benchmark found that the generated audit triggers made the company file 325 MB (71 MB of it ledger) because every entry and line was copied into the audit log as JSON. Fixed in migration 0008: journal entries and lines now get compact hand-written audit triggers, one "post" and one "void" event per entry with its date, ref, memo, source and amount. That gave 104 MB, of which about 33 MB is one audit row per entry.
+
+Also fixed: clicking the current page's sidebar item now returns to its list (after posting an entry, "Journal entries" did nothing).
 
 ## M5 — QuickBooks Online migration (outline)
 
 - List imports (MG-1): chart of accounts, customers, vendors, products/services.
+- **Import in bulk mode**: one audit event summarising each import run instead of one per entry, so 17 years of history adds about 71 MB (the ledger) rather than about 104 MB (M4 benchmark). Posting through `postEntry()` took about 60 s for 102,000 entries in Node; reuse prepared statements if the browser is much slower.
 - History import (MG-2, MG-3): parse the cash-basis exports and group rows back into balanced transactions. Keep dates, numbers, names and memos; entries carry `source_type = 'qbo_migration'`.
 - Dry run (MG-4): validate, map QuickBooks accounts to new accounts, and list errors before writing.
 - Writes go into a fresh company folder (MG-6), so a failed run is simply deleted.

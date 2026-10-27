@@ -14,7 +14,7 @@ import { LedgerRuleError } from '../worker/errors';
 import type { Database } from '../worker/sqlite';
 import { inSavepoint } from './tx';
 
-interface RawAccount {
+export interface RawAccount {
   id: string;
   number: string | null;
   name: string;
@@ -59,8 +59,38 @@ export function accountFullNames(db: Database): Map<string, string> {
 }
 
 /** All accounts as a tree (parents before their sub-accounts), by type then name, with posted balances. */
-export function listAccounts(db: Database): AccountRow[] {
+export interface TreeAccount extends RawAccount {
+  fullName: string;
+  depth: number;
+}
+
+/** Every account in display order: by type, then as a tree (parents first), by number and name. */
+export function accountTree(db: Database): TreeAccount[] {
   const raw = rawAccounts(db);
+  const fullNames = accountFullNames(db);
+  const children = new Map<string | null, RawAccount[]>();
+  for (const a of raw) {
+    const key = a.parentId && raw.some((p) => p.id === a.parentId) ? a.parentId : null;
+    children.set(key, [...(children.get(key) ?? []), a]);
+  }
+  const byName = (x: RawAccount, y: RawAccount) =>
+    (x.number ?? '').localeCompare(y.number ?? '', undefined, { numeric: true }) ||
+    x.name.localeCompare(y.name, undefined, { sensitivity: 'base' });
+  const out: TreeAccount[] = [];
+  const walk = (a: RawAccount, depth: number) => {
+    out.push({ ...a, fullName: fullNames.get(a.id) ?? a.name, depth });
+    for (const c of (children.get(a.id) ?? []).sort(byName)) walk(c, depth + 1);
+  };
+  for (const type of ACCOUNT_TYPES) {
+    for (const a of (children.get(null) ?? []).filter((x) => x.type === type).sort(byName)) {
+      walk(a, 0);
+    }
+  }
+  return out;
+}
+
+/** All accounts as a tree, with posted balances (the Accounts page). */
+export function listAccounts(db: Database): AccountRow[] {
   const stats = new Map(
     db
       .selectArrays(
@@ -72,32 +102,10 @@ export function listAccounts(db: Database): AccountRow[] {
       )
       .map((r) => [String(r[0]), { balance: Number(r[1]), lines: Number(r[2]) }]),
   );
-  const fullNames = accountFullNames(db);
-  const children = new Map<string | null, RawAccount[]>();
-  for (const a of raw) {
-    const key = a.parentId && raw.some((p) => p.id === a.parentId) ? a.parentId : null;
-    children.set(key, [...(children.get(key) ?? []), a]);
-  }
-  const byName = (x: RawAccount, y: RawAccount) =>
-    (x.number ?? '').localeCompare(y.number ?? '', undefined, { numeric: true }) ||
-    x.name.localeCompare(y.name, undefined, { sensitivity: 'base' });
-  const out: AccountRow[] = [];
-  const walk = (a: RawAccount, depth: number) => {
+  return accountTree(db).map((a) => {
     const s = stats.get(a.id);
-    out.push({
-      ...a,
-      fullName: fullNames.get(a.id) ?? a.name,
-      depth,
-      balance: s?.balance ?? 0,
-      hasHistory: (s?.lines ?? 0) > 0,
-    });
-    for (const c of (children.get(a.id) ?? []).sort(byName)) walk(c, depth + 1);
-  };
-  for (const type of ACCOUNT_TYPES) {
-    for (const a of (children.get(null) ?? []).filter((x) => x.type === type).sort(byName))
-      walk(a, 0);
-  }
-  return out;
+    return { ...a, balance: s?.balance ?? 0, hasHistory: (s?.lines ?? 0) > 0 };
+  });
 }
 
 function friendly(e: unknown, input: AccountInput): never {

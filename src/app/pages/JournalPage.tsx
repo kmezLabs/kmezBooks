@@ -29,8 +29,13 @@ export function JournalPage(props: {
   status: SessionStatus;
   accountFilter: string | null;
   onClearAccountFilter: () => void;
+  /** Open straight on this entry (from a report's drill-down, RP-5). */
+  initialEntryId?: number | null;
+  onBackToReport?: () => void;
 }) {
-  const [view, setView] = useState<View>({ kind: 'list' });
+  const [view, setView] = useState<View>(
+    props.initialEntryId ? { kind: 'entry', id: props.initialEntryId } : { kind: 'list' },
+  );
   if (view.kind === 'new') {
     return (
       <NewEntry
@@ -41,7 +46,12 @@ export function JournalPage(props: {
   }
   if (view.kind === 'entry') {
     return (
-      <EntryView status={props.status} id={view.id} onBack={() => setView({ kind: 'list' })} />
+      <EntryView
+        status={props.status}
+        id={view.id}
+        onBack={props.onBackToReport ?? (() => setView({ kind: 'list' }))}
+        backLabel={props.onBackToReport ? '← Back to report' : '← Journal entries'}
+      />
     );
   }
   return (
@@ -425,7 +435,12 @@ async function openFile(id: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-function EntryView(props: { status: SessionStatus; id: number; onBack: () => void }) {
+function EntryView(props: {
+  status: SessionStatus;
+  id: number;
+  onBack: () => void;
+  backLabel: string;
+}) {
   const [entry, setEntry] = useState<(EntryDetail & { files: AttachmentRow[] }) | null>(null);
   const [voiding, setVoiding] = useState(false);
   const { busy, error, run } = useAction();
@@ -441,7 +456,7 @@ function EntryView(props: { status: SessionStatus; id: number; onBack: () => voi
     <section>
       <div className="buttons">
         <button className="link" onClick={props.onBack}>
-          ← Journal entries
+          {props.backLabel}
         </button>
       </div>
       <h2>

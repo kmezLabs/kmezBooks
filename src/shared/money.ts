@@ -45,3 +45,8 @@ export function sumCents(values: readonly Cents[]): Cents {
   if (!Number.isSafeInteger(n)) throw new Error('Total is too large');
   return n;
 }
+
+/** 123456 → "1234.56": plain decimal for CSV and spreadsheet cells, no grouping. */
+export function centsToDecimal(cents: Cents): string {
+  return formatMoney(cents).replaceAll(',', '');
+}

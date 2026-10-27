@@ -177,10 +177,10 @@ export function Workspace({ status }: { status: SessionStatus }) {
         <button
           className="secondary"
           disabled={busy || status.saving}
-          title="Save, close the company and forget the key"
+          title="Save, close the company, forget the key and go back to the start screen"
           onClick={() => run(() => db.close())}
         >
-          Lock
+          Close company
         </button>
       </header>
       <div className="body">

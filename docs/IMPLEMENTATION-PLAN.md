@@ -123,7 +123,7 @@ Built on branch `m2-company-files`. Unit tests in Node, plus an end-to-end run o
 | Requirement | How |
 | --- | --- |
 | CO-1 | New company: legal name, EIN, address, fiscal year start, owner name, passphrase twice, then an empty folder. Company page edits the details. Validation in `src/shared/company.ts`, `CHECK` constraints as the backstop |
-| CO-2 | Active company in the top bar. Switching = **Lock**, then open another company from the start screen |
+| CO-2 | Active company in the top bar. Switching = **Close company**, then open another company from the start screen |
 | CO-3 | One folder and database per company; every table's `company_id` has a foreign key to the one company row (tested for every table) |
 | CO-4 | Modules page; `company_module` table. Screens for the modules arrive in M5–M7 |
 | DF-1 | Folder picker; recent-folders list (handles in IndexedDB, nothing else); permission asked on the click that opens a company |

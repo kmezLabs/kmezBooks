@@ -117,7 +117,7 @@ export function M1LabPage({ status }: { status: SessionStatus }) {
                 const bytes = await db.spikeSlowWrite(10);
                 record('Atomic-save test aborted', {
                   bytes,
-                  next: 'Lock and reopen the company: it must still open',
+                  next: 'Close and reopen the company: it must still open',
                 });
               })
             }

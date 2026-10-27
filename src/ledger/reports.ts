@@ -305,7 +305,8 @@ export function generalLedger(db: Database, req: ReportRequest, limit = GL_LINE_
   const lines = db.selectArrays(
     `SELECT l.account_id, e.date, e.id, e.ref, coalesce(l.memo, e.memo), l.debit, l.credit,
             (SELECT CASE WHEN count(DISTINCT x.account_id) = 1 THEN min(x.account_id) ELSE '' END
-             FROM journal_line x WHERE x.entry_id = l.entry_id AND x.id <> l.id)
+             FROM journal_line x WHERE x.entry_id = l.entry_id AND x.id <> l.id),
+            coalesce(l.name, e.name)
      FROM journal_line l
      JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted' AND e.date BETWEEN ? AND ?
      ${req.accountId ? 'WHERE l.account_id = ?' : ''}
@@ -330,12 +331,12 @@ export function generalLedger(db: Database, req: ReportRequest, limit = GL_LINE_
     rows.push({
       kind: 'section',
       depth: 0,
-      cells: [a.fullName, null, null, null, null, null, null, null],
+      cells: [a.fullName, null, null, null, null, null, null, null, null],
     });
     rows.push({
       kind: 'row',
       depth: 1,
-      cells: ['Beginning balance', null, null, null, null, null, null, Number(balance)],
+      cells: ['Beginning balance', null, null, null, null, null, null, null, Number(balance)],
     });
     let debits = 0n;
     let credits = 0n;
@@ -353,6 +354,7 @@ export function generalLedger(db: Database, req: ReportRequest, limit = GL_LINE_
           String(l[1]),
           String(l[2]),
           l[3] === null ? null : String(l[3]),
+          l[8] === null ? null : String(l[8]),
           l[4] === null ? null : String(l[4]),
           split ? (names.get(split) ?? '?') : '-Split-',
           debit ? Number(debit) : null,
@@ -371,6 +373,7 @@ export function generalLedger(db: Database, req: ReportRequest, limit = GL_LINE_
         null,
         null,
         null,
+        null,
         Number(debits),
         Number(credits),
         Number(balance),
@@ -384,6 +387,7 @@ export function generalLedger(db: Database, req: ReportRequest, limit = GL_LINE_
       { label: 'Date', numeric: false },
       { label: 'No.', numeric: false },
       { label: 'Ref', numeric: false },
+      { label: 'Name', numeric: false },
       { label: 'Memo', numeric: false },
       { label: 'Split', numeric: false },
       { label: 'Debit', numeric: true },

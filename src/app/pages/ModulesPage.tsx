@@ -6,7 +6,7 @@ import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
 import { ErrorText, useAction } from '../ui';
 
-const LABELS: Record<Module, { name: string; about: string; milestone: string }> = {
+const LABELS: Record<Module, { name: string; about: string; milestone: string | null }> = {
   sales: {
     name: 'Customers and sales',
     about: 'Estimates, invoices, sales receipts, payments',
@@ -25,8 +25,8 @@ const LABELS: Record<Module, { name: string; about: string; milestone: string }>
   },
   migration: {
     name: 'QuickBooks migration',
-    about: 'Import history from QuickBooks Online',
-    milestone: 'M5',
+    about: 'Import history from QuickBooks Online (QuickBooks import in the sidebar)',
+    milestone: null,
   },
 };
 
@@ -67,7 +67,8 @@ export function ModulesPage({ status }: { status: SessionStatus }) {
                 <strong>{LABELS[m].name}</strong>
                 <span className="muted">
                   {' '}
-                  — {LABELS[m].about} (arrives in {LABELS[m].milestone})
+                  — {LABELS[m].about}
+                  {LABELS[m].milestone && ` (arrives in ${LABELS[m].milestone})`}
                 </span>
               </span>
             </label>

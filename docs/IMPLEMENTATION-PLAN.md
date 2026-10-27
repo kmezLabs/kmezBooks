@@ -110,9 +110,9 @@ Acme LLC/                    folder the owner picks or creates
 
 ### Owner task, can run in parallel (needed before M5)
 
-- [ ] In QuickBooks Online, for one company and one year: check whether the **Journal** report offers a Cash basis option. Export Journal (Cash) if it does, otherwise **General Ledger** (Cash), to Excel
-- [ ] Also export that year's cash-basis Trial Balance and year-end Balance Sheet for the tie-out
-- [ ] Drop the files in a private folder outside the repo; they become anonymized fixtures in M5
+- [x] In QuickBooks Online, for one company and one year: check whether the **Journal** report offers a Cash basis option. Done Oct 27 with **Export data**: the Journal has no accounting method; the General Ledger, Trial Balance and Balance Sheet follow the company's default (set to Cash). See M5
+- [x] Also export that year's cash-basis Trial Balance and year-end Balance Sheet for the tie-out
+- [x] Drop the files in a private folder outside the repo (`C:\KM\QBO\<company>`); the fixtures are anonymized look-alikes written by `src/modules/migration/testing/qboFixtures.ts`
 
 **Done when:** the app installs from `localhost`; an encrypted company file round-trips; the atomic-save and change-check tests pass; measurements and the Android result are written up; `npm run check` is green.
 
@@ -196,15 +196,36 @@ The same benchmark found that the generated audit triggers made the company file
 
 Also fixed: clicking the current page's sidebar item now returns to its list (after posting an entry, "Journal entries" did nothing).
 
-## M5 — QuickBooks Online migration (outline)
+## M5 — QuickBooks Online migration (built Oct 27; real-data runs per company still to do)
 
-- List imports (MG-1): chart of accounts, customers, vendors, products/services.
-- **Import in bulk mode**: one audit event summarising each import run instead of one per entry, so 17 years of history adds about 71 MB (the ledger) rather than about 104 MB (M4 benchmark). Posting through `postEntry()` took about 60 s for 102,000 entries in Node; reuse prepared statements if the browser is much slower.
-- History import (MG-2, MG-3): parse the cash-basis exports and group rows back into balanced transactions. Keep dates, numbers, names and memos; entries carry `source_type = 'qbo_migration'`.
-- Dry run (MG-4): validate, map QuickBooks accounts to new accounts, and list errors before writing.
-- Writes go into a fresh company folder (MG-6), so a failed run is simply deleted.
-- Tie-out (MG-5): compare our trial balance at every year-end and the latest balance sheet with QuickBooks's cash-basis reports, with differences by account and year. Migrated history keeps any A/R or A/P amounts QuickBooks's own cash-basis reports still show, so the tie-out is exact.
-- Every edge case found in real exports becomes an anonymized fixture plus a Vitest test.
+Built on branch `m5-migration` in the `migration` module (`src/modules/migration/`). Tested in Node on anonymized exports in QuickBooks's exact layout, and against a real export (one company's 2025) in Node and end to end in headless Chrome: all 113 transactions imported, and the trial balance (23 accounts) and balance sheet (14 lines) match QuickBooks to the cent.
+
+What QuickBooks gives (from the real export): **Export data** writes one folder per period (`Company 20250101-20251231`) with Journal, General Ledger, Trial Balance, Balance Sheet, Profit and Loss and the contact lists as `.xlsx`; the Account List comes from Chart of accounts → Run report. The cash-basis reports say "Cash Basis" in their footer and follow the company's default accounting method. **The Journal has no accounting method**: it shows transactions as entered, so it equals cash basis only when there are no invoices or bills.
+
+| Requirement | How |
+| --- | --- |
+| MG-1 | Account List → accounts with QuickBooks's names, hierarchy (`Parent:Child`), numbers and descriptions; types and detail types mapped (`qboAccounts.ts`), editable in the dry run. Customer and vendor contact lists → new `customer` and `vendor` tables (migration 0009). Products and services: not yet (no sample export; they arrive with sales in M7) |
+| MG-2 | The owner picks one folder (or files); every `.xlsx` in it and its subfolders is recognised by its title, not its name. A small `.xlsx` reader (`xlsx.ts`) keeps amounts as decimal text → integer cents. Periods must follow each other without gaps or overlaps. Transactions come from the Journal when it matches the cash-basis General Ledger account by account; otherwise they are rebuilt from the General Ledger (lines with the same date, type, number and name; leftovers combined per day). Balances before the first period become one opening entry, from the General Ledger's beginning balances |
+| MG-3 | Dates, numbers (check numbers written as `2045.0` → `2045`), names and memos kept. New `name` columns on entries and lines (migration 0010). QuickBooks's transaction type and the source file and row are kept in `qbo_entry` |
+| MG-4 | The dry run validates the files (company, cash basis, periods, balance of every transaction), shows the account mapping, then posts everything through `postEntry()` and the tie-out and rolls it all back. Errors are listed per file and row |
+| MG-5 | Every trial balance account by account, and the latest balance sheet line by line with its net income, compared with our books; differences listed by account and date |
+| MG-6 | One savepoint per run; it commits only with no errors and a clean tie-out (or differences the owner explicitly accepts). The schema refuses a run in a company that already has transactions, and migrated history (`source_type = 'qbo_migration'`) can only be posted by a running import |
+| MG-8 (S) | After an import, one button closes the books through the last imported day |
+| US-5 | Bulk mode: migrated entries don't get one audit event each; the run's row (inserted, then finished with its summary) is audited instead. Voiding a migrated entry is still audited |
+
+Decisions made while building:
+
+- Import into a **new, empty company** (create it with "Start with the standard chart" unticked). Accounts with the same name as an existing account, and the one-per-company accounts (Retained Earnings, Opening Balance Equity, Undeposited Funds), are matched to the existing ones.
+- Accounts shown as "(deleted)" are created inactive after their history is posted. Accounts missing from the Account List get their type from the balance sheet if possible; otherwise the owner chooses.
+- $0 transactions (voided in QuickBooks) are left out.
+- A dry run doesn't mark the company as having unsaved changes.
+- Migrated history doesn't announce each posting as a ledger event (rule 8): it is history, not new activity.
+
+Still to do (owner, with the app):
+
+- Export every year for each of the four companies and run the import into a new company per company; keep QuickBooks until all four tie out.
+- Each real-data surprise becomes a fixture case in `importer.test.ts`. The opt-in test `realData.test.ts` (`QBO_DIR=…`) dry-runs a folder of real exports on this computer without committing any of it.
+- The rebuild from the General Ledger is tested on fixtures only; the first company with invoices or bills will show whether QuickBooks's cash-basis General Ledger groups as expected.
 - Run per company against real data. The QuickBooks Online subscription stays active until all four pass.
 
 ## M6 — Banking (outline)
@@ -244,7 +265,7 @@ Bookkeeper handoff first (DF-5–DF-8, US-2, US-4), then by value: MG-8, MG-9, G
 
 | Risk | Mitigation |
 | --- | --- |
-| QuickBooks's cash-basis export can't be grouped back into balanced transactions | Owner task in M1 checks one year early; Journal report preferred; MG-7 (API) is the fallback |
+| QuickBooks's cash-basis export can't be grouped back into balanced transactions | Checked Oct 27 on one company: the Journal groups transactions and matched the cash-basis General Ledger exactly. For companies with invoices or bills, transactions are rebuilt from the General Ledger (only fixture-tested so far); MG-7 (API) remains the fallback |
 | Chrome for Android lacks the folder picker | Checked in M1; Android drops out of the MVP if so |
 | A large company is slow to open or save | Measured in M1; attachments already outside the database; no hard targets accepted |
 | Work lost in a crash | Save within seconds of each change; at most those seconds are lost |

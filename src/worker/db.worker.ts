@@ -4,6 +4,7 @@
 import * as Comlink from 'comlink';
 import type { EntryQuery } from '../ledger/entries';
 import type { EntryInput } from '../ledger/postEntry';
+import type { AccountChoices } from '../modules/migration/importer';
 import type { AccountInput } from '../shared/accounts';
 import type { ReportRequest } from '../shared/report';
 import type { NewCompany, CompanyDetails, Module } from './companyData';
@@ -83,6 +84,16 @@ const api = {
     session.addAttachment(entity, entityId, file),
   openAttachment: (id: string) => session.openAttachment(id),
   removeAttachment: (id: string) => session.removeAttachment(id),
+
+  // QuickBooks migration (M5)
+  migrationAnalyze: (source: FileSystemDirectoryHandle | File[]) =>
+    session.migrationAnalyze(source),
+  migrationRun: (
+    choices: AccountChoices,
+    opts: { commit: boolean; acceptDifferences?: boolean },
+    onProgress?: (done: number, total: number) => void,
+  ) => session.migrationRun(choices, opts, onProgress),
+  migrationDiscard: () => session.migrationDiscard(),
 
   listBackups: () => session.listBackups(),
   backupNow: () => session.backupNow(),

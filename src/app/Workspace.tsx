@@ -1,7 +1,9 @@
 // A company is open: header with the active company and save state (CO-2,
 // DF-2), problems that need the owner (DF-3, DF-4, DF-9), and the pages.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { MigrationPage } from '../modules/migration/MigrationPage';
+import type { Module } from '../shared/company';
 import type { SessionStatus } from '../worker/companySession';
 import { db } from '../shared/workerClient';
 import { AccountsPage } from './pages/AccountsPage';
@@ -22,6 +24,7 @@ const PAGES = {
   accounts: 'Accounts',
   reports: 'Reports',
   close: 'Close books',
+  migration: 'QuickBooks import',
   company: 'Company',
   modules: 'Modules',
   backups: 'Backups',
@@ -33,9 +36,13 @@ type Page = keyof typeof PAGES;
 
 const NAV: { group: string; pages: Page[] }[] = [
   { group: 'Books', pages: ['journal', 'accounts', 'reports', 'close'] },
+  { group: 'Modules', pages: ['migration'] },
   { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
   { group: 'Development', pages: ['m1'] },
 ];
+
+/** Pages that belong to a module, shown only while it's on for the company (CO-4). */
+const MODULE_OF: Partial<Record<Page, Module>> = { migration: 'migration' };
 
 function SaveState({ status }: { status: SessionStatus }) {
   if (status.readOnly) return <span className="badge">Read-only</span>;
@@ -122,7 +129,18 @@ export function Workspace({ status }: { status: SessionStatus }) {
   const [reportsVisited, setReportsVisited] = useState(false);
   // Counts sidebar clicks, so clicking the current page's item returns to its list
   const [visit, setVisit] = useState(0);
+  const [modules, setModules] = useState<Record<Module, boolean> | null>(null);
   const { busy, run } = useAction();
+
+  // Re-read on every page change, so switching a module on the Modules page shows up
+  useEffect(() => {
+    void db.modules().then(setModules);
+  }, [status.companyId, page]);
+
+  const shown = (p: Page) => {
+    const m = MODULE_OF[p];
+    return !m || !!modules?.[m];
+  };
 
   const go = (p: Page) => {
     setPage(p);
@@ -150,10 +168,10 @@ export function Workspace({ status }: { status: SessionStatus }) {
       </header>
       <div className="body">
         <nav className="sidebar" aria-label="Pages">
-          {NAV.map(({ group, pages }) => (
+          {NAV.filter(({ pages }) => pages.some(shown)).map(({ group, pages }) => (
             <div key={group} className="nav-group">
               <div className="nav-heading">{group}</div>
-              {pages.map((p) => (
+              {pages.filter(shown).map((p) => (
                 <button
                   key={p}
                   className={p === page ? 'tab active' : 'tab'}
@@ -207,6 +225,7 @@ export function Workspace({ status }: { status: SessionStatus }) {
             </div>
           )}
           {page === 'close' && <CloseBooksPage status={status} />}
+          {page === 'migration' && <MigrationPage status={status} />}
           {page === 'company' && <CompanyPage status={status} />}
           {page === 'modules' && <ModulesPage status={status} />}
           {page === 'backups' && <BackupsPage status={status} />}

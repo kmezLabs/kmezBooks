@@ -15,6 +15,19 @@ describe('worker errors', () => {
     expect(e).toBeInstanceOf(Error);
   });
 
+  it('turns a withdrawn folder permission into a readable error', () => {
+    const denied = new DOMException(
+      'The request is not allowed by the user agent or the platform in the current context.',
+      'NotAllowedError',
+    );
+    expect(errors.fromFolderAccess(denied, 'Acme LLC')).toMatchObject({
+      name: 'FolderAccessError',
+      message: expect.stringContaining('“Acme LLC”'),
+    });
+    const other = new DOMException('not found', 'NotFoundError');
+    expect(errors.fromFolderAccess(other, 'Acme LLC')).toBe(other);
+  });
+
   it('turns schema rule errors into readable ones', () => {
     const rule = errors.fromRule(
       new Error(

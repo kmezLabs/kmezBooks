@@ -10,6 +10,9 @@ export interface LedgerEventDetail {
 
 export const ledgerEvents = new EventTarget();
 
-export function emitLedgerEvent(type: 'posted' | 'voided', detail: LedgerEventDetail) {
+/** posted, voided, and where the company allows changing posted entries (GL-6), changed and deleted */
+export type LedgerEventType = 'posted' | 'voided' | 'changed' | 'deleted';
+
+export function emitLedgerEvent(type: LedgerEventType, detail: LedgerEventDetail) {
   ledgerEvents.dispatchEvent(new CustomEvent<LedgerEventDetail>(type, { detail }));
 }

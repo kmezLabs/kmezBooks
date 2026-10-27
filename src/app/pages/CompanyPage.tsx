@@ -5,7 +5,7 @@ import { normalizeDetails, validateDetails, type CompanyDetails } from '../../sh
 import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
 import { CompanyFields } from '../CompanyFields';
-import { ErrorText, formatDateTime, useAction } from '../ui';
+import { Dialog, ErrorText, TextField, formatDateTime, useAction } from '../ui';
 
 type Details = CompanyDetails & { id: string; createdAt: string };
 
@@ -81,9 +81,95 @@ export function CompanyPage({ status }: { status: SessionStatus }) {
           </div>
         )}
       </form>
+      <PostedEdits status={status} />
       <p className="muted">
         Company created {formatDateTime(saved.createdAt)} · id <code>{saved.id}</code>
       </p>
     </section>
+  );
+}
+
+/** Whether posted transactions can be changed and deleted (GL-6 off), per company. */
+function PostedEdits({ status }: { status: SessionStatus }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [passphrase, setPassphrase] = useState('');
+  const { busy, error, run } = useAction();
+
+  useEffect(() => {
+    void db.postedEdits().then(setOn);
+  }, [status.companyId]);
+  if (on === null) return null;
+
+  const set = (value: boolean, pass?: string) =>
+    run(async () => {
+      await db.setPostedEdits(value, pass);
+      setOn(value);
+      setAsking(false);
+      setPassphrase('');
+    });
+
+  return (
+    <>
+      <h3>Posted transactions</h3>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={status.readOnly || busy}
+          onChange={(e) => (e.target.checked ? setAsking(true) : void set(false))}
+        />
+        <span>
+          Allow changing and deleting posted transactions
+          <span className="hint">
+            Off (the accountant’s way): a posted transaction is corrected by voiding it and entering
+            the corrected copy, which the Edit buttons do for you. On: Edit changes it in place and
+            Delete removes it. Either way the audit log keeps every version, closed periods still
+            need your passphrase, and reconciled transactions and QuickBooks history can’t be
+            deleted.
+          </span>
+        </span>
+      </label>
+      <ErrorText>{asking ? null : error}</ErrorText>
+      {asking && (
+        <Dialog
+          title="Allow changing posted transactions"
+          onClose={busy ? undefined : () => setAsking(false)}
+        >
+          <p>
+            Enter your passphrase to allow changing and deleting posted transactions in this
+            company.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void set(true, passphrase);
+            }}
+          >
+            <TextField
+              label="Passphrase"
+              type="password"
+              value={passphrase}
+              onChange={setPassphrase}
+              autoFocus
+            />
+            <ErrorText>{error}</ErrorText>
+            <div className="buttons">
+              <button type="submit" disabled={busy || !passphrase}>
+                Allow
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => setAsking(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </>
   );
 }

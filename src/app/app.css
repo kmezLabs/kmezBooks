@@ -786,3 +786,55 @@ table.reconcile-items tr.cleared td {
   min-width: 320px;
   margin: 8px 0;
 }
+
+/* ---- transactions register (GL-9) ---- */
+
+form.quick-add {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+form.quick-add .fields {
+  margin: 6px 0 0;
+}
+
+form.quick-add .fields .buttons {
+  margin: 0;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 0;
+}
+
+.segmented button {
+  border-radius: 0;
+}
+
+.segmented button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.segmented button:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.register-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  margin: 8px 0;
+}
+
+table.register-list tr.open td {
+  background: var(--panel);
+  border-bottom: none;
+}
+
+table.register-list tr.editor > td {
+  background: var(--panel);
+  padding: 4px 12px 12px;
+}

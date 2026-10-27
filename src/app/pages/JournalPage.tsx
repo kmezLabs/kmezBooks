@@ -16,13 +16,18 @@ import {
 } from '../ledgerUi';
 import { Dialog, ErrorText, TextField, formatBytes, formatDateTime, useAction } from '../ui';
 
-type View = { kind: 'list' } | { kind: 'new' } | { kind: 'entry'; id: number };
+type View =
+  | { kind: 'list' }
+  | { kind: 'new' }
+  | { kind: 'entry'; id: number }
+  | { kind: 'edit'; entry: EntryData };
 const PAGE = 100;
 
 const SOURCES: Record<string, string> = {
   journal: 'Journal entry',
   qbo_migration: 'From QuickBooks',
   bank: 'From bank review',
+  register: 'Quick entry',
 };
 
 export function JournalPage(props: {
@@ -32,15 +37,27 @@ export function JournalPage(props: {
   /** Open straight on this entry (from a report's drill-down, RP-5). */
   initialEntryId?: number | null;
   onBackToReport?: () => void;
+  /** The Back button's label when opened from elsewhere */
+  backLabel?: string;
 }) {
   const [view, setView] = useState<View>(
     props.initialEntryId ? { kind: 'entry', id: props.initialEntryId } : { kind: 'list' },
   );
-  if (view.kind === 'new') {
+  if (view.kind === 'new' || view.kind === 'edit') {
+    const editing = view.kind === 'edit' ? view.entry : undefined;
     return (
       <NewEntry
         status={props.status}
-        onDone={(id) => setView(id ? { kind: 'entry', id } : { kind: 'list' })}
+        editing={editing}
+        onDone={(id) =>
+          setView(
+            id
+              ? { kind: 'entry', id }
+              : editing
+                ? { kind: 'entry', id: editing.id }
+                : { kind: 'list' },
+          )
+        }
       />
     );
   }
@@ -49,8 +66,12 @@ export function JournalPage(props: {
       <EntryView
         status={props.status}
         id={view.id}
+        onEdit={(entry) => setView({ kind: 'edit', entry })}
+        onDeleted={props.onBackToReport ?? (() => setView({ kind: 'list' }))}
         onBack={props.onBackToReport ?? (() => setView({ kind: 'list' }))}
-        backLabel={props.onBackToReport ? '← Back to report' : '← Journal entries'}
+        backLabel={
+          props.onBackToReport ? (props.backLabel ?? '← Back to report') : '← Journal entries'
+        }
       />
     );
   }
@@ -217,17 +238,35 @@ const blankLine = (): LineDraft => ({
   memo: '',
 });
 
-function NewEntry(props: { status: SessionStatus; onDone: (id: number | null) => void }) {
+/** A new entry, or a change to a posted one (GL-6: in place, or void and re-enter). */
+function NewEntry(props: {
+  status: SessionStatus;
+  editing?: EntryData;
+  onDone: (id: number | null) => void;
+}) {
+  const e0 = props.editing;
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
-  const [date, setDate] = useState(todayIso());
-  const [ref, setRef] = useState('');
-  const [memo, setMemo] = useState('');
-  const [lines, setLines] = useState<LineDraft[]>([blankLine(), blankLine()]);
+  const [postedEdits, setPostedEdits] = useState(false);
+  const [date, setDate] = useState(e0?.date ?? todayIso());
+  const [ref, setRef] = useState(e0?.ref ?? '');
+  const [memo, setMemo] = useState(e0?.memo ?? '');
+  const [lines, setLines] = useState<LineDraft[]>(
+    e0
+      ? e0.lines.map((l) => ({
+          ...blankLine(),
+          accountId: l.accountId,
+          debit: l.debit ? formatMoney(l.debit) : '',
+          credit: l.credit ? formatMoney(l.credit) : '',
+          memo: l.memo ?? '',
+        }))
+      : [blankLine(), blankLine()],
+  );
   const [files, setFiles] = useState<File[]>([]);
   const { attempt, busy, error, setError, dialog } = useClosedPeriodOverride();
 
   useEffect(() => {
     void db.accounts().then(setAccounts);
+    void db.postedEdits().then(setPostedEdits);
   }, []);
 
   const used = lines.filter((l) => l.accountId || l.debit.trim() || l.credit.trim());
@@ -255,20 +294,20 @@ function NewEntry(props: { status: SessionStatus; onDone: (id: number | null) =>
       return;
     }
     void attempt(async (overridePassphrase) => {
-      const id = await db.postJournalEntry(
-        {
-          date,
-          ref,
-          memo,
-          lines: used.map((l) => ({
-            accountId: l.accountId,
-            debit: cents(l.debit),
-            credit: cents(l.credit),
-            memo: l.memo,
-          })),
-        },
-        overridePassphrase,
-      );
+      const entry = {
+        date,
+        ref,
+        memo,
+        lines: used.map((l) => ({
+          accountId: l.accountId,
+          debit: cents(l.debit),
+          credit: cents(l.credit),
+          memo: l.memo,
+        })),
+      };
+      const id = e0
+        ? await db.saveEntryChange(e0.id, { ...entry, name: e0.name }, overridePassphrase)
+        : await db.postJournalEntry(entry, overridePassphrase);
       for (const f of files) await db.addAttachment('journal_entry', String(id), f);
       props.onDone(id);
     });
@@ -288,7 +327,16 @@ function NewEntry(props: { status: SessionStatus; onDone: (id: number | null) =>
 
   return (
     <section>
-      <h2>New journal entry</h2>
+      <h2>
+        {e0 ? `${postedEdits ? 'Change' : 'Correct'} journal entry ${e0.id}` : 'New journal entry'}
+      </h2>
+      {e0 && (
+        <p className="muted">
+          {postedEdits
+            ? 'The entry is changed in place; the audit log keeps what it was.'
+            : 'Saving voids the original and posts this corrected copy (GL-6). Allow changing posted transactions on the Company page to change entries in place.'}
+        </p>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -403,7 +451,7 @@ function NewEntry(props: { status: SessionStatus; onDone: (id: number | null) =>
             type="submit"
             disabled={busy || difference !== 0 || debits === 0 || used.length < 2}
           >
-            {busy ? 'Posting…' : 'Post entry'}
+            {busy ? 'Saving…' : e0 ? 'Save' : 'Post entry'}
           </button>
           <button
             type="button"
@@ -414,10 +462,6 @@ function NewEntry(props: { status: SessionStatus; onDone: (id: number | null) =>
             Cancel
           </button>
         </div>
-        <p className="muted">
-          Posted entries can't be edited or deleted. To correct one, void it and enter it again
-          (GL-6).
-        </p>
       </form>
       {dialog}
     </section>
@@ -441,14 +485,19 @@ function EntryView(props: {
   status: SessionStatus;
   id: number;
   onBack: () => void;
+  onEdit: (entry: EntryData) => void;
+  onDeleted: () => void;
   backLabel: string;
 }) {
   const [entry, setEntry] = useState<EntryData | null>(null);
   const [voiding, setVoiding] = useState(false);
+  const [postedEdits, setPostedEdits] = useState(false);
   const { busy, error, run } = useAction();
+  const removal = useClosedPeriodOverride();
   const reload = () => void db.entry(props.id).then(setEntry);
 
   useEffect(reload, [props.id, props.status.lastSavedAt]);
+  useEffect(() => void db.postedEdits().then(setPostedEdits), [props.status.lastSavedAt]);
 
   if (!entry) return null;
   const readOnly = props.status.readOnly;
@@ -569,12 +618,36 @@ function EntryView(props: {
           />
         </label>
       )}
-      <ErrorText>{error}</ErrorText>
+      <ErrorText>{error ?? removal.error}</ErrorText>
+      {removal.dialog}
       {entry.status === 'posted' && !readOnly && (
         <div className="buttons">
+          <button className="secondary" disabled={busy} onClick={() => props.onEdit(entry)}>
+            {postedEdits ? 'Edit entry' : 'Correct entry'}
+          </button>
           <button className="secondary" disabled={busy} onClick={() => setVoiding(true)}>
             Void entry
           </button>
+          {postedEdits && (
+            <button
+              className="secondary"
+              disabled={busy || removal.busy}
+              onClick={() => {
+                if (
+                  !confirm(
+                    `Delete journal entry ${entry.id}? It is removed from the books; the audit log keeps a record.`,
+                  )
+                )
+                  return;
+                void removal.attempt(async (passphrase) => {
+                  await db.deleteEntry(entry.id, passphrase);
+                  props.onDeleted();
+                });
+              }}
+            >
+              Delete entry
+            </button>
+          )}
         </div>
       )}
       {voiding && (

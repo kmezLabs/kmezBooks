@@ -20,8 +20,24 @@ import {
   type EntryQuery,
   type EntrySummary,
 } from '../ledger/entries';
-import { emitLedgerEvent } from '../ledger/events';
-import { isIsoDate, postEntry, voidEntry, type EntryInput } from '../ledger/postEntry';
+import { emitLedgerEvent, type LedgerEventDetail } from '../ledger/events';
+import {
+  changeEntry,
+  correctEntry,
+  deleteEntry,
+  isIsoDate,
+  postEntry,
+  voidEntry,
+  type EntryChange,
+  type EntryInput,
+} from '../ledger/postEntry';
+import {
+  register,
+  simpleToEntry,
+  type RegisterQuery,
+  type RegisterResult,
+  type SimpleEntry,
+} from '../ledger/register';
 import { runReport } from '../ledger/reports';
 import { analyze, type Analysis, type AnalysisSummary } from '../modules/migration/analysis';
 import {
@@ -153,6 +169,9 @@ export interface SessionDeps {
   iterations?: number;
   onStatus?: (status: SessionStatus) => void;
 }
+
+/** source_type of entries added from the transactions register (GL-9) */
+export const REGISTER_SOURCE = 'register';
 
 export type OpenMode = 'edit' | 'readOnly' | 'takeOver';
 
@@ -796,6 +815,109 @@ export class CompanySession {
 
   migrationDiscard(): void {
     this.migration = null;
+  }
+
+  // ---- transactions register (GL-9) and changing posted entries (GL-6) ----
+
+  register(query?: RegisterQuery): RegisterResult {
+    return register(this.open_().db, query);
+  }
+
+  /** Whether this company allows changing and deleting posted entries (GL-6 off). */
+  postedEdits(): boolean {
+    return this.open_().db.selectValue('SELECT posted_edits FROM company') === 1;
+  }
+
+  /** Allow or stop changing posted entries; allowing it needs the passphrase again. */
+  async setPostedEdits(on: boolean, passphrase?: string): Promise<void> {
+    const c = this.writable();
+    if (on && !(await this.override(passphrase))) {
+      throw new WrongPassphraseError(
+        'Enter your passphrase to allow changing posted transactions.',
+      );
+    }
+    c.db.exec({ sql: 'UPDATE company SET posted_edits = ?', bind: [on ? 1 : 0] });
+    this.touch();
+  }
+
+  private source(id: number): LedgerEventDetail {
+    const r = this.open_().db.selectObjects(
+      'SELECT source_type, source_id FROM journal_entry WHERE id = ?',
+      [id],
+    )[0];
+    return {
+      entryId: id,
+      sourceType: String(r?.source_type ?? 'journal'),
+      sourceId: r?.source_id === null || r?.source_id === undefined ? null : String(r.source_id),
+    };
+  }
+
+  /** Add an income or expense from the register's quick form (GL-9). */
+  async addRegisterEntry(
+    simple: SimpleEntry,
+    head: Omit<EntryChange, 'lines'>,
+    overridePassphrase?: string,
+  ): Promise<number> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const id = postEntry(
+      db,
+      { ...simpleToEntry(simple, head), sourceType: REGISTER_SOURCE },
+      { closingOverride },
+    );
+    this.touch();
+    emitLedgerEvent('posted', this.source(id));
+    return id;
+  }
+
+  /**
+   * Save a change to a posted entry. Where the company allows it (GL-6 off) the
+   * entry changes in place; otherwise it is voided and the corrected copy
+   * posted. Returns the id of the entry as it now stands.
+   */
+  async saveEntryChange(
+    id: number,
+    change: EntryChange,
+    overridePassphrase?: string,
+  ): Promise<number> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    if (this.postedEdits()) {
+      changeEntry(db, id, change, { closingOverride });
+      this.touch();
+      emitLedgerEvent('changed', this.source(id));
+      return id;
+    }
+    const newId = correctEntry(db, id, change, { closingOverride });
+    this.touch();
+    emitLedgerEvent('voided', this.source(id));
+    emitLedgerEvent('posted', this.source(newId));
+    return newId;
+  }
+
+  /** The register's quick edit: the plain income or expense shape. */
+  saveSimpleEntry(
+    id: number,
+    simple: SimpleEntry,
+    head: Omit<EntryChange, 'lines'>,
+    overridePassphrase?: string,
+  ): Promise<number> {
+    return this.saveEntryChange(id, simpleToEntry(simple, head), overridePassphrase);
+  }
+
+  /** Delete a posted entry, where the company allows it (GL-6 off). */
+  async deleteEntry(id: number, overridePassphrase?: string): Promise<void> {
+    const db = this.writable().db;
+    if (!this.postedEdits()) {
+      throw new LedgerRuleError(
+        'Posted transactions can’t be deleted in this company; void it instead.',
+      );
+    }
+    const closingOverride = await this.override(overridePassphrase);
+    const detail = this.source(id);
+    deleteEntry(db, id, { closingOverride });
+    this.touch();
+    emitLedgerEvent('deleted', detail);
   }
 
   // ---- banking (M6) ----

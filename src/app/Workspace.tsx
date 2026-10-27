@@ -16,6 +16,7 @@ import { CloseBooksPage } from './pages/CloseBooksPage';
 import { CompanyPage } from './pages/CompanyPage';
 import { JournalPage } from './pages/JournalPage';
 import { M1LabPage } from './pages/M1LabPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ModulesPage } from './pages/ModulesPage';
 import { SecurityPage } from './pages/SecurityPage';
@@ -23,6 +24,7 @@ import { ensureReadWrite, pickFolder, rememberFolder } from './recentFolders';
 import { ErrorText, formatDateTime, formatTime, useAction } from './ui';
 
 const PAGES = {
+  register: 'Transactions',
   journal: 'Journal entries',
   accounts: 'Accounts',
   reports: 'Reports',
@@ -41,7 +43,7 @@ const PAGES = {
 type Page = keyof typeof PAGES;
 
 const NAV: { group: string; pages: Page[] }[] = [
-  { group: 'Books', pages: ['journal', 'accounts', 'reports', 'close'] },
+  { group: 'Books', pages: ['register', 'journal', 'accounts', 'reports', 'close'] },
   { group: 'Banking', pages: ['banking', 'rules', 'reconcile'] },
   { group: 'Modules', pages: ['migration'] },
   { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
@@ -150,10 +152,12 @@ function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () 
 }
 
 export function Workspace({ status }: { status: SessionStatus }) {
-  const [page, setPage] = useState<Page>('journal');
+  // Transactions is the home panel (GL-9)
+  const [page, setPage] = useState<Page>('register');
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
-  // An entry opened from a report, so its Back button returns to the report
+  // An entry opened from a report or the register, so its Back button returns there
   const [openEntry, setOpenEntry] = useState<number | null>(null);
+  const [entryFrom, setEntryFrom] = useState<Page>('reports');
   // Reports stay mounted once visited, so drilling to an entry and back keeps the report
   const [reportsVisited, setReportsVisited] = useState(false);
   // Counts sidebar clicks, so clicking the current page's item returns to its list
@@ -223,11 +227,16 @@ export function Workspace({ status }: { status: SessionStatus }) {
               accountFilter={accountFilter}
               onClearAccountFilter={() => setAccountFilter(null)}
               initialEntryId={openEntry}
+              backLabel={
+                openEntry
+                  ? `← Back to ${entryFrom === 'reports' ? 'report' : PAGES[entryFrom].toLowerCase()}`
+                  : undefined
+              }
               onBackToReport={
                 openEntry
                   ? () => {
                       setOpenEntry(null);
-                      setPage('reports');
+                      setPage(entryFrom);
                     }
                   : undefined
               }
@@ -248,11 +257,23 @@ export function Workspace({ status }: { status: SessionStatus }) {
                 status={status}
                 onOpenEntry={(id) => {
                   setOpenEntry(id);
+                  setEntryFrom('reports');
                   setPage('journal');
                 }}
               />
             </div>
           )}
+          {/* Kept mounted, so its filters survive opening an entry and coming back */}
+          <div hidden={page !== 'register'}>
+            <RegisterPage
+              status={status}
+              onOpenEntry={(id) => {
+                setOpenEntry(id);
+                setEntryFrom('register');
+                setPage('journal');
+              }}
+            />
+          </div>
           {page === 'close' && <CloseBooksPage status={status} />}
           {page === 'banking' && <BankingPage status={status} />}
           {page === 'rules' && <RulesPage status={status} />}

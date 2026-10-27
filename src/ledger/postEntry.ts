@@ -73,11 +73,47 @@ function withOverride<T>(db: Database, on: boolean | undefined, fn: () => T): T 
   return result;
 }
 
-/** Post a balanced entry. Returns the new entry's id. */
-export function postEntry(db: Database, input: EntryInput, opts: PostOptions = {}): number {
+function writeLines(db: Database, id: number, lines: EntryLineInput[]) {
+  const insert = db.prepare(
+    `INSERT INTO journal_line (company_id, entry_id, line_no, account_id, debit, credit, memo, name)
+     VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  try {
+    lines.forEach((l, i) =>
+      insert
+        .bind([
+          id,
+          i + 1,
+          l.accountId,
+          l.debit,
+          l.credit,
+          l.memo?.trim() || null,
+          l.name?.trim() || null,
+        ])
+        .stepReset(),
+    );
+  } finally {
+    insert.finalize();
+  }
+}
+
+/** Draft to posted: the schema checks balance, closing date and the cash-basis rule here. */
+function postDraft(db: Database, id: number) {
+  db.exec({
+    sql: `UPDATE journal_entry SET status = 'posted', posted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
+    bind: [id],
+  });
+}
+
+function checked(input: EntryInput): EntryLineInput[] {
   const problems = validateEntry(input);
   if (problems.length) throw new LedgerRuleError(problems.join(' '));
-  const lines = input.lines.filter((l) => l.debit !== 0 || l.credit !== 0);
+  return input.lines.filter((l) => l.debit !== 0 || l.credit !== 0);
+}
+
+/** Post a balanced entry. Returns the new entry's id. */
+export function postEntry(db: Database, input: EntryInput, opts: PostOptions = {}): number {
+  const lines = checked(input);
   return inSavepoint(db, 'post_entry', () =>
     withOverride(db, opts.closingOverride, () => {
       const id = Number(
@@ -94,34 +130,144 @@ export function postEntry(db: Database, input: EntryInput, opts: PostOptions = {
           ],
         ),
       );
-      const insert = db.prepare(
-        `INSERT INTO journal_line (company_id, entry_id, line_no, account_id, debit, credit, memo, name)
-         VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      try {
-        lines.forEach((l, i) =>
-          insert
-            .bind([
-              id,
-              i + 1,
-              l.accountId,
-              l.debit,
-              l.credit,
-              l.memo?.trim() || null,
-              l.name?.trim() || null,
-            ])
-            .stepReset(),
-        );
-      } finally {
-        insert.finalize();
-      }
-      db.exec({
-        sql: `UPDATE journal_entry SET status = 'posted', posted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
-        bind: [id],
-      });
+      writeLines(db, id, lines);
+      postDraft(db, id);
       return id;
     }),
   );
+}
+
+/** What changes when a posted entry is changed; where it came from stays. */
+export type EntryChange = Omit<EntryInput, 'sourceType' | 'sourceId'>;
+
+/** Bank transactions an entry accounts for, to link again after a change (BK-4). */
+function bankLinks(db: Database, id: number) {
+  return db.selectObjects(
+    `SELECT id, account_id, amount, status FROM bank_txn WHERE entry_id = ?`,
+    [id],
+  );
+}
+
+/** Link the bank transactions again where the changed entry still moves their amount. */
+function relink(db: Database, links: Record<string, unknown>[], entryId: number) {
+  for (const b of links) {
+    const net = Number(
+      db.selectValue(
+        `SELECT coalesce(sum(debit - credit), 0) FROM journal_line WHERE entry_id = ? AND account_id = ?`,
+        [entryId, String(b.account_id)],
+      ),
+    );
+    if (net === Number(b.amount)) {
+      db.exec({
+        sql: `UPDATE bank_txn SET status = ?, entry_id = ? WHERE id = ? AND status = 'new'`,
+        bind: [String(b.status), entryId, Number(b.id)],
+      });
+    }
+  }
+}
+
+function requirePosted(db: Database, id: number) {
+  const status = db.selectValue('SELECT status FROM journal_entry WHERE id = ?', [id]);
+  if (status !== 'posted') {
+    throw new LedgerRuleError(
+      status === 'void' ? 'This entry is void.' : 'That entry does not exist.',
+    );
+  }
+}
+
+/**
+ * Change a posted entry in place, where the company allows it (GL-6 off): it
+ * goes back to draft, its lines are rewritten, and it is posted again, so the
+ * schema checks it like a new entry. The audit log keeps what it was.
+ */
+export function changeEntry(
+  db: Database,
+  id: number,
+  change: EntryChange,
+  opts: PostOptions = {},
+): void {
+  const source = db.selectObjects('SELECT source_type, source_id FROM journal_entry WHERE id = ?', [
+    id,
+  ])[0];
+  const lines = checked({ ...change, sourceType: String(source?.source_type ?? 'journal') });
+  inSavepoint(db, 'change_entry', () =>
+    withOverride(db, opts.closingOverride, () => {
+      requirePosted(db, id);
+      const links = bankLinks(db, id);
+      db.exec({ sql: `UPDATE journal_entry SET status = 'draft' WHERE id = ?`, bind: [id] });
+      db.exec({ sql: 'DELETE FROM journal_line WHERE entry_id = ?', bind: [id] });
+      db.exec({
+        sql: 'UPDATE journal_entry SET date = ?, ref = ?, name = ?, memo = ? WHERE id = ?',
+        bind: [
+          change.date,
+          change.ref?.trim() || null,
+          change.name?.trim() || null,
+          change.memo?.trim() || null,
+          id,
+        ],
+      });
+      writeLines(db, id, lines);
+      postDraft(db, id);
+      relink(db, links, id);
+    }),
+  );
+}
+
+/**
+ * Delete a posted entry, where the company allows it (GL-6 off). Its bank
+ * transactions go back to review and its attachments are removed.
+ */
+export function deleteEntry(db: Database, id: number, opts: PostOptions = {}): void {
+  inSavepoint(db, 'delete_entry', () =>
+    withOverride(db, opts.closingOverride, () => {
+      requirePosted(db, id);
+      db.exec({ sql: `UPDATE journal_entry SET status = 'draft' WHERE id = ?`, bind: [id] });
+      db.exec({ sql: 'DELETE FROM journal_line WHERE entry_id = ?', bind: [id] });
+      db.exec({
+        sql: `DELETE FROM attachment WHERE entity = 'journal_entry' AND entity_id = ?`,
+        bind: [String(id)],
+      });
+      db.exec({ sql: 'DELETE FROM journal_entry WHERE id = ?', bind: [id] });
+    }),
+  );
+}
+
+/**
+ * Correct a posted entry the way GL-6 allows everywhere: void it and post the
+ * corrected copy, from the same source. Bank transactions follow it when it
+ * still fits them, and attachments move to it. Returns the new entry's id.
+ */
+export function correctEntry(
+  db: Database,
+  id: number,
+  change: EntryChange,
+  opts: PostOptions = {},
+): number {
+  return inSavepoint(db, 'correct_entry', () => {
+    requirePosted(db, id);
+    const source = db.selectObjects(
+      'SELECT source_type, source_id FROM journal_entry WHERE id = ?',
+      [id],
+    )[0]!;
+    const links = bankLinks(db, id);
+    voidEntry(db, id, 'Corrected', opts);
+    const newId = postEntry(
+      db,
+      {
+        ...change,
+        sourceType: String(source.source_type),
+        sourceId: source.source_id === null ? null : String(source.source_id),
+      },
+      opts,
+    );
+    relink(db, links, newId);
+    // Receipts belong to the transaction, so they move to the corrected copy
+    db.exec({
+      sql: `UPDATE attachment SET entity_id = ? WHERE entity = 'journal_entry' AND entity_id = ?`,
+      bind: [String(newId), String(id)],
+    });
+    return newId;
+  });
 }
 
 /** Void a posted entry (GL-6): its lines stay, and reports leave it out. */

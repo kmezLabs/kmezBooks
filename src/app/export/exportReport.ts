@@ -1,10 +1,16 @@
 // Report export (RP-6): CSV, Excel (.xlsx) and print/PDF. CSV and Excel are
-// built here from the same Report the screen shows. Amounts go out as plain
-// decimals made from cents with string formatting, never float arithmetic.
+// built here from the same Report the screen shows. Amounts and percentages go
+// out as plain decimals made with string formatting, never float arithmetic.
 
 import { strToU8, zipSync } from 'fflate';
 import { centsToDecimal } from '../../shared/money';
-import type { Cell, Report, ReportRow } from '../../shared/report';
+import {
+  formatPercent,
+  percentToDecimal,
+  type Cell,
+  type Report,
+  type ReportRow,
+} from '../../shared/report';
 
 const INDENT = '    ';
 
@@ -12,9 +18,10 @@ function headerLines(r: Report): string[] {
   return [r.company, r.title, r.period, r.basis];
 }
 
-function textOf(row: ReportRow, i: number, cell: Cell): string {
+function textOf(r: Report, row: ReportRow, i: number, cell: Cell): string {
   if (cell === null) return '';
-  if (typeof cell === 'number') return centsToDecimal(cell);
+  if (typeof cell === 'number')
+    return r.columns[i]?.unit === 'percent' ? formatPercent(cell) : centsToDecimal(cell);
   return i === 0 ? INDENT.repeat(row.depth) + cell : cell;
 }
 
@@ -29,7 +36,7 @@ export function reportToCsv(r: Report): string {
     ...headerLines(r).map(csvField),
     '',
     r.columns.map((c) => csvField(c.label)).join(','),
-    ...r.rows.map((row) => row.cells.map((cell, i) => csvField(textOf(row, i, cell))).join(',')),
+    ...r.rows.map((row) => row.cells.map((cell, i) => csvField(textOf(r, row, i, cell))).join(',')),
     ...(r.notes.length ? ['', ...r.notes.map(csvField)] : []),
   ];
   // The byte-order mark makes Excel read the file as UTF-8
@@ -52,7 +59,16 @@ function colName(i: number): string {
 }
 
 // Cell styles (indexes into cellXfs below)
-const STYLE = { text: 0, title: 1, bold: 2, money: 3, moneyBold: 4, header: 5 } as const;
+const STYLE = {
+  text: 0,
+  title: 1,
+  bold: 2,
+  money: 3,
+  moneyBold: 4,
+  header: 5,
+  percent: 6,
+  percentBold: 7,
+} as const;
 
 const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -61,13 +77,15 @@ const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
 <borders count="2"><border/><border><bottom style="thin"/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="6">
+<cellXfs count="8">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
 <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
 <xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
 <xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>
 <xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>
+<xf numFmtId="10" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="10" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>
 </cellXfs>
 </styleSheet>`;
 
@@ -76,8 +94,8 @@ function sheetXml(r: Report): string {
   let n = 0;
   const textCell = (col: number, text: string, style: number) =>
     `<c r="${colName(col)}${n}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${xml(text)}</t></is></c>`;
-  const numCell = (col: number, cents: number, style: number) =>
-    `<c r="${colName(col)}${n}" s="${style}"><v>${centsToDecimal(cents)}</v></c>`;
+  const numCell = (col: number, value: string, style: number) =>
+    `<c r="${colName(col)}${n}" s="${style}"><v>${value}</v></c>`;
   const addRow = (cells: string[]) => rows.push(`<row r="${n}">${cells.join('')}</row>`);
 
   headerLines(r).forEach((line, i) => {
@@ -94,8 +112,10 @@ function sheetXml(r: Report): string {
       row.cells.flatMap((cell, i) => {
         if (cell === null) return [];
         if (typeof cell === 'number')
-          return [numCell(i, cell, bold ? STYLE.moneyBold : STYLE.money)];
-        return [textCell(i, textOf(row, i, cell), bold ? STYLE.bold : STYLE.text)];
+          return r.columns[i]?.unit === 'percent'
+            ? [numCell(i, percentToDecimal(cell), bold ? STYLE.percentBold : STYLE.percent)]
+            : [numCell(i, centsToDecimal(cell), bold ? STYLE.moneyBold : STYLE.money)];
+        return [textCell(i, textOf(r, row, i, cell), bold ? STYLE.bold : STYLE.text)];
       }),
     );
   }

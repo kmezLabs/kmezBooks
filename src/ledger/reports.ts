@@ -8,6 +8,7 @@ import {
   REPORT_TITLES,
   type Drill,
   type Report,
+  type ReportColumn,
   type ReportRequest,
   type ReportRow,
 } from '../shared/report';
@@ -164,14 +165,32 @@ export function profitAndLoss(db: Database, req: ReportRequest): Report {
     cells: ['Net Income', Number(income.total - cogs.total - expenses.total)],
   });
   const period = req.from ? `${fmt(from)} – ${fmt(to)}` : `Through ${fmt(to)}`;
-  return {
-    ...header(db, req, period),
-    columns: [
-      { label: '', numeric: false },
-      { label: 'Total', numeric: true },
-    ],
-    rows,
-  };
+  const columns: ReportColumn[] = [
+    { label: '', numeric: false },
+    { label: 'Total', numeric: true },
+  ];
+  if (req.percentOfIncome) {
+    columns.push({ label: '% of Income', numeric: true, unit: 'percent' });
+    for (const row of rows) {
+      const cents = row.cells[1];
+      row.cells.push(typeof cents === 'number' ? percentOf(cents, income.total) : null);
+    }
+  }
+  return { ...header(db, req, period), columns, rows };
+}
+
+/**
+ * Part as hundredths of a percent of whole, rounded half away from zero. Null
+ * when whole is 0, or when the result is too large to hold exactly.
+ */
+export function percentOf(part: number, whole: bigint): number | null {
+  if (whole === 0n) return null;
+  const scaled = BigInt(part) * 10_000n;
+  const negative = scaled < 0n !== whole < 0n;
+  const abs = (n: bigint) => (n < 0n ? -n : n);
+  const q = (abs(scaled) * 2n + abs(whole)) / (abs(whole) * 2n);
+  const n = Number(negative ? -q : q);
+  return Number.isSafeInteger(n) ? n : null;
 }
 
 /** Balance sheet as of a date (RP-2), with earlier years' income in retained earnings (PC-3). */

@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from 'react';
 import type { AccountRow } from '../../shared/accounts';
-import { formatMoney } from '../../shared/money';
 import {
   AS_OF_PRESETS,
   RANGE_PRESETS,
@@ -14,6 +13,7 @@ import {
 } from '../../shared/periods';
 import {
   REPORT_TITLES,
+  formatNumber,
   type Drill,
   type Report,
   type ReportKind,
@@ -88,7 +88,11 @@ function ReportTable({ report, onDrill }: { report: Report; onDrill: (d: Drill) 
                       : undefined
                   }
                 >
-                  {cell === null ? '' : typeof cell === 'number' ? formatMoney(cell) : cell}
+                  {cell === null
+                    ? ''
+                    : typeof cell === 'number'
+                      ? formatNumber(cell, report.columns[i])
+                      : cell}
                 </td>
               ))}
             </tr>
@@ -113,6 +117,8 @@ export function ReportsPage(props: { status: SessionStatus; onOpenEntry: (id: nu
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  // Kept apart from the request so it survives switching reports and drilling down
+  const [percentOfIncome, setPercentOfIncome] = useState(false);
 
   useEffect(() => {
     void db.details().then((d) => {
@@ -128,7 +134,7 @@ export function ReportsPage(props: { status: SessionStatus; onOpenEntry: (id: nu
     let current = true;
     const t = setTimeout(() => {
       setRunning(true);
-      db.report(req).then(
+      db.report(req.kind === 'pl' && percentOfIncome ? { ...req, percentOfIncome } : req).then(
         (r) => {
           if (!current) return;
           setReport(r);
@@ -146,7 +152,7 @@ export function ReportsPage(props: { status: SessionStatus; onOpenEntry: (id: nu
       current = false;
       clearTimeout(t);
     };
-  }, [req, props.status.lastSavedAt]);
+  }, [req, percentOfIncome, props.status.lastSavedAt]);
 
   if (!controls || fyStartMonth === null) return null;
   const { kind } = controls.req;
@@ -273,6 +279,16 @@ export function ReportsPage(props: { status: SessionStatus; onOpenEntry: (id: nu
                 />
               </label>
             </>
+          )}
+          {kind === 'pl' && (
+            <label className="check inline">
+              <input
+                type="checkbox"
+                checked={percentOfIncome}
+                onChange={(e) => setPercentOfIncome(e.target.checked)}
+              />
+              % of income
+            </label>
           )}
           {kind === 'gl' && (
             <AccountSelect

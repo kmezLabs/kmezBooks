@@ -1,7 +1,8 @@
 // One shape for every report, so the screen, CSV, Excel and print all share a
-// renderer (RP-1 to RP-6). Amount cells are integer cents; text cells are strings.
+// renderer (RP-1 to RP-6). Amount cells are integer cents, percent cells are
+// hundredths of a percent (RP-10); text cells are strings.
 
-import type { Cents } from './money';
+import { formatMoney, type Cents } from './money';
 
 export type Cell = string | Cents | null;
 
@@ -14,6 +15,8 @@ export type Drill =
 export interface ReportColumn {
   label: string;
   numeric: boolean;
+  /** Numeric cells are cents unless this says percent (hundredths of a percent: 1234 = 12.34%). */
+  unit?: 'percent';
 }
 
 export interface ReportRow {
@@ -48,6 +51,8 @@ export interface ReportRequest {
   to: string;
   /** General ledger: one account, or every account */
   accountId?: string | null;
+  /** P&L: add a "% of Income" column (RP-10) */
+  percentOfIncome?: boolean;
 }
 
 export const REPORT_TITLES: Record<ReportKind, string> = {
@@ -56,3 +61,21 @@ export const REPORT_TITLES: Record<ReportKind, string> = {
   tb: 'Trial Balance',
   gl: 'General Ledger',
 };
+
+/** 1234 → "12.34%"; negatives as "-12.34%". */
+export function formatPercent(hundredths: number): string {
+  if (!Number.isSafeInteger(hundredths)) throw new Error(`Not a percentage: ${hundredths}`);
+  const digits = String(Math.abs(hundredths)).padStart(3, '0');
+  return `${hundredths < 0 ? '-' : ''}${digits.slice(0, -2)}.${digits.slice(-2)}%`;
+}
+
+/** 1234 → "0.1234": the fraction a spreadsheet cell formatted as a percentage needs. */
+export function percentToDecimal(hundredths: number): string {
+  const digits = String(Math.abs(hundredths)).padStart(5, '0');
+  return `${hundredths < 0 ? '-' : ''}${digits.slice(0, -4)}.${digits.slice(-4)}`;
+}
+
+/** A numeric cell as the screen shows it. */
+export function formatNumber(cell: number, column: ReportColumn | undefined): string {
+  return column?.unit === 'percent' ? formatPercent(cell) : formatMoney(cell);
+}

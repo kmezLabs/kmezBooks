@@ -2,6 +2,9 @@
 // DF-2), problems that need the owner (DF-3, DF-4, DF-9), and the pages.
 
 import { useEffect, useState } from 'react';
+import { BankingPage } from '../modules/banking/BankingPage';
+import { ReconcilePage } from '../modules/banking/ReconcilePage';
+import { RulesPage } from '../modules/banking/RulesPage';
 import { MigrationPage } from '../modules/migration/MigrationPage';
 import type { Module } from '../shared/company';
 import type { SessionStatus } from '../worker/companySession';
@@ -24,6 +27,9 @@ const PAGES = {
   accounts: 'Accounts',
   reports: 'Reports',
   close: 'Close books',
+  banking: 'Bank transactions',
+  rules: 'Bank rules',
+  reconcile: 'Reconcile',
   migration: 'QuickBooks import',
   company: 'Company',
   modules: 'Modules',
@@ -36,13 +42,19 @@ type Page = keyof typeof PAGES;
 
 const NAV: { group: string; pages: Page[] }[] = [
   { group: 'Books', pages: ['journal', 'accounts', 'reports', 'close'] },
+  { group: 'Banking', pages: ['banking', 'rules', 'reconcile'] },
   { group: 'Modules', pages: ['migration'] },
   { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
   { group: 'Development', pages: ['m1'] },
 ];
 
 /** Pages that belong to a module, shown only while it's on for the company (CO-4). */
-const MODULE_OF: Partial<Record<Page, Module>> = { migration: 'migration' };
+const MODULE_OF: Partial<Record<Page, Module>> = {
+  banking: 'banking',
+  rules: 'banking',
+  reconcile: 'banking',
+  migration: 'migration',
+};
 
 function SaveState({ status }: { status: SessionStatus }) {
   if (status.readOnly) return <span className="badge">Read-only</span>;
@@ -242,6 +254,9 @@ export function Workspace({ status }: { status: SessionStatus }) {
             </div>
           )}
           {page === 'close' && <CloseBooksPage status={status} />}
+          {page === 'banking' && <BankingPage status={status} />}
+          {page === 'rules' && <RulesPage status={status} />}
+          {page === 'reconcile' && <ReconcilePage status={status} />}
           {page === 'migration' && <MigrationPage status={status} />}
           {page === 'company' && <CompanyPage status={status} />}
           {page === 'modules' && <ModulesPage status={status} />}

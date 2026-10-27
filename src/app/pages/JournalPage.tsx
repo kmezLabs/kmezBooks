@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import type { AccountRow } from '../../shared/accounts';
 import { formatMoney, parseMoney } from '../../shared/money';
-import type { EntryDetail, EntrySummary } from '../../ledger/entries';
-import type { AttachmentRow } from '../../worker/attachments';
-import type { SessionStatus } from '../../worker/companySession';
+import type { EntrySummary } from '../../ledger/entries';
+import type { EntryView as EntryData, SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
 import {
   AccountSelect,
@@ -23,6 +22,7 @@ const PAGE = 100;
 const SOURCES: Record<string, string> = {
   journal: 'Journal entry',
   qbo_migration: 'From QuickBooks',
+  bank: 'From bank review',
 };
 
 export function JournalPage(props: {
@@ -443,7 +443,7 @@ function EntryView(props: {
   onBack: () => void;
   backLabel: string;
 }) {
-  const [entry, setEntry] = useState<(EntryDetail & { files: AttachmentRow[] }) | null>(null);
+  const [entry, setEntry] = useState<EntryData | null>(null);
   const [voiding, setVoiding] = useState(false);
   const { busy, error, run } = useAction();
   const reload = () => void db.entry(props.id).then(setEntry);
@@ -481,6 +481,14 @@ function EntryView(props: {
           )}
         </span>
       </p>
+      {entry.reconciled.length > 0 && (
+        <p className="muted">
+          Reconciled:{' '}
+          {entry.reconciled
+            .map((r) => `${r.account}, statement of ${formatDate(r.statementDate)}`)
+            .join('; ')}
+        </p>
+      )}
       <table className="list">
         <thead>
           <tr>
@@ -572,6 +580,7 @@ function EntryView(props: {
       {voiding && (
         <VoidDialog
           id={entry.id}
+          reconciled={entry.reconciled}
           onClose={() => {
             setVoiding(false);
             reload();
@@ -582,7 +591,11 @@ function EntryView(props: {
   );
 }
 
-function VoidDialog(props: { id: number; onClose: () => void }) {
+function VoidDialog(props: {
+  id: number;
+  reconciled: EntryData['reconciled'];
+  onClose: () => void;
+}) {
   const [reason, setReason] = useState('');
   const { attempt, busy, error, dialog } = useClosedPeriodOverride();
   return (
@@ -591,6 +604,17 @@ function VoidDialog(props: { id: number; onClose: () => void }) {
         The entry stays on record, marked void, and drops out of every balance and report. This
         can't be undone; to restore it, enter it again.
       </p>
+      {props.reconciled.length > 0 && (
+        <p className="warning">
+          This entry was reconciled (
+          {props.reconciled
+            .map((r) => `${r.account}, statement of ${formatDate(r.statementDate)}`)
+            .join('; ')}
+          ). Voiding it means the books no longer agree with that statement, and the next
+          reconciliation won't balance until a correction is entered. The reconciliation report will
+          show it as changed.
+        </p>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();

@@ -20,8 +20,8 @@ const LABELS: Record<Module, { name: string; about: string; milestone: string | 
   },
   banking: {
     name: 'Banking',
-    about: 'Statement import, review, rules, reconciliation',
-    milestone: 'M6',
+    about: 'Statement import, review, rules, reconciliation (Banking in the sidebar)',
+    milestone: null,
   },
   migration: {
     name: 'QuickBooks migration',

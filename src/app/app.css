@@ -9,6 +9,8 @@
   --error: #a4262c;
   --error-bg: #fde7e9;
   --warn-bg: #fff4ce;
+  --warn: #8a5300;
+  --ok: #1e7a34;
   --notice-bg: #e8f1fb;
   --overlay: rgb(0 0 0 / 0.35);
   font-family:
@@ -33,6 +35,8 @@
     --error: #ff8a8f;
     --error-bg: #3a1d20;
     --warn-bg: #3d3416;
+    --warn: #f0c060;
+    --ok: #7fd690;
     --notice-bg: #1c2c3d;
     --overlay: rgb(0 0 0 / 0.6);
   }
@@ -645,6 +649,8 @@ table.report-gl td:first-child {
   .sidebar,
   .banner,
   .report-controls,
+  .bank-tabs,
+  section.reconcile > h2,
   .report-foot + *,
   button {
     display: none !important;
@@ -693,4 +699,90 @@ table.mapping td {
   max-width: 100%;
   padding: 3px 6px;
   font-size: 0.85rem;
+}
+
+/* ---- banking (M6) ---- */
+
+.bank-tabs {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.small {
+  font-size: 0.8rem;
+}
+
+.badge.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+table.bank-queue td.actions,
+table.list td.actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+table.bank-queue tr.open td {
+  background: var(--panel);
+  border-bottom: none;
+}
+
+table.bank-queue tr.editor > td {
+  background: var(--panel);
+  padding: 4px 12px 12px;
+}
+
+.review-editor h4,
+.dialog h4 {
+  margin: 10px 0 4px;
+}
+
+ul.plain {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+}
+
+ul.plain li {
+  margin: 4px 0;
+}
+
+details.imports {
+  margin-top: 16px;
+}
+
+details.imports summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.reconcile-summary table.kv {
+  width: auto;
+  min-width: 320px;
+}
+
+.reconcile-summary tr.difference td,
+.reconcile-summary tr.difference th {
+  font-weight: 700;
+  color: var(--error);
+}
+
+.reconcile-summary tr.difference.zero td,
+.reconcile-summary tr.difference.zero th {
+  color: var(--ok);
+}
+
+table.reconcile-items tr.cleared td {
+  background: var(--panel);
+}
+
+.reconcile-report table.kv {
+  width: auto;
+  min-width: 320px;
+  margin: 8px 0;
 }

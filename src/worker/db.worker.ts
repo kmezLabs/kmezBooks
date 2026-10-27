@@ -4,6 +4,8 @@
 import * as Comlink from 'comlink';
 import type { EntryQuery } from '../ledger/entries';
 import type { EntryInput } from '../ledger/postEntry';
+import type { CategorizeInput, QueueView } from '../modules/banking/review';
+import type { RuleInput } from '../modules/banking/rules';
 import type { AccountChoices } from '../modules/migration/importer';
 import type { AccountInput } from '../shared/accounts';
 import type { ReportRequest } from '../shared/report';
@@ -96,6 +98,43 @@ const api = {
     onProgress?: (done: number, total: number) => void,
   ) => session.migrationRun(choices, opts, onProgress),
   migrationDiscard: () => session.migrationDiscard(),
+
+  // Banking (M6)
+  bankAccounts: () => session.bankAccounts(),
+  bankReadStatements: (files: File[]) => session.bankReadStatements(files),
+  bankImport: (accounts: Record<string, string>) => session.bankImport(accounts),
+  bankDiscardStatements: () => session.bankDiscardStatements(),
+  bankImports: (accountId: string) => session.bankImports(accountId),
+  bankUndoImport: (importId: string) => session.bankUndoImport(importId),
+  bankQueue: (accountId: string, view?: QueueView) => session.bankQueue(accountId, view),
+  bankCategorize: (id: number, input: CategorizeInput, overridePassphrase?: string) =>
+    session.bankCategorize(id, input, overridePassphrase),
+  bankTransfer: (id: number, otherTxnId: number, overridePassphrase?: string) =>
+    session.bankTransfer(id, otherTxnId, overridePassphrase),
+  bankAcceptSuggestions: (ids: number[], overridePassphrase?: string) =>
+    session.bankAcceptSuggestions(ids, overridePassphrase),
+  bankMatch: (id: number, entryId: number) => session.bankMatch(id, entryId),
+  bankExclude: (id: number) => session.bankExclude(id),
+  bankRestore: (id: number) => session.bankRestore(id),
+  bankUndo: (id: number, overridePassphrase?: string) => session.bankUndo(id, overridePassphrase),
+  bankRules: () => session.bankRules(),
+  bankCreateRule: (input: RuleInput) => session.bankCreateRule(input),
+  bankUpdateRule: (id: string, input: RuleInput) => session.bankUpdateRule(id, input),
+  bankDeleteRule: (id: string) => session.bankDeleteRule(id),
+  bankMoveRule: (id: string, direction: 'up' | 'down') => session.bankMoveRule(id, direction),
+  reconcileState: (accountId: string) => session.reconcileState(accountId),
+  reconcileStart: (accountId: string, statementDate: string, endingBalance: number) =>
+    session.reconcileStart(accountId, statementDate, endingBalance),
+  reconcileUpdate: (id: string, statementDate: string, endingBalance: number) =>
+    session.reconcileUpdate(id, statementDate, endingBalance),
+  reconcileSetCleared: (id: string, lineIds: number[], cleared: boolean) =>
+    session.reconcileSetCleared(id, lineIds, cleared),
+  reconcileSetAllCleared: (id: string, cleared: boolean) =>
+    session.reconcileSetAllCleared(id, cleared),
+  reconcileFinish: (id: string) => session.reconcileFinish(id),
+  reconcileCancel: (id: string) => session.reconcileCancel(id),
+  reconcileHistory: (accountId: string) => session.reconcileHistory(accountId),
+  reconcileReport: (id: string) => session.reconcileReport(id),
 
   listBackups: () => session.listBackups(),
   backupNow: () => session.backupNow(),

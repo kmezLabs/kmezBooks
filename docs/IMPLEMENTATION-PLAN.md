@@ -13,7 +13,7 @@ How the MVP in `docs/MVP-REQUIREMENTS.md` gets built. M1 is planned in detail; M
 | M3 | Ledger core and period close (done) | GL-1–GL-4, GL-6–GL-8, PC-1–PC-3 |
 | M4 | Reports (done) | RP-1–RP-6, RP-10 |
 | M5 | QuickBooks Online migration | MG-1–MG-6 |
-| M6 | Banking | BK-1, BK-3–BK-9 |
+| M6 | Banking (built) | BK-1, BK-3–BK-9 |
 | M7 | Expenses, bills, sales | EX-1, EX-2, AP-1–AP-5, AR-1–AR-8 |
 | M8 | Polish, export, restore drill | Offline, Portability, Backup NFRs |
 | Later | Should-haves, bookkeeper handoff first | DF-5–DF-8, US-2, US-4, then the other S items |
@@ -229,12 +229,39 @@ Still to do (owner, with the app):
 - The rebuild from the General Ledger is tested on fixtures only; the first company with invoices or bills will show whether QuickBooks's cash-basis General Ledger groups as expected.
 - Run per company against real data. The QuickBooks Online subscription stays active until all four pass.
 
-## M6 — Banking (outline)
+## M6 — Banking (built Oct 27; tried on real bank statements, card statements still to try)
 
-- `.qbo` parser for both OFX 1.x (SGML) and 2.x (XML) (BK-1); import into a review queue (BK-3).
-- Duplicates (BK-6): match on FITID + date + amount. Migrated transactions have no FITID, so date + amount + account matches against them are flagged for review rather than skipped.
-- Matching to existing payments, bill payments and expenses (BK-4); rules (BK-5); transfers auto-matched across accounts (BK-9).
-- Reconciliation (BK-7) and its saved reports, with a warning when a reconciled transaction changes (BK-8).
+Built on branch `m6-banking` in the `banking` module (`src/modules/banking/`, migration 0011). Tested in Node on made-up statements in both OFX dialects, and end to end in headless Chrome: two statement files imported through the file picker, a check matched to an entry already in the books, a card payment recorded as a transfer with both sides matched, a rule's suggestion added, a split, a reconciliation finished at zero with its report, and the warning before voiding a reconciled entry.
+
+| Requirement | How |
+| --- | --- |
+| BK-1 | `.qbo` files (also `.ofx` and `.qfx`, the same format) are read by one parser for OFX 1.x SGML and 2.x XML (`ofx.ts`), honouring the file's character set; amounts go from their digits to cents. The first import of an account asks which ledger account it is (asset or liability only, enforced by the schema) and remembers it by bank and account number (`bank_feed`). Statements in another currency are refused. An import can be undone while its transactions are still waiting for review |
+| BK-3 | Each account has a queue: For review, In the books, Excluded. A transaction is added to the books through `postEntry()` (`source_type = 'bank'`) with one category or a split; matched; recorded as a transfer; or excluded. Undo voids an entry the review posted (or undoes a match), and voiding such an entry anywhere sends its transaction back to review (a trigger) |
+| BK-4 | Entries already in the books that move the same amount through the account within 10 days are offered as matches, a matching check number first. The schema checks that a matched entry is posted and moves exactly the transaction's amount through its account, and that an entry accounts for at most one transaction per account. Payments, bill payments and expenses from M7 are entries, so they will be matched the same way |
+| BK-5 | Rules in priority order: payee or description contains text (ignoring capitals), money in or out, amount range, account. A rule suggests a category, payee and memo; with "add automatically" it posts on import. Without a rule, the category used the last time for the same payee is suggested. "Add N suggested transactions" accepts them in one step |
+| BK-6 | A transaction with the same bank id (FITID), date and amount as one already imported into the account is skipped; the schema's unique index enforces it. The same bank id with a different date or amount is imported but flagged. A transaction that matches an entry from the QuickBooks migration is flagged "possible duplicate" with the match offered. Possible duplicates are never added automatically or in bulk |
+| BK-7 | Reconcile against a statement date and ending balance (filled in from the last imported statement's balance), check items off, finish when the difference is zero. The schema enforces the rest: it starts at the previous statement's ending balance, a line is cleared once, only posted lines of that account dated on or before the statement date, statements in date order, one open reconciliation per account, a finished one never changes |
+| BK-8 | Finished reconciliations are kept with their cleared lines and shown as a report (cleared and outstanding items, printable). The journal shows where an entry was reconciled, and voiding it warns first; the report and the history flag items voided since |
+| BK-9 | A waiting transaction with the opposite amount in another account within 5 days is suggested as the other side of a transfer; recording it matches both. A transfer entered from one account is matched automatically when the other account's statement is imported |
+| US-5 | `bank_txn` and `reconciled_line` are bulk tables: a review gets one compact audit event, and imports, rules and reconciliations are audited in full (migration 0011) |
+
+Decisions made while building:
+
+- Amounts are stored debit minus credit for the account, which is also the sign a `.qbo` file uses, so bank and card accounts work the same way; the screens show card balances owed as positive, as the statement does.
+- The first reconciliation of an account starts from zero; "Check all" clears all its history up to the statement date in one step.
+- Suggestions are worked out when the queue is read, so a new or edited rule applies at once to everything waiting.
+- Rules and the review never post into a closed period without the passphrase override; a rule's automatic post skips it and leaves the transaction for review.
+
+Tried on real files (Oct 27): two Bank of America checking statements for one company, with its 2025 QuickBooks history imported first (`realStatements.test.ts`, opt-in with `QBO_DIR`; no real data committed). All January 2025 transactions were offered as matches to the migrated entries; importing the files again added nothing; the January 2025 statement reconciled to a zero difference. What they taught:
+
+- Bank of America dates a statement's ending balance when the file was downloaded, not at the statement's end. A balance dated after the statement period is taken as the balance on its last day.
+- Banks shorten and vary payee text between statements ("… DES:ROYALTY ID:DP_67 I" one month, "… DES:ROYALTY" the next). Suggestions compare payees ignoring capitals, ids and words with digits, using the first four words.
+- "Like last time" also learns from transactions matched to existing entries, so matching the QuickBooks history once gives suggestions (category and the QuickBooks payee name) for the following statements: five of January 2026's seven transactions.
+
+Still to do:
+
+- Try real card statements, and other banks; each surprise becomes a fixture case in `ofx.test.ts` or `banking.test.ts`.
+- BK-2 (S): CSV and Excel statements with a saved column mapping.
 
 ## M7 — Expenses, bills, sales (outline)
 

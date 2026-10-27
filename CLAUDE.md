@@ -69,7 +69,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 3. **M3** `GL` + `PC`: chart of accounts, `postEntry()`, balance check, closing-date lock, voids, `allocateProRata()` (done)
 4. **M4** `RP`: trial balance, GL detail, P&L, balance sheet (done)
 5. **M5** `MG`: QuickBooks Online cash-basis import with dry run and year-end tie-out (`MG-5`), run against real data per company (built; one company-year tied out; the full runs per company are the owner's, with the app)
-6. **M6** `BK`: `.qbo` import, duplicate detection, review queue, rules, reconciliation
+6. **M6** `BK`: `.qbo` import, duplicate detection, review queue, rules, reconciliation (built; tried on real bank statements; card statements still to try)
 7. **M7** `EX`, `AP`, `AR`
 8. **M8** Offline polish, export, restore drill
 

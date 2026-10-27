@@ -251,9 +251,9 @@ The ledger tables are the only source of truth for the financial statements; inv
 | Payment, PaymentApplication | amount, method, deposit account, invoices paid and amount applied to each | AR |
 | Bill, BillPayment, BillPaymentApplication | header, lines, status; payment amount, method, bills paid and amount applied to each | AP |
 | Expense | payment account, payee, split lines | EX |
-| StatementImport, BankTransaction | file name, format, column mapping, imported line, match status, link to posted transaction | BK |
-| BankRule | conditions, target account, payee | BK |
-| Reconciliation | account, statement date, ending balance, cleared lines | BK |
+| BankFeed, StatementImport, BankTransaction | which ledger account a statement account is; per imported file its name, period and closing balance; per transaction the bank id, date, amount, payee, memo, check number, review status (new, posted, matched, excluded) and the entry that accounts for it. Column mapping for CSV/Excel (BK-2) later | BK |
+| BankRule | priority, on/off, conditions (text in payee or description, money in or out, amount range, account), category, payee, memo, post automatically | BK |
+| Reconciliation, ReconciledLine | account, statement date, beginning and ending balance, open or done; the ledger lines it cleared | BK |
 | Attachment | file name, type, size, content hash, linked entity; the encrypted file is `attachments/<id>.eba` in the company folder | shared |
 | AuditEvent | user, action, entity, before/after, timestamp | shared |
 

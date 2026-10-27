@@ -106,7 +106,7 @@ function DeviceSettings() {
           hint="Shown to other devices while you have a company open."
         />
         <TextField
-          label="Lock after (minutes idle)"
+          label="Close company after (minutes idle)"
           value={minutes}
           onChange={(v) => {
             setMinutes(v);

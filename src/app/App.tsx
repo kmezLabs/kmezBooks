@@ -55,7 +55,7 @@ export function App() {
 
   useInactivityLock(!!status?.open, () =>
     setNotice(
-      `Locked after ${lockAfterMinutes()} minutes without activity. Open the company again to continue.`,
+      `Closed after ${lockAfterMinutes()} minutes without activity. Open the company again to continue.`,
     ),
   );
 

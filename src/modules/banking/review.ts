@@ -2,7 +2,8 @@
 // waits here until the owner categorizes it (a new entry through postEntry()),
 // matches it to an entry already in the books, or excludes it. Suggestions
 // are worked out when the queue is read, so a new rule shows at once:
-// - a rule (BK-5), or failing that how the same payee was categorized last time
+// - a rule (BK-5), or failing that how the same payee was categorized last
+//   time, deposits and payments apart
 // - entries already in the books that move the same amount (BK-4), including
 //   migrated QuickBooks history, so nothing is entered twice (BK-6). QuickBooks
 //   keeps the bank's own description in the memo of what came from its bank
@@ -227,14 +228,24 @@ export function payeeKey(payee: string | null): string {
 export type History = Map<string, Suggestion>;
 
 /**
+ * A payee and which way the money went: a payee's deposits (a refund, a
+ * rebate) usually go to another category than its payments.
+ */
+const historyKey = (payee: string | null, amount: Cents) => {
+  const key = payeeKey(payee);
+  return key && `${amount > 0 ? 'in' : 'out'} ${key}`;
+};
+
+/**
  * How each payee was last put in the books in this account, when that was a
- * single category: from the review here, and from transactions matched to
- * entries already in the books, such as QuickBooks history.
+ * single category, for deposits and payments apart: from the review here, and
+ * from transactions matched to entries already in the books, such as
+ * QuickBooks history.
  */
 export function historyIndex(db: Database, accountId: string): History {
   const index: History = new Map();
   const rows = db.selectObjects(
-    `SELECT b.payee, e.name, min(l.account_id) AS category, count(DISTINCT l.account_id) AS n
+    `SELECT b.payee, b.amount, e.name, min(l.account_id) AS category, count(DISTINCT l.account_id) AS n
      FROM bank_txn b
      JOIN journal_entry e ON e.id = b.entry_id AND e.status = 'posted'
      JOIN journal_line l ON l.entry_id = e.id AND l.account_id <> b.account_id
@@ -243,10 +254,10 @@ export function historyIndex(db: Database, accountId: string): History {
      GROUP BY b.id ORDER BY b.date DESC, b.id DESC LIMIT 5000`,
     [accountId],
   );
-  // The last few uses of each payee, newest first; a split has no single category
+  // The last few uses of each payee each way, newest first; a split has no single category
   const uses = new Map<string, { category: string | null; payee: string | null }[]>();
   for (const r of rows) {
-    const key = payeeKey(String(r.payee));
+    const key = historyKey(String(r.payee), Number(r.amount));
     if (!key) continue;
     const list = uses.get(key) ?? [];
     if (list.length >= HISTORY_USES) continue;
@@ -282,7 +293,7 @@ function suggest(t: BankTxn, rules: RuleRow[], history: History): Suggestion | n
       memo: rule.memo,
     };
   }
-  return history.get(payeeKey(t.payee)) ?? null;
+  return history.get(historyKey(t.payee, t.amount)) ?? null;
 }
 
 export type QueueView = 'new' | 'excluded' | 'reviewed';

@@ -88,6 +88,23 @@ it.runIf(process.env.QBO_DIR)(
       );
       if (p.accountId) choices[p.key] = p.accountId;
     }
+    // What the owner would choose for the rest: the busiest top-level account
+    // of the statement's kind not already chosen (Capital One: no digits in its name)
+    for (const p of previews.filter((x) => !choices[x.key])) {
+      const used = Object.values(choices);
+      const pick = db.selectValue(
+        `SELECT a.id FROM account a WHERE a.parent_id IS NULL AND a.active = 1 AND a.detail_type = ?
+           AND a.id NOT IN (${used.map(() => '?').join(', ') || "''"})
+         ORDER BY (SELECT count(*) FROM journal_line l WHERE l.account_id = a.id) DESC LIMIT 1`,
+        [p.kind === 'card' ? 'credit_card' : 'bank', ...used],
+      );
+      if (pick) {
+        choices[p.key] = String(pick);
+        console.log(
+          `${p.label} → ${String(db.selectValue('SELECT name FROM account WHERE id = ?', [pick]))} (as the owner would choose)`,
+        );
+      }
+    }
     const result = importStatements(db, pending, choices);
     console.log(JSON.stringify(result.statements.map(({ accountId: _, ...s }) => s)));
     console.log(
@@ -195,8 +212,23 @@ it.runIf(process.env.QBO_DIR)(
       const suggested = reconcileState(db, account.id).suggested;
       if (!suggested) continue;
       if (suggested.endingBalance === null) {
+        const fileBalance = Number(
+          db.selectValue(
+            'SELECT balance FROM bank_import WHERE account_id = ? ORDER BY end_date DESC LIMIT 1',
+            [account.id],
+          ),
+        );
+        const booksThen = Number(
+          db.selectValue(
+            `SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
+             JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+             WHERE l.account_id = ? AND e.date <= ?`,
+            [account.id, suggested.statementDate],
+          ),
+        );
         console.log(
-          `Reconcile ${account.name}: statement of ${suggested.statementDate}, balance not trusted (dated at download), owner enters it`,
+          `Reconcile ${account.name}: statement of ${suggested.statementDate}, balance not trusted (dated at download), owner enters it. ` +
+            `For reference: books ${formatMoney(booksThen)} then, the file's (download-day) balance ${formatMoney(fileBalance)}`,
         );
         continue;
       }

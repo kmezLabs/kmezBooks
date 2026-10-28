@@ -1,12 +1,13 @@
 // Journal entries (GL-3, GL-4, GL-6, GL-10): list, view, void, attachments,
 // new entry, and re-entering a voided one from a filled-in copy.
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { AccountRow } from '../../shared/accounts';
 import { formatMoney, parseMoney } from '../../shared/money';
 import type { EntrySummary } from '../../ledger/entries';
 import type { EntryView as EntryData, SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
+import { EntryPeek, SOURCES } from '../EntryPeek';
 import {
   AccountSelect,
   MoneyInput,
@@ -25,13 +26,6 @@ type View =
   | { kind: 'edit'; entry: EntryData }
   | { kind: 'reenter'; entry: EntryData };
 const PAGE = 100;
-
-const SOURCES: Record<string, string> = {
-  journal: 'Journal entry',
-  qbo_migration: 'From QuickBooks',
-  bank: 'From bank review',
-  register: 'Quick entry',
-};
 
 export function JournalPage(props: {
   status: SessionStatus;
@@ -104,6 +98,14 @@ function EntryList(props: {
   const [search, setSearch] = useState('');
   const [includeVoid, setIncludeVoid] = useState(false);
   const [accountName, setAccountName] = useState<string | null>(null);
+  // Entries opened in place under their row
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggle = (id: number) =>
+    setExpanded((s) => {
+      const next = new Set(s);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const query = { search, includeVoid, accountId: props.accountFilter ?? undefined };
 
   useEffect(() => {
@@ -172,47 +174,64 @@ function EntryList(props: {
       {entries.length === 0 ? (
         <p className="muted">No entries{search || props.accountFilter ? ' match' : ' yet'}.</p>
       ) : (
-        <table className="list">
+        <table className="list two-line">
           <thead>
             <tr>
               <th>Date</th>
-              <th>No.</th>
-              <th>Ref</th>
-              <th>Name</th>
-              <th>Memo</th>
+              <th className="wide">Payee and memo</th>
               <th className="num">Amount</th>
-              <th />
             </tr>
           </thead>
           <tbody>
-            {entries.map((e) => (
-              <tr
-                key={e.id}
-                className={e.status === 'void' ? 'clickable inactive' : 'clickable'}
-                onClick={() => props.onOpen(e.id)}
-              >
-                <td>{formatDate(e.date)}</td>
-                <td className="muted">{e.id}</td>
-                <td>{e.ref}</td>
-                <td>{e.name}</td>
-                <td>
-                  {e.memo}
-                  {e.sourceType !== 'journal' && (
-                    <span className="muted"> · {SOURCES[e.sourceType] ?? e.sourceType}</span>
+            {entries.map((e) => {
+              const open = expanded.has(e.id);
+              return (
+                <Fragment key={e.id}>
+                  <tr
+                    className={`clickable${e.status === 'void' ? ' inactive' : ''}${open ? ' open' : ''}`}
+                    aria-expanded={open}
+                    onClick={() => toggle(e.id)}
+                  >
+                    <td className="nowrap">
+                      <div>{formatDate(e.date)}</div>
+                      <div className="sub">No. {e.id}</div>
+                    </td>
+                    <td className="wide">
+                      <div className="line">{e.name ?? e.memo ?? '—'}</div>
+                      <div className="sub line">
+                        {[
+                          e.ref && `Ref ${e.ref}`,
+                          e.name ? e.memo : null,
+                          SOURCES[e.sourceType] ?? e.sourceType,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </td>
+                    <td className="num">
+                      <div>{formatMoney(e.amount)}</div>
+                      <div className="sub">
+                        {e.status === 'void' && <span className="badge small">void</span>}
+                        {e.attachments > 0 && (
+                          <span title={`${e.attachments} attachment(s)`}> 📎{e.attachments}</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {open && (
+                    <tr className="peek">
+                      <td colSpan={3}>
+                        <EntryPeek
+                          id={e.id}
+                          lastSavedAt={props.status.lastSavedAt}
+                          onOpen={() => props.onOpen(e.id)}
+                        />
+                      </td>
+                    </tr>
                   )}
-                </td>
-                <td className="num">{formatMoney(e.amount)}</td>
-                <td>
-                  {e.status === 'void' && <span className="badge small">void</span>}
-                  {e.attachments > 0 && (
-                    <span className="muted" title={`${e.attachments} attachment(s)`}>
-                      {' '}
-                      📎{e.attachments}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       )}

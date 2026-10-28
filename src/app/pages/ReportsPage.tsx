@@ -1,7 +1,7 @@
 // Reports (RP-1 to RP-6): P&L, balance sheet, trial balance and general
 // ledger detail, with presets, drill-down, export and print.
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { AccountRow } from '../../shared/accounts';
 import {
   AS_OF_PRESETS,
@@ -14,15 +14,18 @@ import {
 import {
   REPORT_TITLES,
   formatNumber,
+  type Cell,
   type Drill,
   type Report,
+  type ReportRow,
   type ReportKind,
   type ReportRequest,
 } from '../../shared/report';
 import type { SessionStatus } from '../../worker/companySession';
 import { db, errorMessage } from '../../shared/workerClient';
 import { download, reportFileName, reportToCsv, reportToXlsx } from '../export/exportReport';
-import { AccountSelect, todayIso } from '../ledgerUi';
+import { EntryPeek } from '../EntryPeek';
+import { AccountSelect, formatDate, todayIso } from '../ledgerUi';
 import { ErrorText, formatDateTime } from '../ui';
 
 const usesRange = (kind: ReportKind) => kind === 'pl' || kind === 'gl';
@@ -54,51 +57,55 @@ function ReportTable({ report, onDrill }: { report: Report; onDrill: (d: Drill) 
         <div>{report.period}</div>
         <div className="muted">{report.basis}</div>
       </header>
-      <table className={`report report-${report.kind}`}>
-        <thead>
-          <tr>
-            {report.columns.map((c, i) => (
-              <th key={i} className={c.numeric ? 'num' : undefined}>
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {report.rows.map((row, r) => (
-            <tr
-              key={r}
-              className={`${row.kind}${row.drill ? ' clickable' : ''}`}
-              onClick={row.drill ? () => onDrill(row.drill!) : undefined}
-              title={
-                row.drill
-                  ? row.drill.kind === 'entry'
-                    ? 'Open this entry'
-                    : 'Show the entries behind this figure'
-                  : undefined
-              }
-            >
-              {row.cells.map((cell, i) => (
-                <td
-                  key={i}
-                  className={report.columns[i]?.numeric ? 'num' : undefined}
-                  style={
-                    i === 0 && row.depth
-                      ? { paddingLeft: `${0.4 + row.depth * 1.25}rem` }
-                      : undefined
-                  }
-                >
-                  {cell === null
-                    ? ''
-                    : typeof cell === 'number'
-                      ? formatNumber(cell, report.columns[i])
-                      : cell}
-                </td>
+      {report.kind === 'gl' ? (
+        <GeneralLedgerTable report={report} onDrill={onDrill} />
+      ) : (
+        <table className={`report report-${report.kind}`}>
+          <thead>
+            <tr>
+              {report.columns.map((c, i) => (
+                <th key={i} className={c.numeric ? 'num' : undefined}>
+                  {c.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {report.rows.map((row, r) => (
+              <tr
+                key={r}
+                className={`${row.kind}${row.drill ? ' clickable' : ''}`}
+                onClick={row.drill ? () => onDrill(row.drill!) : undefined}
+                title={
+                  row.drill
+                    ? row.drill.kind === 'entry'
+                      ? 'Open this entry'
+                      : 'Show the entries behind this figure'
+                    : undefined
+                }
+              >
+                {row.cells.map((cell, i) => (
+                  <td
+                    key={i}
+                    className={report.columns[i]?.numeric ? 'num' : undefined}
+                    style={
+                      i === 0 && row.depth
+                        ? { paddingLeft: `${0.4 + row.depth * 1.25}rem` }
+                        : undefined
+                    }
+                  >
+                    {cell === null
+                      ? ''
+                      : typeof cell === 'number'
+                        ? formatNumber(cell, report.columns[i])
+                        : cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {report.notes.map((n) => (
         <p key={n} className="warning">
           {n}
@@ -106,6 +113,114 @@ function ReportTable({ report, onDrill }: { report: Report; onDrill: (d: Drill) 
       ))}
       <p className="muted report-foot">Prepared {formatDateTime(report.generatedAt)}</p>
     </div>
+  );
+}
+
+/**
+ * The general ledger on screen: each line in two rows (date, payee, the other
+ * account and the amounts; then entry number, ref and memo), opening in place
+ * when clicked. Exports keep the report's full columns.
+ * Cells: date, entry, ref, name, memo, split, debit, credit, balance.
+ */
+function GeneralLedgerTable({ report, onDrill }: { report: Report; onDrill: (d: Drill) => void }) {
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggle = (r: number) =>
+    setExpanded((s) => {
+      const next = new Set(s);
+      if (!next.delete(r)) next.add(r);
+      return next;
+    });
+  const money = (cell: Cell | undefined, i: number) =>
+    typeof cell === 'number' ? formatNumber(cell, report.columns[i]) : '';
+  const amounts = (row: ReportRow) => (
+    <>
+      <td className="num">{money(row.cells[6], 6)}</td>
+      <td className="num">{money(row.cells[7], 7)}</td>
+      <td className="num">{money(row.cells[8], 8)}</td>
+    </>
+  );
+
+  return (
+    <table className="report report-gl two-line">
+      <colgroup>
+        <col className="gl-date" />
+        <col />
+        <col className="gl-account" />
+        <col className="gl-money" />
+        <col className="gl-money" />
+        <col className="gl-money" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th className="wide">Payee and memo</th>
+          <th>Account</th>
+          <th className="num">Debit</th>
+          <th className="num">Credit</th>
+          <th className="num">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {report.rows.map((row, r) => {
+          const c = row.cells;
+          if (row.kind === 'section') {
+            return (
+              <tr key={r} className="section">
+                <td colSpan={6}>{c[0]}</td>
+              </tr>
+            );
+          }
+          if (!row.drill || row.drill.kind !== 'entry') {
+            return (
+              <tr key={r} className={row.kind}>
+                <td colSpan={3} style={row.depth ? { paddingLeft: '1.65rem' } : undefined}>
+                  {c[0]}
+                </td>
+                {amounts(row)}
+              </tr>
+            );
+          }
+          const drill = row.drill;
+          const open = expanded.has(r);
+          const name = c[3] as string | null;
+          const memo = c[4] as string | null;
+          return (
+            <Fragment key={r}>
+              <tr
+                className={`row clickable${open ? ' open' : ''}`}
+                aria-expanded={open}
+                title={open ? undefined : 'Show this entry'}
+                onClick={() => toggle(r)}
+              >
+                <td className="nowrap" style={{ paddingLeft: '1.65rem' }}>
+                  <div>{formatDate(String(c[0]))}</div>
+                  <div className="sub">No. {c[1]}</div>
+                </td>
+                <td className="wide">
+                  <div className="line">{name ?? memo ?? '—'}</div>
+                  <div className="sub line">
+                    {[c[2] && `Ref ${String(c[2])}`, name ? memo : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </td>
+                <td>
+                  <div className="line account">{c[5]}</div>
+                </td>
+                {amounts(row)}
+              </tr>
+              {open && (
+                <tr className="peek">
+                  <td colSpan={6}>
+                    <EntryPeek id={drill.entryId} onOpen={() => onDrill(drill)} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 

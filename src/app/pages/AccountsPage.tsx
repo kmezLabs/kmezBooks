@@ -37,14 +37,17 @@ function AccountDialog(props: {
   onClose: () => void;
   onShowEntries: (accountId: string) => void;
 }) {
-  const a = props.account;
+  const source = props.account;
+  // Copy…: a new account like this one, under a new name (GL-1)
+  const [copying, setCopying] = useState(false);
+  const a = copying ? null : source;
   const [form, setForm] = useState<AccountInput>({
-    name: a?.name ?? '',
-    number: a?.number ?? '',
-    type: a?.type ?? 'expense',
-    detailType: a?.detailType ?? 'other_expense',
-    parentId: a?.parentId ?? null,
-    description: a?.description ?? '',
+    name: source?.name ?? '',
+    number: source?.number ?? '',
+    type: source?.type ?? 'expense',
+    detailType: source?.detailType ?? 'other_expense',
+    parentId: source?.parentId ?? null,
+    description: source?.description ?? '',
   });
   const { busy, error, setError, run } = useAction();
   const set = (changes: Partial<AccountInput>) => setForm({ ...form, ...changes });
@@ -67,7 +70,7 @@ function AccountDialog(props: {
 
   return (
     <Dialog
-      title={a ? `Account: ${a.fullName}` : 'New account'}
+      title={a ? `Account: ${a.fullName}` : copying ? `Copy of ${source!.fullName}` : 'New account'}
       onClose={busy ? undefined : props.onClose}
     >
       <form
@@ -76,9 +79,16 @@ function AccountDialog(props: {
           save();
         }}
       >
+        {copying && (
+          <p className="muted">
+            A new account like {source!.name}: the same type, detail type, parent account and
+            description. Its transactions stay with {source!.name}.
+          </p>
+        )}
         <div className="fields">
           <TextField
-            label="Name"
+            key={copying ? 'copy' : 'name'}
+            label={copying ? 'New name' : 'Name'}
             value={form.name}
             onChange={(name) => set({ name })}
             autoFocus={!a}
@@ -148,6 +158,19 @@ function AccountDialog(props: {
                 type="button"
                 className="secondary"
                 disabled={busy}
+                title="A new account with this one's settings, under a new name"
+                onClick={() => {
+                  setCopying(true);
+                  setError(null);
+                  set({ name: '', number: '' });
+                }}
+              >
+                Copy…
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
                 onClick={() =>
                   run(async () => {
                     await db.setAccountActive(a.id, !a.active);
@@ -187,7 +210,7 @@ function AccountDialog(props: {
             Cancel
           </button>
         </div>
-        {a?.hasHistory && (
+        {a?.hasHistory && !copying && (
           <p className="muted">
             An account with transactions can't be deleted; make it inactive to hide it from new
             entries (GL-7).

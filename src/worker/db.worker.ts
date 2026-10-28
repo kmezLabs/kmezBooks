@@ -133,6 +133,7 @@ const api = {
   bankAcceptSuggestions: (ids: number[], overridePassphrase?: string) =>
     session.bankAcceptSuggestions(ids, overridePassphrase),
   bankMatch: (id: number, entryId: number) => session.bankMatch(id, entryId),
+  bankMatchByBankText: (ids: number[]) => session.bankMatchByBankText(ids),
   bankExclude: (id: number) => session.bankExclude(id),
   bankRestore: (id: number) => session.bankRestore(id),
   bankUndo: (id: number, overridePassphrase?: string) => session.bankUndo(id, overridePassphrase),
@@ -142,8 +143,12 @@ const api = {
   bankDeleteRule: (id: string) => session.bankDeleteRule(id),
   bankMoveRule: (id: string, direction: 'up' | 'down') => session.bankMoveRule(id, direction),
   reconcileState: (accountId: string) => session.reconcileState(accountId),
-  reconcileStart: (accountId: string, statementDate: string, endingBalance: number) =>
-    session.reconcileStart(accountId, statementDate, endingBalance),
+  reconcileStart: (
+    accountId: string,
+    statementDate: string,
+    endingBalance: number,
+    includeSubaccounts?: boolean,
+  ) => session.reconcileStart(accountId, statementDate, endingBalance, includeSubaccounts),
   reconcileUpdate: (id: string, statementDate: string, endingBalance: number) =>
     session.reconcileUpdate(id, statementDate, endingBalance),
   reconcileSetCleared: (id: string, lineIds: number[], cleared: boolean) =>

@@ -70,6 +70,7 @@ import {
   exclude,
   listQueue,
   match,
+  matchByBankText,
   restore,
   transfer,
   undo,
@@ -1020,6 +1021,12 @@ export class CompanySession {
     this.touch();
   }
 
+  bankMatchByBankText(ids: number[]): number {
+    const n = matchByBankText(this.writable().db, ids);
+    this.touch();
+    return n;
+  }
+
   bankExclude(id: number): void {
     exclude(this.writable().db, id);
     this.touch();
@@ -1072,8 +1079,19 @@ export class CompanySession {
     return reconcileState(this.open_().db, accountId);
   }
 
-  reconcileStart(accountId: string, statementDate: string, endingBalance: Cents): string {
-    const id = startReconciliation(this.writable().db, accountId, statementDate, endingBalance);
+  reconcileStart(
+    accountId: string,
+    statementDate: string,
+    endingBalance: Cents,
+    includeSubaccounts = false,
+  ): string {
+    const id = startReconciliation(
+      this.writable().db,
+      accountId,
+      statementDate,
+      endingBalance,
+      includeSubaccounts,
+    );
     this.touch();
     return id;
   }

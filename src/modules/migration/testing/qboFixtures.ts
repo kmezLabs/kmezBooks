@@ -338,7 +338,9 @@ export function exportFiles(c: FxCompany, opts: FxOptions = {}): SourceFile[] {
     ]);
     add(`${folder}/Trial_balance.xlsx`, 'Trial Balance', tbRows);
 
-    // Balance Sheet: headings, indented accounts, totals as formulas
+    // Balance Sheet: headings, indented accounts, totals as formulas. As in
+    // QuickBooks, banks sit under "Bank Accounts", cards under "Credit Cards",
+    // fixed assets and long-term liabilities in their own sections.
     const bsRows: (XCell[] | null)[] = [
       ...head('Balance Sheet', `As of ${longDate(y.to)}`),
       [null, 'Total'],
@@ -347,31 +349,61 @@ export function exportFiles(c: FxCompany, opts: FxOptions = {}): SourceFile[] {
       const v = n === reName ? (tb.get(n) ?? 0) : (upTo.get(n) ?? 0);
       return normal(n, v);
     };
-    const bsAccounts = (k: Kind, depth: number) => {
+    const tree = (
+      rows: (XCell[] | null)[],
+      roots: string[],
+      depth: number,
+      value: (n: string) => number,
+    ) => {
       const emit = (n: string, d: number) => {
         const pad = '   '.repeat(d);
         const leaf = n.split(':').at(-1)!;
         const kids = names.filter(
           (m) => m.startsWith(`${n}:`) && m.split(':').length === n.split(':').length + 1,
         );
-        const v = shown(n);
+        const v = value(n);
         if (kids.length) {
-          bsRows.push(v ? [`${pad}${leaf}`, { f: amount(v) }] : [`${pad}${leaf}`]);
+          rows.push(v ? [`${pad}${leaf}`, { f: amount(v) }] : [`${pad}${leaf}`]);
           for (const kid of kids) emit(kid, d + 1);
-          bsRows.push([`${pad}Total ${leaf}`, { f: 'B1' }]);
+          rows.push([`${pad}Total ${leaf}`, { f: 'B1' }]);
         } else if (v) {
-          bsRows.push([`${pad}${leaf}`, { f: amount(v) }]);
+          rows.push([`${pad}${leaf}`, { f: amount(v) }]);
         }
       };
-      for (const n of names.filter((x) => !x.includes(':') && kindOf(x) === k)) emit(n, depth);
+      for (const n of roots) emit(n, depth);
     };
+    // QuickBooks sections by its own account type
+    const qboType = (n: string) => c.accounts.find((x) => x.name === n)!.type;
+    const detailOf = (n: string) => {
+      const a = c.accounts.find((x) => x.name === n)!;
+      return mapQboType(a.type, a.detail)!.detailType;
+    };
+    const roots = (k: Kind, test: (n: string) => boolean = () => true) =>
+      names.filter((x) => !x.includes(':') && kindOf(x) === k && test(x));
+    const section = (heading: string, depth: number, list: string[]) => {
+      if (!list.some((n) => shown(n) || names.some((m) => m.startsWith(`${n}:`)))) return;
+      bsRows.push([`${'   '.repeat(depth)}${heading}`]);
+      tree(bsRows, list, depth + 1, shown);
+      bsRows.push([`${'   '.repeat(depth)}Total ${heading}`, { f: 'B1' }]);
+    };
+    const is = (type: string) => (n: string) => qboType(n) === type;
+    const isNot =
+      (...types: string[]) =>
+      (n: string) =>
+        !types.includes(qboType(n));
     bsRows.push(['ASSETS'], ['   Current Assets']);
-    bsAccounts('asset', 2);
-    bsRows.push(['   Total Current Assets', { f: 'B7' }], ['TOTAL ASSETS', { f: 'B8' }]);
-    bsRows.push(['LIABILITIES AND EQUITY'], ['   Liabilities']);
-    bsAccounts('liability', 2);
+    section('Bank Accounts', 2, roots('asset', is('Bank')));
+    tree(bsRows, roots('asset', isNot('Bank', 'Fixed Assets')), 2, shown);
+    bsRows.push(['   Total Current Assets', { f: 'B7' }]);
+    section('Fixed Assets', 1, roots('asset', is('Fixed Assets')));
+    bsRows.push(['TOTAL ASSETS', { f: 'B8' }]);
+    bsRows.push(['LIABILITIES AND EQUITY'], ['   Liabilities'], ['      Current Liabilities']);
+    section('Credit Cards', 3, roots('liability', is('Credit Card')));
+    tree(bsRows, roots('liability', isNot('Credit Card', 'Long Term Liabilities')), 3, shown);
+    bsRows.push(['      Total Current Liabilities', { f: 'B9' }]);
+    section('Long-Term Liabilities', 2, roots('liability', is('Long Term Liabilities')));
     bsRows.push(['   Total Liabilities', { f: 'B9' }], ['   Equity']);
-    bsAccounts('equity', 2);
+    tree(bsRows, roots('equity'), 2, shown);
     const ni = -[...thisYear].filter(([n]) => isPl(n)).reduce((s, [, v]) => s + v, 0);
     if (ni) bsRows.push(['      Net Income', { f: amount(ni) }]);
     bsRows.push(
@@ -382,6 +414,35 @@ export function exportFiles(c: FxCompany, opts: FxOptions = {}): SourceFile[] {
       [`${FOOTER} - ${basis}`],
     );
     add(`${folder}/Balance_sheet.xlsx`, 'Balance Sheet', bsRows);
+
+    // Profit and Loss for the year: Income, Cost of Goods Sold, Expenses
+    const plRows: (XCell[] | null)[] = [...head('Profit and Loss', yearPeriod(y)), [null, 'Total']];
+    const earned = (n: string) => normal(n, thisYear.get(n) ?? 0);
+    const cogs = (n: string) => detailOf(n) === 'cost_of_goods_sold';
+    plRows.push(['Income']);
+    tree(plRows, roots('income'), 1, earned);
+    plRows.push(['Total Income', { f: 'B1' }]);
+    if (roots('expense', cogs).length) {
+      plRows.push(['Cost of Goods Sold']);
+      tree(plRows, roots('expense', cogs), 1, earned);
+      plRows.push(['Total Cost of Goods Sold', { f: 'B1' }]);
+    }
+    plRows.push(['Gross Profit', { f: 'B1' }], ['Expenses']);
+    tree(
+      plRows,
+      roots('expense', (d) => !cogs(d)),
+      1,
+      earned,
+    );
+    plRows.push(
+      ['Total Expenses', { f: 'B1' }],
+      ['Net Operating Income', { f: 'B1' }],
+      ['Net Income', { f: 'B1' }],
+      null,
+      null,
+      [`${FOOTER} - ${basis}`],
+    );
+    add(`${folder}/Profit_and_loss.xlsx`, 'Profit and Loss', plRows);
 
     // Contact lists, as Export data writes them in each folder
     const contacts = (

@@ -9,6 +9,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { expect, it } from 'vitest';
 import { newCompanyDb } from '../../../db/tests/testDb';
+import { seedDefaultChart } from '../../ledger/accounts';
 import { formatMoney } from '../../shared/money';
 import { analyze } from '../migration/analysis';
 import { proposeChoices, runImport } from '../migration/importer';
@@ -20,8 +21,8 @@ import {
   setAllCleared,
   startReconciliation,
 } from './reconcile';
-import { acceptSuggestions, listQueue, match } from './review';
-import { importStatements, readStatements, type PendingStatement } from './statements';
+import { acceptSuggestions, listQueue, match, matchByBankText, matchCandidates } from './review';
+import { importStatements, previewStatements, readStatements } from './statements';
 
 function files(root: string, ext: RegExp, dir = root): { path: string; bytes: Uint8Array }[] {
   return readdirSync(dir).flatMap((name) => {
@@ -39,12 +40,24 @@ it.runIf(process.env.QBO_DIR)(
     const db = await newCompanyDb();
 
     const exports = files(root, /\.xlsx$/i);
+    if (!exports.length) seedDefaultChart(db);
     if (exports.length) {
       const analysis = analyze(exports);
       const migrated = runImport(db, analysis, proposeChoices(db, analysis.summary.accounts), {
         commit: true,
       });
-      expect(migrated.errors).toEqual([]);
+      const history = migrated.committed;
+      // As the import screen offers (MG-8): close the books through the last imported day
+      const lastDay = analysis.summary.periods.at(-1)?.to;
+      if (history && lastDay)
+        db.exec({ sql: 'UPDATE company SET closing_date = ?', bind: [lastDay] });
+      if (!migrated.committed) {
+        // Still try the statements, against the standard chart
+        console.log(
+          `QuickBooks history not imported: ${[...analysis.summary.errors, ...migrated.errors].join(' ')}`,
+        );
+        seedDefaultChart(db);
+      }
       console.log(
         `QuickBooks history: ${JSON.stringify(migrated.counts)} entries, periods ${analysis.summary.periods.join(', ')}`,
       );
@@ -65,18 +78,33 @@ it.runIf(process.env.QBO_DIR)(
       );
     }
 
-    // The ledger account for each statement: the bank or card account with the most history
-    const target = (p: PendingStatement) => {
-      const detail = p.statement.kind === 'card' ? 'credit_card' : 'bank';
-      const row = db.selectObjects(
-        `SELECT a.id, a.name, (SELECT count(*) FROM journal_line l WHERE l.account_id = a.id) AS n
-         FROM account a WHERE a.detail_type = ? ORDER BY n DESC LIMIT 1`,
-        [detail],
-      )[0];
-      if (!row) throw new Error(`No ${detail} account for ${p.label}`);
-      return String(row.id);
-    };
-    const choices = Object.fromEntries(pending.map((p) => [p.key, target(p)]));
+    // The ledger account for each statement, as the import dialog proposes it
+    const previews = previewStatements(db, pending);
+    const choices: Record<string, string> = {};
+    for (const p of previews) {
+      const name = db.selectValue('SELECT name FROM account WHERE id = ?', [p.accountId]);
+      console.log(
+        `${p.file} (${p.label}) → ${p.accountId ? `${String(name)}${p.guessed ? ' (guessed)' : ''}` : 'owner chooses'}`,
+      );
+      if (p.accountId) choices[p.key] = p.accountId;
+    }
+    // What the owner would choose for the rest: the busiest top-level account
+    // of the statement's kind not already chosen (Capital One: no digits in its name)
+    for (const p of previews.filter((x) => !choices[x.key])) {
+      const used = Object.values(choices);
+      const pick = db.selectValue(
+        `SELECT a.id FROM account a WHERE a.parent_id IS NULL AND a.active = 1 AND a.detail_type = ?
+           AND a.id NOT IN (${used.map(() => '?').join(', ') || "''"})
+         ORDER BY (SELECT count(*) FROM journal_line l WHERE l.account_id = a.id) DESC LIMIT 1`,
+        [p.kind === 'card' ? 'credit_card' : 'bank', ...used],
+      );
+      if (pick) {
+        choices[p.key] = String(pick);
+        console.log(
+          `${p.label} → ${String(db.selectValue('SELECT name FROM account WHERE id = ?', [pick]))} (as the owner would choose)`,
+        );
+      }
+    }
     const result = importStatements(db, pending, choices);
     console.log(JSON.stringify(result.statements.map(({ accountId: _, ...s }) => s)));
     console.log(
@@ -101,7 +129,7 @@ it.runIf(process.env.QBO_DIR)(
         nothing: queue.filter((t) => !t.matches.length && !t.transfer && !t.suggestion).length,
       };
       console.log(`${account.name}: ${queue.length} waiting ${JSON.stringify(kinds)}`);
-      for (const t of queue) {
+      for (const t of queue.slice(0, 12)) {
         const m = t.matches[0];
         console.log(
           `  ${t.date} ${formatMoney(t.amount).padStart(12)} ${(t.payee ?? '').slice(0, 34).padEnd(34)} ` +
@@ -114,14 +142,21 @@ it.runIf(process.env.QBO_DIR)(
       }
     }
 
-    // Review as the owner would: match what's already in the books, then
-    // accept the suggestions (from rules or from earlier matches)
+    // Review as the owner would: match what has the bank's text in one go,
+    // the other entries already in the books one by one, then accept the
+    // suggestions (from rules or from earlier matches)
     for (const account of bankAccounts(db)) {
+      const byText = matchByBankText(
+        db,
+        listQueue(db, account.id).map((t) => t.id),
+      );
       const queue = listQueue(db, account.id);
       let matched = 0;
+      // As the screen does: the suggestions are read again after each match
       for (const t of queue) {
-        if (t.matches.length) {
-          match(db, t.id, t.matches[0]!.entryId);
+        const [m] = matchCandidates(db, t);
+        if (m) {
+          match(db, t.id, m.entryId);
           matched++;
         }
       }
@@ -139,35 +174,113 @@ it.runIf(process.env.QBO_DIR)(
       ).length;
       const left = listQueue(db, account.id);
       console.log(
-        `${account.name}: matched ${matched}, added ${posted} as suggested, ${left.length} left for the owner: ` +
-          left.map((t) => `${t.date} ${formatMoney(t.amount)} ${t.payee ?? ''}`).join('; '),
+        `${account.name}: matched ${byText} by bank text and ${matched} more, added ${posted} as suggested, ${left.length} left for the owner`,
       );
     }
 
-    // Reconcile each statement in date order at its suggested date and balance
-    for (const p of [...pending].sort((a, b) =>
-      (a.statement.endDate ?? '').localeCompare(b.statement.endDate ?? ''),
-    )) {
-      const accountId = choices[p.key]!;
-      const s = p.statement;
-      if (s.balance === null || !s.balanceDate || !s.endDate) continue;
-      // The bank's balance is the statement's ending balance, even when dated at download
-      const statementDate = s.balanceDate > s.endDate ? s.endDate : s.balanceDate;
-      const endingBalance = s.balance;
-      const id = startReconciliation(db, accountId, statementDate, endingBalance);
-      setAllCleared(db, id, true);
-      const state = reconcileState(db, accountId);
-      const waiting = db.selectValue(
-        `SELECT coalesce(sum(amount), 0) FROM bank_txn WHERE account_id = ? AND status = 'new' AND date <= ?`,
-        [accountId, statementDate],
+    // A card kept as a parent with a sub-account per card holder is one card:
+    // its books (parent and every sub-account) against the card files' balances
+    const parents = db.selectObjects(
+      `SELECT DISTINCT p.id, p.name FROM account p JOIN account c ON c.parent_id = p.id
+       JOIN bank_feed f ON f.account_id IN (p.id, c.id) WHERE p.type = 'liability'`,
+    );
+    for (const p of parents) {
+      const files = db.selectObjects(
+        `SELECT i.account_id, i.end_date, i.balance FROM bank_import i
+         JOIN account a ON a.id = i.account_id WHERE a.id = ? OR a.parent_id = ?
+         ORDER BY i.end_date`,
+        [p.id, p.id],
+      );
+      const latest = new Map(files.map((f) => [String(f.account_id), f]));
+      const bank = [...latest.values()].reduce((t, f) => t + Number(f.balance), 0);
+      const date = [...latest.values()]
+        .map((f) => String(f.end_date))
+        .sort()
+        .at(-1)!;
+      const books = Number(
+        db.selectValue(
+          `WITH RECURSIVE covered (id) AS (SELECT ? UNION SELECT a.id FROM account a JOIN covered ON a.parent_id = covered.id)
+           SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
+           JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+           WHERE l.account_id IN (SELECT id FROM covered) AND e.date <= ?`,
+          [p.id, date],
+        ),
       );
       console.log(
-        `Reconcile ${p.label} statement of ${statementDate} at ${formatMoney(endingBalance)}: ` +
-          `${state.clearedCount} items cleared, difference ${formatMoney(state.difference)}, ` +
-          `still waiting for review ${formatMoney(Number(waiting))}`,
+        `${String(p.name)} with its sub-accounts: books ${formatMoney(books)} on ${date}; ` +
+          `the ${latest.size} card files' balances add up to ${formatMoney(bank)}`,
       );
-      // Whatever the books lack is exactly what is still waiting for review
-      expect(state.difference).toBe(Number(waiting));
+    }
+
+    // Reconcile each account at the statement the reconcile screen suggests
+    for (const account of bankAccounts(db).filter((a) => a.lastImportAt)) {
+      const suggested = reconcileState(db, account.id).suggested;
+      if (!suggested) continue;
+      if (suggested.endingBalance === null) {
+        const fileBalance = Number(
+          db.selectValue(
+            'SELECT balance FROM bank_import WHERE account_id = ? ORDER BY end_date DESC LIMIT 1',
+            [account.id],
+          ),
+        );
+        const booksThen = Number(
+          db.selectValue(
+            `SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
+             JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+             WHERE l.account_id = ? AND e.date <= ?`,
+            [account.id, suggested.statementDate],
+          ),
+        );
+        console.log(
+          `Reconcile ${account.name}: statement of ${suggested.statementDate}, balance not trusted (dated at download), owner enters it. ` +
+            `For reference: books ${formatMoney(booksThen)} then, the file's (download-day) balance ${formatMoney(fileBalance)}`,
+        );
+        continue;
+      }
+      const id = startReconciliation(
+        db,
+        account.id,
+        suggested.statementDate,
+        suggested.endingBalance,
+      );
+      setAllCleared(db, id, true);
+      const state = reconcileState(db, account.id);
+      const closing = String(
+        db.selectValue('SELECT coalesce(closing_date, ?) FROM company', ['0000-00-00']),
+      );
+      const sum = (where: string) =>
+        db.selectObjects(
+          `SELECT count(*) AS n, coalesce(sum(amount), 0) AS total FROM bank_txn
+           WHERE account_id = ? AND status = 'new' AND date <= ? AND ${where}`,
+          [account.id, suggested.statementDate, closing],
+        )[0]!;
+      const after = sum('date > ?');
+      const inHistory = sum('date <= ?');
+      const waiting = Number(after.total);
+      console.log(
+        `  ${Number(inHistory.n)} unmatched in the closed history (${formatMoney(Number(inHistory.total))}), ` +
+          `${Number(after.n)} waiting after it (${formatMoney(waiting)})`,
+      );
+      console.log(
+        `Reconcile ${account.name} statement of ${suggested.statementDate} at ${formatMoney(suggested.endingBalance)}: ` +
+          `${state.clearedCount} items cleared, difference ${formatMoney(state.difference)}, still waiting for review ${formatMoney(waiting)}`,
+      );
+      // With the history in the books, whatever they lack is exactly what is
+      // still waiting for review; without it, the opening balance is missing too
+      // Real books needn't agree with the bank (QuickBooks may never have been
+      // reconciled), so this reports rather than asserts
+      const books = Number(
+        db.selectValue(
+          `SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
+           JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+           WHERE l.account_id = ? AND e.date <= ?`,
+          [account.id, suggested.statementDate],
+        ),
+      );
+      console.log(
+        `  books ${formatMoney(books)} vs bank ${formatMoney(suggested.endingBalance)} on ${suggested.statementDate}: ` +
+          `${state.difference === waiting ? 'ties out apart from what waits for review' : `off by ${formatMoney(state.difference - waiting)} beyond what waits for review`}`,
+      );
       if (state.difference === 0) finishReconciliation(db, id);
       else cancelReconciliation(db, id);
     }

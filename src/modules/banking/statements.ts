@@ -40,8 +40,10 @@ export interface StatementPreview {
   balance: Cents | null;
   balanceDate: string | null;
   transactions: number;
-  /** The account this statement went into last time, if any */
+  /** The account this statement went into last time, or else a likely one */
   accountId: string | null;
+  /** accountId is a guess from the account's name, not remembered from last time */
+  guessed: boolean;
 }
 
 export interface FileProblem {
@@ -105,8 +107,40 @@ export function previewStatements(db: Database, pending: PendingStatement[]): St
     balance: p.statement.balance,
     balanceDate: p.statement.balanceDate,
     transactions: p.statement.transactions.length,
-    accountId: feedAccount(db, p.key),
+    ...chosenAccount(db, p),
   }));
+}
+
+function chosenAccount(
+  db: Database,
+  p: PendingStatement,
+): { accountId: string | null; guessed: boolean } {
+  const remembered = feedAccount(db, p.key);
+  if (remembered) return { accountId: remembered, guessed: false };
+  const guess = guessAccount(db, p);
+  return { accountId: guess, guessed: guess !== null };
+}
+
+/**
+ * The ledger account a new statement probably belongs to: the one account of
+ * its kind (bank or card) whose name has the statement account's last four
+ * digits, as in "BoA Mastercard (AFM-0860)"; or the only account of that
+ * kind. Null when it isn't clear; the owner chooses.
+ */
+function guessAccount(db: Database, p: PendingStatement): string | null {
+  const type = p.statement.kind === 'card' ? 'liability' : 'asset';
+  const accounts = db
+    .selectObjects(`SELECT id, name, detail_type FROM account WHERE active = 1 AND type = ?`, [
+      type,
+    ])
+    .map((r) => ({ id: String(r.id), name: String(r.name), detail: String(r.detail_type) }));
+  const last4 = p.statement.accountNumber.slice(-4);
+  const byDigits = accounts.filter((a) => new RegExp(`(^|\\D)${last4}(\\D|$)`).test(a.name));
+  if (byDigits.length === 1) return byDigits[0]!.id;
+  const ofKind = accounts.filter(
+    (a) => a.detail === (p.statement.kind === 'card' ? 'credit_card' : 'bank'),
+  );
+  return ofKind.length === 1 ? ofKind[0]!.id : null;
 }
 
 function feedAccount(db: Database, key: string): string | null {
@@ -130,13 +164,22 @@ function existing(db: Database, accountId: string, t: OfxTransaction): number | 
   return id === undefined ? null : Number(id);
 }
 
-/** An earlier transaction with the same bank id but a different date or amount. */
-function sameFitid(db: Database, accountId: string, t: OfxTransaction): number | null {
+/**
+ * An earlier transaction from another file with the same bank id but a
+ * different date or amount. Within one file a shared id means two different
+ * transactions (Bank of America reuses ids within a day).
+ */
+function sameFitid(
+  db: Database,
+  accountId: string,
+  importId: string,
+  t: OfxTransaction,
+): number | null {
   if (t.fitid === null) return null;
-  const id = db.selectValue(`SELECT min(id) FROM bank_txn WHERE account_id = ? AND fitid = ?`, [
-    accountId,
-    t.fitid,
-  ]);
+  const id = db.selectValue(
+    `SELECT min(id) FROM bank_txn WHERE account_id = ? AND fitid = ? AND import_id <> ?`,
+    [accountId, t.fitid, importId],
+  );
   return id === undefined || id === null ? null : Number(id);
 }
 
@@ -184,7 +227,7 @@ export function importStatements(
           duplicates++;
           continue;
         }
-        const duplicateOf = sameFitid(db, accountId, t);
+        const duplicateOf = sameFitid(db, accountId, importId, t);
         if (duplicateOf !== null) flagged++;
         const id = db.selectValue(
           `INSERT INTO bank_txn (company_id, account_id, import_id, fitid, date, amount, payee, memo,

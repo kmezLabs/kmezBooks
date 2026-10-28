@@ -470,6 +470,54 @@ describe('dry run and import (MG-4, MG-5, MG-6)', () => {
     expect(listAccounts(db).find((a) => a.name === 'Old Savings (deleted)')?.active).toBe(false);
   });
 
+  it('types accounts from the balance sheet and profit and loss without an Account List (MG-1)', async () => {
+    const company: FxCompany = {
+      ...COMPANY,
+      accounts: [
+        ...ACCOUNTS,
+        { name: 'Visa', type: 'Credit Card', detail: 'Credit Card' },
+        { name: 'Visa:Card 1234', type: 'Credit Card', detail: 'Credit Card' },
+      ],
+      years: [
+        COMPANY.years[0]!,
+        {
+          ...COMPANY.years[1]!,
+          txns: [
+            ...COMPANY.years[1]!.txns,
+            {
+              date: '2025-06-03',
+              type: 'Credit Card Expense',
+              name: 'Bank',
+              lines: [
+                { account: 'Bank Charges', debit: 35_00 },
+                { account: 'Visa:Card 1234', credit: 35_00 },
+              ],
+            },
+          ].sort((x, y) => x.date.localeCompare(y.date)),
+        },
+      ],
+    };
+    const p = plan({ omit: ['Sample Holdings LLC_Account List.xlsx'] }, company);
+    const typed = (name: string) => {
+      const a = p.summary.accounts.find((x) => x.name === name)!;
+      return [a.type, a.detailType];
+    };
+    expect(typed('Checking')).toEqual(['asset', 'bank']);
+    expect(typed('Building')).toEqual(['asset', 'fixed_asset']);
+    expect(typed('Mortgage Payable')).toEqual(['liability', 'long_term_liability']);
+    expect(typed('Visa:Card 1234')).toEqual(['liability', 'credit_card']);
+    expect(typed('Retained Earnings')).toEqual(['equity', 'retained_earnings']);
+    expect(typed('Opening Balance Equity')).toEqual(['equity', 'opening_balance_equity']);
+    expect(typed('Rental Income')).toEqual(['income', 'other_income']);
+    expect(typed('Interest Expense:Mortgage Interest')).toEqual(['expense', 'other_expense']);
+    expect(p.summary.warnings.filter((w) => w.includes('choose its type'))).toEqual([]);
+
+    const db = await newCompanyDb();
+    const result = runImport(db, p, proposeChoices(db, p.summary.accounts), { commit: false });
+    expect(result.errors).toEqual([]);
+    expect(result.tieOut?.ok).toBe(true);
+  });
+
   it("keeps a sub-account's type with its parent", () => {
     const p = plan();
     const c = choices(p);

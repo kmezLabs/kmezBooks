@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { createAccount } from '../../src/ledger/accounts';
 import { voidEntry } from '../../src/ledger/postEntry';
 import type { Database } from '../../src/worker/sqlite';
 import { accountId, newLedgerDb, post } from './ledgerTestDb';
@@ -277,6 +278,39 @@ describe('reconciliation (BK-7, BK-8)', () => {
     expect(() => start('inc', '2026-02-28', 0, accountId(db, 'Services'))).toThrow(
       'BK-7: only asset and liability accounts are reconciled',
     );
+  });
+
+  it('includes sub-accounts only when the reconciliation says so, fixed from the start', () => {
+    const card = accountId(db, 'Credit Card');
+    const holder = createAccount(db, {
+      name: 'Card 1234',
+      type: 'liability',
+      detailType: 'credit_card',
+      parentId: card,
+    });
+    const charge = post(db, '2026-01-05', 'Meals', 'Card 1234', 30_00);
+    const line = db.selectValue(
+      'SELECT id FROM journal_line WHERE entry_id = ? AND account_id = ?',
+      [charge, holder],
+    );
+    const insert = (rec: string) =>
+      run(
+        `INSERT INTO reconciled_line (line_id, company_id, reconciliation_id) VALUES (?, (SELECT id FROM company), ?)`,
+        [line, rec],
+      );
+    start('alone', '2026-01-31', -30_00, card);
+    expect(insert('alone')).toThrow('BK-7: that item is in another account');
+    db.exec(`DELETE FROM reconciliation WHERE id = 'alone'`);
+    db.exec({
+      sql: `INSERT INTO reconciliation (id, company_id, account_id, statement_date, ending_balance, include_subaccounts)
+            VALUES ('all', (SELECT id FROM company), ?, '2026-01-31', -3000, 1)`,
+      bind: [card],
+    });
+    insert('all')();
+    expect(run(`UPDATE reconciliation SET include_subaccounts = 0 WHERE id = 'all'`)).toThrow(
+      'BK-7: a reconciliation stays with its account',
+    );
+    finish('all', 0)();
   });
 
   it('clears each posted line of the account once, on or before the statement date', () => {

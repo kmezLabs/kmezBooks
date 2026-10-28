@@ -4,7 +4,9 @@
 // are worked out when the queue is read, so a new rule shows at once:
 // - a rule (BK-5), or failing that how the same payee was categorized last time
 // - entries already in the books that move the same amount (BK-4), including
-//   migrated QuickBooks history, so nothing is entered twice (BK-6)
+//   migrated QuickBooks history, so nothing is entered twice (BK-6). QuickBooks
+//   keeps the bank's own description in the memo of what came from its bank
+//   feed, so an entry with this transaction's bank text is all but certain
 // - the other side of a transfer waiting in another account's queue (BK-9)
 
 import type { Cents } from '../../shared/money';
@@ -59,6 +61,11 @@ export interface MatchCandidate {
   sourceType: string;
   /** The entry's other accounts, for recognising it */
   accounts: string;
+  /**
+   * How surely the bank's own text says it is this transaction: 2 the entry's
+   * memo has the whole bank description, 1 the bank payee on the same day, 0 no
+   */
+  bankText: 0 | 1 | 2;
 }
 
 export interface TransferCandidate {
@@ -72,8 +79,10 @@ export interface QueueItem extends BankTxn {
   suggestion: Suggestion | null;
   matches: MatchCandidate[];
   transfer: TransferCandidate | null;
-  /** Probably already in the books: a flagged bank id, or a migrated entry with the same amount */
+  /** The bank may have sent it twice: an earlier transaction has its bank id (BK-6) */
   possibleDuplicate: boolean;
+  /** Already in the books from the QuickBooks history: match it, don't add it again (BK-6) */
+  alreadyInBooks: boolean;
   /** For reviewed items: the entry's other accounts */
   entryAccounts: string | null;
 }
@@ -114,7 +123,30 @@ function otherAccounts(
     .join(', ');
 }
 
-/** Entries already in the books that move this amount through this account near this date (BK-4). */
+/** Upper case with single spaces, as QuickBooks and the bank space the same text differently. */
+const plainText = (s: string | null) => (s ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
+
+/** Bank text shorter than this ("CHECK", "DEPOSIT") says nothing about which transaction it is. */
+const MIN_BANK_TEXT = 8;
+
+/** How surely an entry's memo text shows it is this bank transaction (see MatchCandidate.bankText). */
+export function bankTextScore(t: BankTxn, entryText: string | null, entryDate: string): 0 | 1 | 2 {
+  const text = plainText(entryText);
+  if (!text) return 0;
+  // Capital One repeats the payee as the memo; QuickBooks keeps it once
+  const whole = [...new Set([plainText(t.payee), plainText(t.memo)])].filter(Boolean).join(' ');
+  if (whole.length >= MIN_BANK_TEXT && text.includes(whole)) return 2;
+  // e.g. a payroll whose memo QuickBooks kept from an earlier month
+  const payee = plainText(t.payee);
+  if (entryDate === t.date && payee.length >= MIN_BANK_TEXT && text.includes(payee)) return 1;
+  return 0;
+}
+
+/**
+ * Entries already in the books that move this amount through this account
+ * near this date (BK-4): ones with the bank's text first, then the check
+ * number, then the closest date.
+ */
 export function matchCandidates(
   db: Database,
   t: BankTxn,
@@ -122,7 +154,9 @@ export function matchCandidates(
 ): MatchCandidate[] {
   return db
     .selectObjects(
-      `SELECT e.id, e.date, e.ref, e.name, e.memo, e.source_type
+      `SELECT e.id, e.date, e.ref, e.name, e.memo, e.source_type,
+              (SELECT group_concat(coalesce(l.memo, e.memo), ' ') FROM journal_line l
+               WHERE l.entry_id = e.id AND l.account_id = :account) AS bank_text
        FROM journal_entry e
        WHERE e.status = 'posted'
          AND e.date BETWEEN date(:date, '-${MATCH_DAYS} days') AND date(:date, '+${MATCH_DAYS} days')
@@ -130,10 +164,16 @@ export function matchCandidates(
          AND NOT EXISTS (SELECT 1 FROM bank_txn b WHERE b.entry_id = e.id AND b.account_id = :account)
        ORDER BY (e.ref IS NOT NULL AND e.ref = :check) DESC,
                 abs(julianday(e.date) - julianday(:date)), e.id
-       LIMIT 5`,
+       LIMIT 20`,
       { ':date': t.date, ':account': t.accountId, ':amount': t.amount, ':check': t.checkNo },
     )
     .map((r) => ({
+      r,
+      bankText: bankTextScore(t, r.bank_text === null ? null : String(r.bank_text), String(r.date)),
+    }))
+    .sort((a, b) => b.bankText - a.bankText)
+    .slice(0, 5)
+    .map(({ r, bankText }) => ({
       entryId: Number(r.id),
       date: String(r.date),
       ref: r.ref === null ? null : String(r.ref),
@@ -141,6 +181,7 @@ export function matchCandidates(
       memo: r.memo === null ? null : String(r.memo),
       sourceType: String(r.source_type),
       accounts: otherAccounts(db, names, Number(r.id), t.accountId),
+      bankText,
     }));
 }
 
@@ -202,18 +243,32 @@ export function historyIndex(db: Database, accountId: string): History {
      GROUP BY b.id ORDER BY b.date DESC, b.id DESC LIMIT 5000`,
     [accountId],
   );
+  // The last few uses of each payee, newest first; a split has no single category
+  const uses = new Map<string, { category: string | null; payee: string | null }[]>();
   for (const r of rows) {
     const key = payeeKey(String(r.payee));
-    // The newest single-category use wins; splits say nothing about a category
-    if (!key || index.has(key) || Number(r.n) !== 1) continue;
-    index.set(key, {
-      source: 'history',
-      categoryId: String(r.category),
+    if (!key) continue;
+    const list = uses.get(key) ?? [];
+    if (list.length >= HISTORY_USES) continue;
+    list.push({
+      category: Number(r.n) === 1 ? String(r.category) : null,
       payee: r.name === null ? null : String(r.name),
     });
+    uses.set(key, list);
+  }
+  // Only a payee whose recent uses agree: a bank's "Check" or "Zelle payment
+  // to" is a different payee each time, so its last category says nothing
+  for (const [key, list] of uses) {
+    const category = list[0]!.category;
+    if (category && list.every((u) => u.category === category)) {
+      index.set(key, { source: 'history', categoryId: category, payee: list[0]!.payee });
+    }
   }
   return index;
 }
+
+/** How many of a payee's latest uses must agree for "like last time". */
+const HISTORY_USES = 3;
 
 function suggest(t: BankTxn, rules: RuleRow[], history: History): Suggestion | null {
   const rule = firstRule(rules, t);
@@ -258,6 +313,7 @@ export function listQueue(
         matches: [],
         transfer: null,
         possibleDuplicate: false,
+        alreadyInBooks: false,
         entryAccounts: t.entryId === null ? null : otherAccounts(db, names, t.entryId, t.accountId),
       };
     }
@@ -267,8 +323,8 @@ export function listQueue(
       suggestion: suggest(t, rules, history),
       matches,
       transfer: matches.length ? null : transferCandidate(db, t, names),
-      possibleDuplicate:
-        t.duplicateOf !== null || matches.some((m) => m.sourceType === 'qbo_migration'),
+      possibleDuplicate: t.duplicateOf !== null,
+      alreadyInBooks: matches.some((m) => m.sourceType === 'qbo_migration'),
       entryAccounts: null,
     };
   });
@@ -401,7 +457,47 @@ export function match(db: Database, id: number, entryId: number): void {
   inSavepoint(db, 'bank_match', () => {
     const t = getTxn(db, id);
     requireNew(t);
+    const taken = db.selectValue(
+      'SELECT count(*) FROM bank_txn WHERE entry_id = ? AND account_id = ?',
+      [entryId, t.accountId],
+    );
+    if (Number(taken) > 0) {
+      throw new LedgerRuleError(
+        'That entry is already matched to another transaction in this account. Choose another match.',
+      );
+    }
     setReviewed(db, t, 'matched', entryId);
+  });
+}
+
+/**
+ * Match in one go the waiting transactions that have an entry with their bank
+ * text (BK-4, BK-6), such as QuickBooks history from its bank feed. When
+ * transactions alike (the same charge twice in a week) could take the same
+ * entry, the whole bank text and then the closest dates pair up first.
+ * Returns how many were matched.
+ */
+export function matchByBankText(db: Database, ids: number[]): number {
+  return inSavepoint(db, 'bank_match_text', () => {
+    const names = accountFullNames(db);
+    const pairs = ids.flatMap((id) => {
+      const t = getTxn(db, id);
+      if (t.status !== 'new') return [];
+      return matchCandidates(db, t, names)
+        .filter((m) => m.bankText > 0)
+        .map((m) => ({ t, m, days: Math.abs(Date.parse(m.date) - Date.parse(t.date)) }));
+    });
+    pairs.sort((a, b) => b.m.bankText - a.m.bankText || a.days - b.days || a.t.id - b.t.id);
+    const done = new Set<number>();
+    const taken = new Set<string>();
+    for (const { t, m } of pairs) {
+      const entry = `${t.accountId} ${m.entryId}`;
+      if (done.has(t.id) || taken.has(entry)) continue;
+      match(db, t.id, m.entryId);
+      done.add(t.id);
+      taken.add(entry);
+    }
+    return done.size;
   });
 }
 
@@ -550,16 +646,21 @@ function isTransferEntry(db: Database, entryId: number, accountId: string): bool
 
 /**
  * Post waiting transactions as their suggested category says (BK-3, BK-5).
- * Ones that may already be in the books (a matching entry) are left for the
- * owner, so a bulk accept never enters anything twice. Returns the new entries.
+ * Ones that may already be in the books (a matching entry) or fall in a
+ * closed period are left for the owner, so a bulk accept never enters
+ * anything twice. Returns the new entries.
  */
 export function acceptSuggestions(db: Database, ids: number[], opts: PostOptions = {}): number[] {
   return inSavepoint(db, 'bank_accept', () => {
     const rules = listRules(db).filter((r) => r.active);
+    const closing = db.selectValue('SELECT closing_date FROM company');
     const posted: number[] = [];
     for (const id of ids) {
       const t = getTxn(db, id);
       if (t.status !== 'new' || matchCandidates(db, t).length > 0) continue;
+      // Never in bulk into a closed period, e.g. history brought over from
+      // QuickBooks: those are looked at one by one
+      if (typeof closing === 'string' && t.date <= closing) continue;
       const s = suggest(t, rules, historyIndex(db, t.accountId));
       if (!s) continue;
       posted.push(

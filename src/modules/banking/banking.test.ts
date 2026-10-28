@@ -3,6 +3,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { accountId, newLedgerDb, post, startImportRun } from '../../../db/tests/ledgerTestDb';
+import { createAccount } from '../../ledger/accounts';
 import { trialBalance } from '../../ledger/balances';
 import { getEntry } from '../../ledger/entries';
 import { postEntry, voidEntry } from '../../ledger/postEntry';
@@ -23,8 +24,10 @@ import {
   acceptSuggestions,
   categorize,
   exclude,
+  bankTextScore,
   listQueue,
   match,
+  matchByBankText,
   payeeKey,
   queueCounts,
   restore,
@@ -145,6 +148,19 @@ describe('statement import (BK-1, BK-6)', () => {
     ]);
   });
 
+  it('keeps two transactions that share a bank id in one file, without flagging them', () => {
+    const r = importFiles(
+      file('jan.qbo', {
+        txns: [
+          { fitid: 'SAME', date: '2026-01-14', amount: '-1000.00', name: 'TRANSFER' },
+          { fitid: 'SAME', date: '2026-01-14', amount: '1213.17', name: 'DEPOSIT' },
+        ],
+      }),
+    );
+    expect(r.statements[0]).toMatchObject({ added: 2, duplicates: 0, flagged: 0 });
+    expect(listQueue(db, checking).every((t) => !t.possibleDuplicate)).toBe(true);
+  });
+
   it('reports files that aren’t statements, and statements in another currency', () => {
     const usd = qboFile(JAN);
     const { pending, problems } = readStatements([
@@ -244,6 +260,12 @@ describe('review queue (BK-3, BK-4)', () => {
     ]);
     match(db, t!.id, check);
     expect(balance(checking)).toBe(-1_800_00);
+    // A stale suggestion for another transaction can't take the same entry
+    importFiles(
+      file('jan3.qbo', { txns: [{ fitid: 'C3', date: '2026-01-09', amount: '-900.00' }] }),
+    );
+    const [other] = listQueue(db, checking);
+    expect(() => match(db, other!.id, check)).toThrow('already matched to another transaction');
     expect(() => match(db, t!.id, check)).toThrow('already been reviewed');
     // A matched entry isn't offered for another transaction
     importFiles(
@@ -266,8 +288,136 @@ describe('review queue (BK-3, BK-4)', () => {
     db.exec(`UPDATE qbo_import_run SET status = 'done', finished_at = '2026-01-31T00:00:00Z'`);
     importFiles(file('jan.qbo', JAN));
     const power = listQueue(db, checking).find((t) => t.payee === 'CITY POWER')!;
-    expect(power.possibleDuplicate).toBe(true);
+    expect(power).toMatchObject({ alreadyInBooks: true, possibleDuplicate: false });
     expect(power.matches[0]!.sourceType).toBe('qbo_migration');
+  });
+
+  it('matches in one go what history has with the bank’s own text (BK-4, BK-6)', () => {
+    const run = startImportRun(db);
+    // QuickBooks keeps the bank's text as the memo, on the entry or on the bank line
+    const history = (
+      date: string,
+      account: string,
+      cents: number,
+      memo: string,
+      lineMemo: string | null = null,
+    ) =>
+      postEntry(db, {
+        date,
+        memo,
+        sourceType: 'qbo_migration',
+        sourceId: run,
+        lines: [
+          { accountId: accountId(db, 'Utilities'), debit: cents, credit: 0 },
+          { accountId: account, debit: 0, credit: cents, memo: lineMemo },
+        ],
+      });
+    const barre = 'CLR*PUREBARRE47026854  ROSWELL GA CLR*PUREBARRE77066389 MILTON GA';
+    // A card's history is often dated a day or more before the statement
+    const week1 = history('2026-01-04', card, 20_00, barre);
+    const week2 = history('2026-01-11', card, 20_00, barre);
+    const handEntered = history('2026-01-06', card, 20_00, 'Pure Barre class');
+    const adobe = history('2026-01-19', card, 15_00, 'Adobe', 'ADOBE *PHTOSHP SAN JOSE CA');
+    // QuickBooks kept an earlier month's text for the payroll: the payee on the same day
+    const payroll = history(
+      '2026-01-15',
+      checking,
+      8250_00,
+      'ADP WAGE PAY DES:WAGE PAY ID:934932200324MNX INDN:MAWAD CO ID:9333006057 CCD',
+    );
+    db.exec(`UPDATE qbo_import_run SET status = 'done', finished_at = '2026-01-31T00:00:00Z'`);
+    importFiles(
+      file('card.qbo', {
+        kind: 'card',
+        txns: [
+          {
+            fitid: 'B2',
+            date: '2026-01-12',
+            amount: '-20.00',
+            name: 'CLR*PUREBARRE47026854',
+            memo: 'ROSWELL GA',
+          },
+          {
+            fitid: 'B1',
+            date: '2026-01-05',
+            amount: '-20.00',
+            name: 'CLR*PUREBARRE47026854',
+            memo: 'ROSWELL GA',
+          },
+          {
+            fitid: 'A1',
+            date: '2026-01-20',
+            amount: '-15.00',
+            name: 'ADOBE *PHTOSHP',
+            memo: 'San Jose  CA',
+          },
+        ],
+      }),
+      file('bank.qbo', {
+        txns: [
+          {
+            fitid: 'P1',
+            date: '2026-01-15',
+            amount: '-8250.00',
+            name: 'ADP WAGE PAY DES:WAGE PAY',
+            memo: 'ADP WAGE PAY DES:WAGE PAY ID:XXXXX0375916MNX INDN:MAWAD CO ID:XXXXX06057 CCD',
+          },
+        ],
+      }),
+    );
+    const cardQueue = listQueue(db, card);
+    const b1 = cardQueue.find((t) => t.date === '2026-01-05')!;
+    // The bank text outranks the closer hand-entered entry
+    expect(b1.matches.map((m) => [m.entryId, m.bankText])).toEqual([
+      [week1, 2],
+      [week2, 2],
+      [handEntered, 0],
+    ]);
+    expect(cardQueue.find((t) => t.date === '2026-01-20')!.matches[0]).toMatchObject({
+      entryId: adobe,
+      bankText: 2,
+    });
+    expect(listQueue(db, checking)[0]!.matches[0]).toMatchObject({ entryId: payroll, bankText: 1 });
+
+    // Each week's charge gets its own week, whatever order they come in
+    const all = [...cardQueue, ...listQueue(db, checking)].map((t) => t.id);
+    expect(matchByBankText(db, all)).toBe(4);
+    const linked = (fitid: string) =>
+      db.selectValue('SELECT entry_id FROM bank_txn WHERE fitid = ?', [fitid]);
+    expect([linked('B1'), linked('B2'), linked('A1'), linked('P1')]).toEqual([
+      week1,
+      week2,
+      adobe,
+      payroll,
+    ]);
+    expect(listQueue(db, card)).toEqual([]);
+    expect(matchByBankText(db, all)).toBe(0);
+  });
+
+  it('needs enough bank text, and the same day for the payee alone', () => {
+    const t = {
+      id: 1,
+      accountId: checking,
+      date: '2026-01-15',
+      amount: -100_00,
+      payee: 'Check',
+      memo: null,
+      checkNo: '1042',
+      type: 'CHECK',
+      status: 'new' as const,
+      entryId: null,
+      duplicateOf: null,
+    };
+    expect(bankTextScore(t, 'Check 1042 to Acme', '2026-01-15')).toBe(0);
+    const zelle = { ...t, payee: 'Zelle payment to', memo: 'Zelle payment to Heather W' };
+    expect(bankTextScore(zelle, 'ZELLE PAYMENT TO ZELLE PAYMENT TO HEATHER W', '2026-01-12')).toBe(
+      2,
+    );
+    expect(bankTextScore(zelle, 'Zelle payment to Zelle payment to Sam B', '2026-01-15')).toBe(1);
+    expect(bankTextScore(zelle, 'Zelle payment to Zelle payment to Sam B', '2026-01-12')).toBe(0);
+    expect(bankTextScore(zelle, null, '2026-01-15')).toBe(0);
+    const repeated = { ...t, payee: 'TJMAXX #0029', memo: 'TJMAXX #0029' };
+    expect(bankTextScore(repeated, 'TJMAXX #0029', '2026-01-13')).toBe(2);
   });
 
   it('excludes, restores and undoes', () => {
@@ -466,6 +616,62 @@ describe('rules (BK-5)', () => {
     });
   });
 
+  it('suggests from history only when the payee’s recent uses agree', () => {
+    importFiles(
+      file('jan.qbo', {
+        txns: [
+          { fitid: 'K1', date: '2026-01-02', amount: '-100.00', name: 'Check 101', checkNo: '101' },
+          { fitid: 'K2', date: '2026-01-03', amount: '-200.00', name: 'Check 102', checkNo: '102' },
+          { fitid: 'P1', date: '2026-01-04', amount: '-45.00', name: 'POWER CO' },
+          { fitid: 'P2', date: '2026-01-05', amount: '-46.00', name: 'POWER CO' },
+        ],
+      }),
+    );
+    const byPayee = (p: string) => listQueue(db, checking).filter((t) => t.payee === p);
+    const [k1] = byPayee('Check 101');
+    const [k2] = byPayee('Check 102');
+    categorize(db, k1!.id, {
+      lines: [{ accountId: accountId(db, 'Rent or Lease'), amount: 100_00 }],
+    });
+    categorize(db, k2!.id, { lines: [{ accountId: accountId(db, 'Meals'), amount: 200_00 }] });
+    for (const t of byPayee('POWER CO')) {
+      categorize(db, t.id, {
+        lines: [{ accountId: accountId(db, 'Utilities'), amount: Math.abs(t.amount) }],
+      });
+    }
+    importFiles(
+      file('feb.qbo', {
+        txns: [
+          { fitid: 'K3', date: '2026-02-02', amount: '-300.00', name: 'Check 103', checkNo: '103' },
+          { fitid: 'P3', date: '2026-02-04', amount: '-47.00', name: 'POWER CO' },
+        ],
+      }),
+    );
+    // Checks went to different categories: no suggestion. Power always to Utilities.
+    expect(byPayee('Check 103')[0]!.suggestion).toBeNull();
+    expect(byPayee('POWER CO')[0]!.suggestion).toMatchObject({
+      categoryId: accountId(db, 'Utilities'),
+    });
+  });
+
+  it('never adds suggestions in bulk into a closed period', () => {
+    createRule(db, rule({ name: 'Power', textContains: 'POWER' }));
+    importFiles(file('jan.qbo', JAN));
+    db.exec(`UPDATE company SET closing_date = '2026-01-05'`);
+    importFiles(
+      file('feb.qbo', {
+        txns: [{ fitid: 'P9', date: '2026-02-05', amount: '-50.00', name: 'CITY POWER' }],
+      }),
+    );
+    const ids = listQueue(db, checking).map((t) => t.id);
+    // The power bill of Jan 5 is in the closed period: left for the owner
+    expect(acceptSuggestions(db, ids)).toHaveLength(1);
+    expect(listQueue(db, checking).map((t) => [t.date, t.payee])).toEqual([
+      ['2026-01-05', 'CITY POWER'],
+      ['2026-01-03', 'ACME PAYROLL'],
+    ]);
+  });
+
   it('compares payees the way banks vary them', () => {
     expect(payeeKey('ACME FRANCH DES:FEES ID:AC_12 I')).toBe('ACME FRANCH DES:FEES');
     expect(payeeKey('Acme Franch des:fees')).toBe('ACME FRANCH DES:FEES');
@@ -557,8 +763,8 @@ describe('reconciliation (BK-7, BK-8)', () => {
     expect(reconcileState(db, checking).open).toBeNull();
   });
 
-  it('takes a balance dated after the statement period as the period’s ending balance', () => {
-    // Some banks date it when the file was downloaded
+  it('trusts a balance dated after the statement only when the transactions confirm it', () => {
+    // Dated at download, alone: the statement date is offered, the balance isn't
     importFiles(
       file('jan.qbo', {
         ...JAN,
@@ -569,8 +775,66 @@ describe('reconciliation (BK-7, BK-8)', () => {
     );
     expect(reconcileState(db, checking).suggested).toEqual({
       statementDate: '2026-01-31',
-      endingBalance: 2_454_90,
+      endingBalance: null,
     });
+    // The next statement: January's balance plus February's transactions gives
+    // February's, so the file's balances are the statements' ending balances
+    importFiles(
+      file('feb.qbo', {
+        start: '2026-02-01',
+        end: '2026-02-28',
+        balance: '2444.90',
+        balanceDate: '2026-03-16',
+        txns: [{ fitid: 'F1', date: '2026-02-03', amount: '-10.00', name: 'FEE' }],
+      }),
+    );
+    expect(reconcileState(db, checking).suggested).toEqual({
+      statementDate: '2026-02-28',
+      endingBalance: 2_444_90,
+    });
+  });
+
+  it('doesn’t trust a card file that gives the balance on the download day', () => {
+    const cardFile = (name: string, start: string, end: string, txns: FixtureStatement['txns']) =>
+      file(name, { kind: 'card', start, end, balance: '-500.00', balanceDate: '2026-03-01', txns });
+    importFiles(
+      cardFile('dec.qbo', '2025-12-01', '2025-12-31', [
+        { fitid: 'C1', date: '2025-12-05', amount: '-40.00', name: 'SHOP' },
+      ]),
+    );
+    importFiles(
+      cardFile('jan.qbo', '2026-01-01', '2026-01-31', [
+        { fitid: 'C2', date: '2026-01-05', amount: '-60.00', name: 'SHOP' },
+      ]),
+    );
+    expect(reconcileState(db, card).suggested).toEqual({
+      statementDate: '2026-01-31',
+      endingBalance: null,
+    });
+  });
+
+  it('reconciles a card together with its card holders’ sub-accounts', () => {
+    const holder = (name: string) =>
+      createAccount(db, { name, type: 'liability', detailType: 'credit_card', parentId: card });
+    holder('Ann 1111');
+    holder('Bob 2222');
+    post(db, '2026-01-05', 'Meals', 'Ann 1111', 40_00);
+    post(db, '2026-01-06', 'Utilities', 'Bob 2222', 60_00);
+    post(db, '2026-01-20', 'Credit Card', 'Checking', 70_00); // the payment, on the main account
+    expect(reconcileState(db, card).hasSubaccounts).toBe(true);
+    const id = startReconciliation(db, card, '2026-01-31', -30_00, true);
+    setAllCleared(db, id, true);
+    const s = reconcileState(db, card);
+    expect(s.items.map((i) => [i.subaccount, i.amount])).toEqual([
+      ['Ann 1111', -40_00],
+      ['Bob 2222', -60_00],
+      [null, 70_00],
+    ]);
+    expect(s.difference).toBe(0);
+    finishReconciliation(db, id);
+    const report = reconciliationReport(db, id);
+    expect(report.summary.includeSubaccounts).toBe(true);
+    expect(report.cleared.map((i) => i.subaccount)).toEqual(['Ann 1111', 'Bob 2222', null]);
   });
 
   it('suggests the latest imported statement balance, signed for a card', () => {

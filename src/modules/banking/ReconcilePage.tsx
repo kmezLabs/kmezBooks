@@ -111,11 +111,12 @@ function Start(props: {
 }) {
   const { account, state } = props;
   const [date, setDate] = useState(state.suggested?.statementDate ?? todayIso());
+  const suggestedBalance = state.suggested?.endingBalance ?? null;
   const [ending, setEnding] = useState(
-    state.suggested
-      ? formatMoney(statementBalance(account.type, state.suggested.endingBalance))
-      : '',
+    suggestedBalance === null ? '' : formatMoney(statementBalance(account.type, suggestedBalance)),
   );
+  // A card with a sub-account per card holder is reconciled as one card
+  const [includeSub, setIncludeSub] = useState(state.hasSubaccounts);
   const { busy, error, run } = useAction();
   const show = (c: Cents) => formatMoney(statementBalance(account.type, c));
 
@@ -140,7 +141,12 @@ function Start(props: {
           onSubmit={(e) => {
             e.preventDefault();
             void run(async () => {
-              await db.reconcileStart(account.id, date, ledgerBalance(account.type, cents(ending)));
+              await db.reconcileStart(
+                account.id,
+                date,
+                ledgerBalance(account.type, cents(ending)),
+                state.hasSubaccounts && includeSub,
+              );
               props.onChanged();
             });
           }}
@@ -159,9 +165,27 @@ function Start(props: {
               />
             </label>
           </div>
+          {state.hasSubaccounts && (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={includeSub}
+                onChange={(e) => setIncludeSub(e.target.checked)}
+              />
+              <span>
+                Include its sub-accounts
+                <span className="hint">
+                  For a card kept as one account per card holder: the statement covers them all,
+                  with charges on the sub-accounts and payments on the main one.
+                </span>
+              </span>
+            </label>
+          )}
           {state.suggested && (
             <p className="muted small">
-              Filled in from the last imported statement; check it against the statement itself.
+              {suggestedBalance === null
+                ? 'The statement date is from the last imported statement. Its file gives the balance on the day it was downloaded, not at the statement’s end, so enter the ending balance from the statement itself.'
+                : 'Filled in from the last imported statement; check it against the statement itself.'}
             </p>
           )}
           <ErrorText>{error}</ErrorText>
@@ -278,7 +302,10 @@ function Working(props: {
               <tr>
                 <th>Statement date</th>
                 <td>
-                  {formatDate(open.statementDate)}{' '}
+                  {formatDate(open.statementDate)}
+                  {open.includeSubaccounts && (
+                    <span className="muted"> · with sub-accounts</span>
+                  )}{' '}
                   {!props.readOnly && (
                     <button className="link" onClick={() => setEditing(true)}>
                       change
@@ -356,6 +383,7 @@ function Working(props: {
             <th aria-label="Cleared" />
             <th>Date</th>
             <th>Ref</th>
+            {open.includeSubaccounts && <th>Card / sub-account</th>}
             <th>Payee</th>
             <th>Memo</th>
             <th className="num">{labels.out}</th>
@@ -385,6 +413,7 @@ function Working(props: {
                 </td>
                 <td className="nowrap">{formatDate(i.date)}</td>
                 <td>{i.ref}</td>
+                {open.includeSubaccounts && <td>{i.subaccount ?? account.name}</td>}
                 <td>{i.name}</td>
                 <td>{i.memo}</td>
                 <td className="num">{flow.out}</td>
@@ -430,6 +459,7 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
             <tr>
               <th>Date</th>
               <th>Ref</th>
+              {s.includeSubaccounts && <th>Card / sub-account</th>}
               <th>Payee</th>
               <th>Memo</th>
               <th className="num">{labels.out}</th>
@@ -443,6 +473,7 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
                 <tr key={i.lineId} className={i.voided ? 'inactive' : undefined}>
                   <td className="nowrap">{formatDate(i.date)}</td>
                   <td>{i.ref}</td>
+                  {s.includeSubaccounts && <td>{i.subaccount ?? report.account}</td>}
                   <td>
                     {i.name}
                     {i.voided && <span className="badge small warn">voided since</span>}
@@ -472,7 +503,10 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
       <header className="report-head">
         <div className="report-company">{report.account}</div>
         <h2>Reconciliation report</h2>
-        <div>Statement of {formatDate(s.statementDate)}</div>
+        <div>
+          Statement of {formatDate(s.statementDate)}
+          {s.includeSubaccounts && ', including sub-accounts'}
+        </div>
         <div className="muted">Finished {formatDateTime(s.finishedAt)}</div>
       </header>
       {s.changedCount > 0 && (

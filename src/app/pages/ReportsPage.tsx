@@ -238,7 +238,8 @@ export function ReportsPage(props: { status: SessionStatus; onOpenEntry: (id: nu
   useEffect(() => {
     void db.details().then((d) => {
       setFyStartMonth(d.fiscalYearStartMonth);
-      setControls((c) => c ?? initial('pl', d.fiscalYearStartMonth));
+      // The general ledger first (owner's choice, Oct 28)
+      setControls((c) => c ?? initial('gl', d.fiscalYearStartMonth));
     });
     void db.accounts().then(setAccounts);
   }, [props.status.companyId]);

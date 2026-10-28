@@ -959,3 +959,17 @@ form.quick-add .split-link {
   flex-basis: 100%;
   margin: 0;
 }
+
+/* ---- restore drill (M8) ---- */
+
+ul.drill li {
+  margin: 4px 0;
+}
+
+ul.drill li.check-ok span {
+  color: var(--ok);
+}
+
+ul.drill li.check-bad span {
+  color: var(--error);
+}

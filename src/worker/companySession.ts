@@ -116,6 +116,7 @@ import type { Cents } from '../shared/money';
 import type { Report, ReportRequest } from '../shared/report';
 import type { AccountInput, AccountRow } from '../shared/accounts';
 import {
+  ATTACHMENT_DIR,
   addAttachment,
   listAttachments,
   openAttachment,
@@ -133,6 +134,7 @@ import {
   writeBackup,
   type BackupFile,
 } from './backups';
+import type { BackupCheck } from './backupDrill';
 import { OpenCompany, type BackupPreview, type Timings } from './company';
 import {
   owner,
@@ -584,6 +586,26 @@ export class CompanySession {
 
   async listBackups(): Promise<BackupFile[]> {
     return listBackups(await this.backupDir());
+  }
+
+  /** The restore drill (M8): check a backup in memory against the open company. */
+  async testBackup(name: string, passphrase: string): Promise<BackupCheck> {
+    const c = this.open_();
+    const backupDir = await this.backupDir();
+    const exists = async (dir: FileSystemDirectoryHandle, id: string) => {
+      try {
+        const folder = await dir.getDirectoryHandle(ATTACHMENT_DIR);
+        await folder.getFileHandle(`${id}.eba`);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    return c.drill(
+      await readBackup(backupDir, name),
+      passphrase,
+      async (id) => (await exists(c.dir, id)) || (await exists(backupDir, id)),
+    );
   }
 
   async previewBackup(name: string, passphrase: string): Promise<BackupPreview> {

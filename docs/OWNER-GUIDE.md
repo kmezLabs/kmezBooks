@@ -68,6 +68,14 @@ If balances differ, entries were probably changed in place or deleted since the 
 
 **Restore…** on a backup puts the company back to how it was then. Everything since is replaced, but the current version is backed up first, so a restore can itself be undone. To restore into a new folder from a backup file, use **Restore from backup…** on the start screen.
 
+## Recurring entries
+
+Depreciation, amortization and other entries that repeat are set up once, on **Recurring entries**. The quickest way is to open last month's entry in **Journal entries** and click **Make recurring**.
+
+EasyBooks doesn't run in the background, so recurring entries post **when you open the company**. Whatever came due since the last time is posted, each on its own date. A bar at the top then says what was posted.
+
+An entry dated in a closed period isn't posted on its own. The bar says it's waiting, and **Recurring entries** lets you post it (with your passphrase) or skip it.
+
 ## Export
 
 On **Backups**, under **Export**:

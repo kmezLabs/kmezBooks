@@ -15,6 +15,7 @@ import type { AccountRow } from '../../shared/accounts';
 import { formatMoney, type Cents } from '../../shared/money';
 import { RANGE_PRESETS, rangeFor, type RangePreset } from '../../shared/periods';
 import { db } from '../../shared/workerClient';
+import { SOURCES } from '../EntryPeek';
 import type { SessionStatus } from '../../worker/companySession';
 import {
   AccountSelect,
@@ -32,13 +33,6 @@ const PAGE = 200;
 type Period = RangePreset | 'all';
 
 const DEFAULT_PERIOD: Exclude<RangePreset, 'custom'> = 'this_year_to_date';
-
-const SOURCES: Record<string, string> = {
-  journal: 'Journal entry',
-  qbo_migration: 'From QuickBooks',
-  bank: 'From bank review',
-  register: 'Quick entry',
-};
 
 /** With one account chosen: how its money in and out are named, and how its balance reads. */
 interface AccountView {

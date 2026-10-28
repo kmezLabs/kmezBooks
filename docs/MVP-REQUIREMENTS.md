@@ -92,8 +92,9 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | GL-3 | Every transaction posts balanced debit/credit lines to the ledger; unbalanced postings are rejected | M |
 | GL-4 | Manual journal entries with memo, date and attachments | M |
 | GL-5 | Recurring and reversing journal entries | S |
-| GL-6 | Posted entries are never deleted; corrections are voids or adjusting entries, with full audit history | M |
+| GL-6 | By default posted entries are never changed or deleted; corrections are voids or adjusting entries (the Edit buttons void and enter the corrected copy in one step), with full audit history. A per-company setting, which needs the passphrase to turn on, allows changing posted entries in place and deleting them. Closed periods, reconciled entries (BK-8) and QuickBooks history (no delete) stay protected, and the audit log keeps every version | M |
 | GL-7 | Inactivate (not delete) accounts that have history | M |
+| GL-9 | Transactions register, the home panel when a company opens: every entry (or every income and expense) in date order, oldest first and opening at the latest; filters at the top (defaults: all dates, all transactions, oldest first); with one account chosen, that account's payments, deposits and balance after each transaction, and the account is remembered per company; income, expense and net totals and an Add Transaction button (expense or income dialog) at the bottom; edit, void and (where GL-6 allows) delete from the list | M |
 | GL-8 | Cash-basis ledger: only cash movements post. Invoices and bills don't post when created; a payment against one posts on its date, spread pro rata over the document's lines, to the cent, so the parts always add up exactly to the payment. A/R and A/P accounts take no new postings; they exist only for migrated history | M |
 
 ### Period close (PC)

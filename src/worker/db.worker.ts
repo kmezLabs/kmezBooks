@@ -3,7 +3,8 @@
 
 import * as Comlink from 'comlink';
 import type { EntryQuery } from '../ledger/entries';
-import type { EntryInput } from '../ledger/postEntry';
+import type { EntryChange, EntryInput } from '../ledger/postEntry';
+import type { RegisterQuery, SimpleEntry } from '../ledger/register';
 import type { CategorizeInput, QueueView } from '../modules/banking/review';
 import type { RuleInput } from '../modules/banking/rules';
 import type { AccountChoices } from '../modules/migration/importer';
@@ -80,6 +81,24 @@ const api = {
   ) => session.postJournalEntry(input, overridePassphrase),
   voidEntry: (id: number, reason: string | null, overridePassphrase?: string) =>
     session.voidEntry(id, reason, overridePassphrase),
+  register: (query?: RegisterQuery) => session.register(query),
+  postedEdits: () => session.postedEdits(),
+  setPostedEdits: (on: boolean, passphrase?: string) => session.setPostedEdits(on, passphrase),
+  addRegisterEntry: (
+    simple: SimpleEntry,
+    head: Omit<EntryChange, 'lines'>,
+    overridePassphrase?: string,
+  ) => session.addRegisterEntry(simple, head, overridePassphrase),
+  saveEntryChange: (id: number, change: EntryChange, overridePassphrase?: string) =>
+    session.saveEntryChange(id, change, overridePassphrase),
+  saveSimpleEntry: (
+    id: number,
+    simple: SimpleEntry,
+    head: Omit<EntryChange, 'lines'>,
+    overridePassphrase?: string,
+  ) => session.saveSimpleEntry(id, simple, head, overridePassphrase),
+  deleteEntry: (id: number, overridePassphrase?: string) =>
+    session.deleteEntry(id, overridePassphrase),
   closingDate: () => session.closingDate(),
   setClosingDate: (date: string | null) => session.setClosingDate(date),
   trialBalance: (asOf: string) => session.trialBalance(asOf),

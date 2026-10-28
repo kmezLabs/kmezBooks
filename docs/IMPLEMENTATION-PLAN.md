@@ -263,6 +263,15 @@ Still to do:
 - Try real card statements, and other banks; each surprise becomes a fixture case in `ofx.test.ts` or `banking.test.ts`.
 - BK-2 (S): CSV and Excel statements with a saved column mapping.
 
+## GL-9 and GL-6 setting — Transactions register (built Oct 27)
+
+Added at the owner's request on branch `gl9-register` (migration 0012).
+
+| Requirement | How |
+| --- | --- |
+| GL-9 | **Transactions** is the first page in the sidebar and where a company opens. Only filters at the top: period, account, text, all transactions or income and expenses, order, void; defaults all dates, all transactions, oldest first, and it opens scrolled to the latest (oldest first pages from the latest, 200 at a time, with Show earlier). With one account chosen it reads like a bank register: payment, deposit and the balance after each transaction (a card shows what's owed), counting entries the filter hides; that account is remembered per company on this device. At the bottom: income, expense and net totals over the whole filter, and Add Transaction, a dialog for an expense (paid from) or income (deposited to) with a category. Clicking a row opens quick changes: date, ref, payee, memo, money account and category lines (split), Void, Delete, Open in journal. Entries with several lines on both sides are changed in the journal, whose entry form now edits too |
+| GL-6 | Off by default, as before: Edit is a **correction**, which voids the entry and posts the corrected copy from the same source in one step (bank links and attachments follow it). A Company page setting, which needs the passphrase to turn on, allows changing in place and deleting: the entry goes back to draft and is rewritten and posted again, so the schema checks it like a new entry. The closing date guards the old and the new date; entries cleared by a finished reconciliation can't be changed (BK-8); QuickBooks history can be corrected but not deleted (MG-6); bank transactions stay linked while the entry still fits them. The audit log records an "unpost" event with the old lines, then the new "post", or a "delete" |
+
 ## M7 — Expenses, bills, sales (outline)
 
 - **Expenses** (EX-1, EX-2): post immediately, with split lines and encrypted attachments.

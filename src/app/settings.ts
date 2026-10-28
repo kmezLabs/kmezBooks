@@ -1,6 +1,7 @@
 // Per-device preferences (not books): this device's name, shown to other
-// devices in the lock file (DF-4), and the inactivity lock (US-1). Browser
-// storage may be unavailable or cleared, so every access has a fallback.
+// devices in the lock file (DF-4), the inactivity lock (US-1), and the
+// register's account filter per company (GL-9). Browser storage may be
+// unavailable or cleared, so every access has a fallback.
 
 const DEVICE_KEY = 'easybooks.deviceName';
 const INACTIVITY_KEY = 'easybooks.lockAfterMinutes';
@@ -40,4 +41,15 @@ export function lockAfterMinutes(): number {
 
 export function setLockAfterMinutes(minutes: number) {
   write(INACTIVITY_KEY, String(minutes));
+}
+
+const registerAccountKey = (companyId: string) => `easybooks.registerAccount.${companyId}`;
+
+/** The account the Transactions register was last filtered to, for this company (GL-9). */
+export function registerAccount(companyId: string): string | null {
+  return read(registerAccountKey(companyId)) || null;
+}
+
+export function setRegisterAccount(companyId: string, accountId: string | null) {
+  write(registerAccountKey(companyId), accountId ?? '');
 }

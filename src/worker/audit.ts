@@ -127,7 +127,13 @@ export function rebuildAuditTriggers(db: Database): number {
 }
 
 export type AppAuditAction =
-  'create_company' | 'unlock' | 'lock' | 'restore' | 'schema_upgrade' | 'passphrase_change';
+  | 'create_company'
+  | 'unlock'
+  | 'lock'
+  | 'restore'
+  | 'schema_upgrade'
+  | 'passphrase_change'
+  | 'export';
 
 /** Record an event that isn't a row change, such as an unlock or a restore. */
 export function recordEvent(db: Database, action: AppAuditAction, note?: string): void {

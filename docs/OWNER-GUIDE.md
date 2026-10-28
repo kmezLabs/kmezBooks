@@ -1,0 +1,92 @@
+# EasyBooks owner guide
+
+How to keep your books safe: where they live, how backups work, and what your passphrase means. Read this once, and keep a copy of the "Write this down" list somewhere safe.
+
+## Starting EasyBooks
+
+For now EasyBooks runs from this computer:
+
+1. In the project folder, run `npx vite preview` and leave it running.
+2. Open Chrome at **http://localhost:4173**.
+3. To install it as an app, click the install icon at the right of Chrome's address bar. It then opens in its own window and works **offline**: no internet connection is needed to open, change or save your books.
+
+When a new version is ready, a bar at the top says **"A new version of EasyBooks is ready"**. Click **Save, close and update**: your open company is saved and closed first, then the new version starts. Open the company again afterwards. If the save fails, nothing updates and the bar tells you why.
+
+The first time an update arrives after this guide was written, close every EasyBooks window and open it again. From then on, the bar handles updates.
+
+## Your company folders
+
+Each company is one folder on your disk, which you chose when you created it. Nothing about your books is stored in the browser except the list of recently opened folders.
+
+| In the folder | What it is |
+| --- | --- |
+| `company.ebk` | The books: every account, transaction, payee and setting, **encrypted** with the company's passphrase |
+| `attachments/` | Receipts and documents, each encrypted |
+| `backups/` | EasyBooks' own backups (unless you chose another backup folder) |
+| `company.lock` | Present while the company is open, so two computers don't change it at once |
+
+- Keep the folders somewhere your normal backups cover (File History, a cloud-synced folder, restic on the home lab…).
+- Never edit or rename the files inside. To move a company, close it, move the whole folder, then use **Open company folder…** and pick the new location.
+- EasyBooks saves on its own about two seconds after each change, and when you close the company. **Close company** (top right) saves, closes and forgets the key. A company also closes by itself after **15 minutes** without activity; change that on **Passphrase and device**.
+
+### One computer at a time
+
+While a company is open, its folder has a lock. If you open it on another computer, EasyBooks offers **Open read-only**. If the first computer crashed or its laptop lid was closed, the lock goes stale after about two minutes, and EasyBooks also offers **Take over and edit here**. Only take over when you're sure the other session has really ended.
+
+## Your passphrase
+
+Each company has its own passphrase (at least 10 characters). It encrypts the books, the attachments and the backups.
+
+- **If you lose a company's passphrase, its books cannot be opened. Not by you, not by anyone, not by the developer.** There's no reset, because the passphrase is the key itself.
+- Write each passphrase down and keep it somewhere safe and separate from the computer, such as a password manager or a sealed envelope.
+- Change it on **Passphrase and device**. Backups made before the change still open with the **old** passphrase, so keep the old one until those backups have aged out (EasyBooks keeps the newest 30).
+
+## Backups
+
+EasyBooks makes its own encrypted backups, on top of your normal file backups.
+
+- **When:** on the first save of each day, then every 4 hours while you work, before a restore, and before an app update changes the company's format. **Back up now** (on **Backups**) makes one on demand.
+- **How many:** the newest 30 regular backups are kept; older ones are removed.
+- **Where:** in `backups/` inside the company folder, unless you choose another folder. **Choose a folder that's synced to cloud storage or on another drive**, so a lost or broken disk doesn't take the backups with it. Attachments are copied there too.
+- **Warning:** if a company has had no backup for 7 days, EasyBooks says so.
+
+### Test a backup (the restore drill)
+
+Once a month, for each company: open **Backups**, click **Test…** on the newest backup and enter its passphrase. EasyBooks opens the backup in memory and checks that:
+
+- the passphrase opens it
+- the database is sound
+- it opens in this version of EasyBooks
+- every account balance matches your books as they were when it was made
+- its attachments are present
+
+Nothing is restored or changed. If any check fails, the dialog shows which one.
+
+If balances differ, entries were probably changed in place or deleted since the backup. That can only happen when **Allow changing and deleting posted transactions** is on (**Company** page). The Audit log shows those changes.
+
+### Restore
+
+**Restore…** on a backup puts the company back to how it was then. Everything since is replaced, but the current version is backed up first, so a restore can itself be undone. To restore into a new folder from a backup file, use **Restore from backup…** on the start screen.
+
+## Export
+
+On **Backups**, under **Export**:
+
+- **Export all data (.zip):**
+  - every journal line in `journal.csv`, with accounts and dollar amounts, which opens in Excel
+  - every table as CSV and JSON
+  - the attachments
+  - a README explaining the files
+- **Decrypted database copy (.sqlite):** the database itself, for any SQLite tool.
+
+**Exports are not encrypted.** Anyone with the file can read your books, so delete them when you're done. Each export is recorded in the Audit log.
+
+## Write this down
+
+For each company:
+
+- the company name and where its folder is
+- its passphrase (and the previous one, while old backups use it)
+- where its backups go
+
+Keep this list somewhere safe and separate from this computer.

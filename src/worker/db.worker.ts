@@ -172,8 +172,11 @@ const api = {
 
   listBackups: () => session.listBackups(),
   backupNow: () => session.backupNow(),
+  exportData: () => session.exportData(),
+  sqliteCopy: () => session.sqliteCopy(),
   setBackupDir: (dir: FileSystemDirectoryHandle | null) => session.setBackupDir(dir),
   previewBackup: (name: string, passphrase: string) => session.previewBackup(name, passphrase),
+  testBackup: (name: string, passphrase: string) => session.testBackup(name, passphrase),
   restoreBackup: (name: string, passphrase: string) => session.restoreBackup(name, passphrase),
   previewBackupFile: (file: FileSystemFileHandle, passphrase: string) =>
     session.previewBackupFile(file, passphrase),

@@ -2,6 +2,7 @@
 // Open = read file → unlock key → decrypt → deserialize → schema upgrade → session.
 // Save = serialize → encrypt → verify → atomic write with the on-disk check.
 
+import { checkBackup, type BackupCheck } from './backupDrill';
 import { recordEvent } from './audit';
 import {
   initCompany,
@@ -184,6 +185,23 @@ export class OpenCompany {
     } catch (e) {
       db.close();
       throw e;
+    }
+  }
+
+  /**
+   * The restore drill (M8): open a backup in memory, never in place, and
+   * check it against this company (backupDrill.ts). Nothing is written.
+   */
+  async drill(
+    bytes: Uint8Array<ArrayBuffer>,
+    passphrase: string,
+    attachmentFound: (id: string) => Promise<boolean>,
+  ): Promise<BackupCheck> {
+    const { db } = await load(bytes, passphrase, {});
+    try {
+      return await checkBackup(db, this.db, attachmentFound);
+    } finally {
+      db.close();
     }
   }
 

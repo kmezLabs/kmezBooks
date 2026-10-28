@@ -1,10 +1,11 @@
 // Small pieces shared by the ledger pages: account picker, payee field, money
 // input, closed-period override prompt, dates.
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TYPE_LABELS, ACCOUNT_TYPES, isDebitNormal, type AccountRow } from '../shared/accounts';
 import { formatMoney, parseMoney, type Cents } from '../shared/money';
 import { db, errorName } from '../shared/workerClient';
+import { Combo, type ComboOption } from './Combo';
 import { Dialog, ErrorText, TextField, useAction } from './ui';
 
 export function todayIso(): string {
@@ -34,26 +35,27 @@ export function AccountSelect(props: {
   emptyLabel?: string;
 }) {
   const types = props.onlyType ? [props.onlyType] : ACCOUNT_TYPES;
+  // Typing finds accounts whose name, full "Parent:Child" name or number starts with it
+  const options: ComboOption[] = types.flatMap((type) =>
+    props.accounts
+      .filter(
+        (a) => a.type === type && (a.active || a.id === props.value) && !props.exclude?.has(a.id),
+      )
+      .map((a) => ({
+        value: a.id,
+        label: `${a.number ? `${a.number} ` : ''}${a.fullName}`,
+        group: TYPE_LABELS[type],
+        keys: [a.name, a.fullName, ...(a.number ? [a.number] : [])],
+      })),
+  );
   const select = (
-    <select value={props.value} onChange={(e) => props.onChange(e.target.value)}>
-      <option value="">{props.emptyLabel ?? 'Choose an account…'}</option>
-      {types.map((type) => (
-        <optgroup key={type} label={TYPE_LABELS[type]}>
-          {props.accounts
-            .filter(
-              (a) =>
-                a.type === type && (a.active || a.id === props.value) && !props.exclude?.has(a.id),
-            )
-            .map((a) => (
-              <option key={a.id} value={a.id}>
-                {' '.repeat(a.depth)}
-                {a.number ? `${a.number} ` : ''}
-                {a.name}
-              </option>
-            ))}
-        </optgroup>
-      ))}
-    </select>
+    <Combo
+      options={options}
+      value={props.value}
+      onChange={props.onChange}
+      emptyLabel={props.emptyLabel ?? 'Choose an account…'}
+      ariaLabel={props.label ? undefined : (props.emptyLabel ?? 'Account')}
+    />
   );
   return props.label ? (
     <label>
@@ -75,26 +77,20 @@ export function PayeeField(props: {
   onChange: (value: string) => void;
   placeholder?: string;
 }) {
-  const id = useId();
-  const [names, setNames] = useState<string[]>([]);
+  const [names, setNames] = useState<ComboOption[]>([]);
   useEffect(() => {
-    void db.payeeNames().then(setNames);
+    void db
+      .payeeNames()
+      .then((list) => setNames(list.map((n) => ({ value: n, label: n, keys: [n] }))));
   }, []);
   return (
-    <>
-      <input
-        list={id}
-        value={props.value}
-        placeholder={props.placeholder}
-        autoComplete="off"
-        onChange={(e) => props.onChange(e.target.value)}
-      />
-      <datalist id={id}>
-        {names.map((n) => (
-          <option key={n} value={n} />
-        ))}
-      </datalist>
-    </>
+    <Combo
+      options={names}
+      value={props.value}
+      onChange={props.onChange}
+      freeText
+      placeholder={props.placeholder}
+    />
   );
 }
 

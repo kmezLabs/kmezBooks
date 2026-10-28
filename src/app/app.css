@@ -865,3 +865,63 @@ textarea {
   background: var(--panel);
   white-space: nowrap;
 }
+
+/* ---- type-to-filter field (accounts, payees) ---- */
+
+.combo {
+  position: relative;
+  width: 100%;
+}
+
+.combo-list {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: max(100%, 260px);
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.15);
+  z-index: 30;
+  font-size: 0.95rem;
+}
+
+.combo-list li {
+  padding: 4px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.combo-list li[role='option']:hover {
+  background: var(--panel);
+}
+
+.combo-list li.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.combo-list li.chosen:not(.active) {
+  font-weight: 600;
+}
+
+.combo-list li.combo-group {
+  padding-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: default;
+}
+
+.combo-list li.combo-more {
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: default;
+}

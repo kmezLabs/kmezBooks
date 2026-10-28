@@ -6,27 +6,31 @@ import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
 import { ErrorText, useAction } from '../ui';
 
-const LABELS: Record<Module, { name: string; about: string; milestone: string | null }> = {
+const LABELS: Record<Module, { name: string; about: string; note: string | null }> = {
   sales: {
     name: 'Customers and sales',
     about: 'Estimates, invoices, sales receipts, payments',
-    milestone: 'M7',
+    note: 'not built yet: added when a company needs invoices; customers are on the Payees page',
   },
-  bills: { name: 'Vendors and bills', about: 'Bills and bill payments', milestone: 'M7' },
+  bills: {
+    name: 'Vendors and bills',
+    about: 'Bills and bill payments',
+    note: 'not built yet: added when a company needs bills; vendors are on the Payees page',
+  },
   expenses: {
     name: 'Expenses',
-    about: 'Expenses and checks paid straight from a bank or card',
-    milestone: 'M7',
+    about: 'Expenses and checks paid straight from a bank or card, with splits and receipts',
+    note: 'Add Transaction on the Transactions page, always available',
   },
   banking: {
     name: 'Banking',
     about: 'Statement import, review, rules, reconciliation (Banking in the sidebar)',
-    milestone: null,
+    note: null,
   },
   migration: {
     name: 'QuickBooks migration',
     about: 'Import history from QuickBooks Online (QuickBooks import in the sidebar)',
-    milestone: null,
+    note: null,
   },
 };
 
@@ -68,7 +72,7 @@ export function ModulesPage({ status }: { status: SessionStatus }) {
                 <span className="muted">
                   {' '}
                   — {LABELS[m].about}
-                  {LABELS[m].milestone && ` (arrives in ${LABELS[m].milestone})`}
+                  {LABELS[m].note && ` (${LABELS[m].note})`}
                 </span>
               </span>
             </label>

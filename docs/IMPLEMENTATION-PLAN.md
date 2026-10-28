@@ -320,9 +320,9 @@ Checked: Vitest (default category for a typed name; bank suggestions for payment
   - Voiding a document requires no applied payments.
   - Discounts are negative lines and reduce income pro rata.
 
-## M8 — Polish (outline)
+## M8 — Polish
 
-- Offline check of every screen; install flow; "new version available" prompt that saves before reloading.
+- Offline check of every screen; install flow; "new version available" prompt that saves before reloading. **Built Oct 28:** the service worker now waits with a new version (`registerType: 'prompt'`) instead of switching under the running page, and a banner offers "Save, close and update" (or "Update now" with no company open). It saves and closes the company first and waits if that fails. The app checks for a new version hourly. Checked in headless Chrome against two scratch builds: the app loads with the server stopped; every page (16, all modules) opens offline; a transaction added offline saves; a newer build shows the banner, and updating keeps a transaction entered just before. The Modules page no longer says invoices, bills and expenses "arrive in M7".
 - Full CSV/JSON export per company and a decrypted SQLite copy (Portability).
 - Restore drill: restore each company from a backup into a scratch folder and tie the trial balance out against the live copy.
 - Short owner guide: where company folders live, how backups work, what a lost passphrase means.

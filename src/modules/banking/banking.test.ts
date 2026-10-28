@@ -24,8 +24,10 @@ import {
   acceptSuggestions,
   categorize,
   exclude,
+  bankTextScore,
   listQueue,
   match,
+  matchByBankText,
   payeeKey,
   queueCounts,
   restore,
@@ -288,6 +290,134 @@ describe('review queue (BK-3, BK-4)', () => {
     const power = listQueue(db, checking).find((t) => t.payee === 'CITY POWER')!;
     expect(power).toMatchObject({ alreadyInBooks: true, possibleDuplicate: false });
     expect(power.matches[0]!.sourceType).toBe('qbo_migration');
+  });
+
+  it('matches in one go what history has with the bank’s own text (BK-4, BK-6)', () => {
+    const run = startImportRun(db);
+    // QuickBooks keeps the bank's text as the memo, on the entry or on the bank line
+    const history = (
+      date: string,
+      account: string,
+      cents: number,
+      memo: string,
+      lineMemo: string | null = null,
+    ) =>
+      postEntry(db, {
+        date,
+        memo,
+        sourceType: 'qbo_migration',
+        sourceId: run,
+        lines: [
+          { accountId: accountId(db, 'Utilities'), debit: cents, credit: 0 },
+          { accountId: account, debit: 0, credit: cents, memo: lineMemo },
+        ],
+      });
+    const barre = 'CLR*PUREBARRE47026854  ROSWELL GA CLR*PUREBARRE77066389 MILTON GA';
+    // A card's history is often dated a day or more before the statement
+    const week1 = history('2026-01-04', card, 20_00, barre);
+    const week2 = history('2026-01-11', card, 20_00, barre);
+    const handEntered = history('2026-01-06', card, 20_00, 'Pure Barre class');
+    const adobe = history('2026-01-19', card, 15_00, 'Adobe', 'ADOBE *PHTOSHP SAN JOSE CA');
+    // QuickBooks kept an earlier month's text for the payroll: the payee on the same day
+    const payroll = history(
+      '2026-01-15',
+      checking,
+      8250_00,
+      'ADP WAGE PAY DES:WAGE PAY ID:934932200324MNX INDN:MAWAD CO ID:9333006057 CCD',
+    );
+    db.exec(`UPDATE qbo_import_run SET status = 'done', finished_at = '2026-01-31T00:00:00Z'`);
+    importFiles(
+      file('card.qbo', {
+        kind: 'card',
+        txns: [
+          {
+            fitid: 'B2',
+            date: '2026-01-12',
+            amount: '-20.00',
+            name: 'CLR*PUREBARRE47026854',
+            memo: 'ROSWELL GA',
+          },
+          {
+            fitid: 'B1',
+            date: '2026-01-05',
+            amount: '-20.00',
+            name: 'CLR*PUREBARRE47026854',
+            memo: 'ROSWELL GA',
+          },
+          {
+            fitid: 'A1',
+            date: '2026-01-20',
+            amount: '-15.00',
+            name: 'ADOBE *PHTOSHP',
+            memo: 'San Jose  CA',
+          },
+        ],
+      }),
+      file('bank.qbo', {
+        txns: [
+          {
+            fitid: 'P1',
+            date: '2026-01-15',
+            amount: '-8250.00',
+            name: 'ADP WAGE PAY DES:WAGE PAY',
+            memo: 'ADP WAGE PAY DES:WAGE PAY ID:XXXXX0375916MNX INDN:MAWAD CO ID:XXXXX06057 CCD',
+          },
+        ],
+      }),
+    );
+    const cardQueue = listQueue(db, card);
+    const b1 = cardQueue.find((t) => t.date === '2026-01-05')!;
+    // The bank text outranks the closer hand-entered entry
+    expect(b1.matches.map((m) => [m.entryId, m.bankText])).toEqual([
+      [week1, 2],
+      [week2, 2],
+      [handEntered, 0],
+    ]);
+    expect(cardQueue.find((t) => t.date === '2026-01-20')!.matches[0]).toMatchObject({
+      entryId: adobe,
+      bankText: 2,
+    });
+    expect(listQueue(db, checking)[0]!.matches[0]).toMatchObject({ entryId: payroll, bankText: 1 });
+
+    // Each week's charge gets its own week, whatever order they come in
+    const all = [...cardQueue, ...listQueue(db, checking)].map((t) => t.id);
+    expect(matchByBankText(db, all)).toBe(4);
+    const linked = (fitid: string) =>
+      db.selectValue('SELECT entry_id FROM bank_txn WHERE fitid = ?', [fitid]);
+    expect([linked('B1'), linked('B2'), linked('A1'), linked('P1')]).toEqual([
+      week1,
+      week2,
+      adobe,
+      payroll,
+    ]);
+    expect(listQueue(db, card)).toEqual([]);
+    expect(matchByBankText(db, all)).toBe(0);
+  });
+
+  it('needs enough bank text, and the same day for the payee alone', () => {
+    const t = {
+      id: 1,
+      accountId: checking,
+      date: '2026-01-15',
+      amount: -100_00,
+      payee: 'Check',
+      memo: null,
+      checkNo: '1042',
+      type: 'CHECK',
+      status: 'new' as const,
+      entryId: null,
+      duplicateOf: null,
+    };
+    expect(bankTextScore(t, 'Check 1042 to Acme', '2026-01-15')).toBe(0);
+    const zelle = { ...t, payee: 'Zelle payment to', memo: 'Zelle payment to Heather W' };
+    expect(bankTextScore(zelle, 'ZELLE PAYMENT TO ZELLE PAYMENT TO HEATHER W', '2026-01-12')).toBe(
+      2,
+    );
+    expect(bankTextScore(zelle, 'Zelle payment to Zelle payment to Sam B', '2026-01-15')).toBe(1);
+    expect(bankTextScore(zelle, 'Zelle payment to Zelle payment to Sam B', '2026-01-12')).toBe(0);
+    expect(bankTextScore(zelle, null, '2026-01-15')).toBe(0);
+    const repeated = { ...t, payee: 'TJMAXX #0029', memo: 'TJMAXX #0029' };
+    expect(bankTextScore(repeated, 'TJMAXX #0029', '2026-01-13')).toBe(2);
   });
 
   it('excludes, restores and undoes', () => {

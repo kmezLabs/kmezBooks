@@ -21,7 +21,7 @@ import {
   setAllCleared,
   startReconciliation,
 } from './reconcile';
-import { acceptSuggestions, listQueue, match, matchCandidates } from './review';
+import { acceptSuggestions, listQueue, match, matchByBankText, matchCandidates } from './review';
 import { importStatements, previewStatements, readStatements } from './statements';
 
 function files(root: string, ext: RegExp, dir = root): { path: string; bytes: Uint8Array }[] {
@@ -142,9 +142,14 @@ it.runIf(process.env.QBO_DIR)(
       }
     }
 
-    // Review as the owner would: match what's already in the books, then
-    // accept the suggestions (from rules or from earlier matches)
+    // Review as the owner would: match what has the bank's text in one go,
+    // the other entries already in the books one by one, then accept the
+    // suggestions (from rules or from earlier matches)
     for (const account of bankAccounts(db)) {
+      const byText = matchByBankText(
+        db,
+        listQueue(db, account.id).map((t) => t.id),
+      );
       const queue = listQueue(db, account.id);
       let matched = 0;
       // As the screen does: the suggestions are read again after each match
@@ -169,7 +174,7 @@ it.runIf(process.env.QBO_DIR)(
       ).length;
       const left = listQueue(db, account.id);
       console.log(
-        `${account.name}: matched ${matched}, added ${posted} as suggested, ${left.length} left for the owner`,
+        `${account.name}: matched ${byText} by bank text and ${matched} more, added ${posted} as suggested, ${left.length} left for the owner`,
       );
     }
 

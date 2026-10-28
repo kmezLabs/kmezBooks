@@ -85,6 +85,14 @@ export function BankingPage({ status }: { status: SessionStatus }) {
     });
 
   const bulk = items.filter((t) => t.suggestion && t.matches.length === 0 && !t.transfer);
+  // An entry with the transaction's own bank text, e.g. QuickBooks history from its bank feed
+  const sure = items.filter((t) => (t.matches[0]?.bankText ?? 0) > 0);
+  const matchAll = () =>
+    run(async () => {
+      const n = await db.bankMatchByBankText(sure.map((t) => t.id));
+      setResult(`Matched ${count(n, 'transaction')} to entries already in the books.`);
+      changed();
+    });
   const acceptAll = () =>
     override.attempt(async (passphrase) => {
       const n = await db.bankAcceptSuggestions(
@@ -156,6 +164,16 @@ export function BankingPage({ status }: { status: SessionStatus }) {
                     {v === 'new' && ` (${account.waiting})`}
                   </button>
                 ))}
+                {view === 'new' && sure.length > 0 && !readOnly && (
+                  <button
+                    className="secondary"
+                    disabled={busy || override.busy}
+                    title="Transactions whose bank description is on an entry already in the books"
+                    onClick={() => void matchAll()}
+                  >
+                    Match {count(sure.length, 'transaction')} already in the books
+                  </button>
+                )}
                 {view === 'new' && bulk.length > 0 && !readOnly && (
                   <button
                     className="secondary"
@@ -434,6 +452,7 @@ function SuggestionText({ t, names }: { t: QueueItem; names: Map<string, string>
             {' '}
             · {m.accounts}
             {m.sourceType === 'qbo_migration' ? ' · from QuickBooks' : ''}
+            {m.bankText > 0 && <BankTextNote />}
           </span>
         </>
       ) : t.transfer ? (
@@ -452,6 +471,15 @@ function SuggestionText({ t, names }: { t: QueueItem; names: Map<string, string>
         <span className="muted">—</span>
       )}
     </>
+  );
+}
+
+function BankTextNote() {
+  return (
+    <span title="The entry's memo has this transaction's description from the bank">
+      {' '}
+      · same bank text
+    </span>
   );
 }
 
@@ -533,6 +561,7 @@ function ReviewEditor(props: {
                   {' '}
                   · {m.accounts}
                   {m.sourceType === 'qbo_migration' ? ' · from QuickBooks' : ''}
+                  {m.bankText > 0 && <BankTextNote />}
                 </span>
               </li>
             ))}

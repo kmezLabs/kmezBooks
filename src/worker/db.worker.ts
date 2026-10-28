@@ -133,6 +133,7 @@ const api = {
   bankAcceptSuggestions: (ids: number[], overridePassphrase?: string) =>
     session.bankAcceptSuggestions(ids, overridePassphrase),
   bankMatch: (id: number, entryId: number) => session.bankMatch(id, entryId),
+  bankMatchByBankText: (ids: number[]) => session.bankMatchByBankText(ids),
   bankExclude: (id: number) => session.bankExclude(id),
   bankRestore: (id: number) => session.bankRestore(id),
   bankUndo: (id: number, overridePassphrase?: string) => session.bankUndo(id, overridePassphrase),

@@ -70,6 +70,7 @@ import {
   exclude,
   listQueue,
   match,
+  matchByBankText,
   restore,
   transfer,
   undo,
@@ -1018,6 +1019,12 @@ export class CompanySession {
   bankMatch(id: number, entryId: number): void {
     match(this.writable().db, id, entryId);
     this.touch();
+  }
+
+  bankMatchByBankText(ids: number[]): number {
+    const n = matchByBankText(this.writable().db, ids);
+    this.touch();
+    return n;
   }
 
   bankExclude(id: number): void {

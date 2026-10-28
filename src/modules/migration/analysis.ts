@@ -509,7 +509,7 @@ export function analyze(sources: SourceFile[]): Analysis {
   const listRows = parsed.flatMap((f) => f.accountList ?? []);
   if (!listRows.length) {
     warnings.push(
-      'No Account List: account types are guessed from the balance sheet where possible. Export it from the Chart of accounts (Run report, then Export).',
+      'No Account List: account types are taken from the balance sheet and profit and loss where possible. Export it from the Chart of accounts (Run report, then Export).',
     );
   }
   const accounts = new Map<string, QboAccount>();

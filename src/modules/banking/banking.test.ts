@@ -257,6 +257,12 @@ describe('review queue (BK-3, BK-4)', () => {
     ]);
     match(db, t!.id, check);
     expect(balance(checking)).toBe(-1_800_00);
+    // A stale suggestion for another transaction can't take the same entry
+    importFiles(
+      file('jan3.qbo', { txns: [{ fitid: 'C3', date: '2026-01-09', amount: '-900.00' }] }),
+    );
+    const [other] = listQueue(db, checking);
+    expect(() => match(db, other!.id, check)).toThrow('already matched to another transaction');
     expect(() => match(db, t!.id, check)).toThrow('already been reviewed');
     // A matched entry isn't offered for another transaction
     importFiles(
@@ -477,6 +483,62 @@ describe('rules (BK-5)', () => {
       categoryId: accountId(db, 'Rent or Lease'),
       payee: 'Acme Franchising',
     });
+  });
+
+  it('suggests from history only when the payee’s recent uses agree', () => {
+    importFiles(
+      file('jan.qbo', {
+        txns: [
+          { fitid: 'K1', date: '2026-01-02', amount: '-100.00', name: 'Check 101', checkNo: '101' },
+          { fitid: 'K2', date: '2026-01-03', amount: '-200.00', name: 'Check 102', checkNo: '102' },
+          { fitid: 'P1', date: '2026-01-04', amount: '-45.00', name: 'POWER CO' },
+          { fitid: 'P2', date: '2026-01-05', amount: '-46.00', name: 'POWER CO' },
+        ],
+      }),
+    );
+    const byPayee = (p: string) => listQueue(db, checking).filter((t) => t.payee === p);
+    const [k1] = byPayee('Check 101');
+    const [k2] = byPayee('Check 102');
+    categorize(db, k1!.id, {
+      lines: [{ accountId: accountId(db, 'Rent or Lease'), amount: 100_00 }],
+    });
+    categorize(db, k2!.id, { lines: [{ accountId: accountId(db, 'Meals'), amount: 200_00 }] });
+    for (const t of byPayee('POWER CO')) {
+      categorize(db, t.id, {
+        lines: [{ accountId: accountId(db, 'Utilities'), amount: Math.abs(t.amount) }],
+      });
+    }
+    importFiles(
+      file('feb.qbo', {
+        txns: [
+          { fitid: 'K3', date: '2026-02-02', amount: '-300.00', name: 'Check 103', checkNo: '103' },
+          { fitid: 'P3', date: '2026-02-04', amount: '-47.00', name: 'POWER CO' },
+        ],
+      }),
+    );
+    // Checks went to different categories: no suggestion. Power always to Utilities.
+    expect(byPayee('Check 103')[0]!.suggestion).toBeNull();
+    expect(byPayee('POWER CO')[0]!.suggestion).toMatchObject({
+      categoryId: accountId(db, 'Utilities'),
+    });
+  });
+
+  it('never adds suggestions in bulk into a closed period', () => {
+    createRule(db, rule({ name: 'Power', textContains: 'POWER' }));
+    importFiles(file('jan.qbo', JAN));
+    db.exec(`UPDATE company SET closing_date = '2026-01-05'`);
+    importFiles(
+      file('feb.qbo', {
+        txns: [{ fitid: 'P9', date: '2026-02-05', amount: '-50.00', name: 'CITY POWER' }],
+      }),
+    );
+    const ids = listQueue(db, checking).map((t) => t.id);
+    // The power bill of Jan 5 is in the closed period: left for the owner
+    expect(acceptSuggestions(db, ids)).toHaveLength(1);
+    expect(listQueue(db, checking).map((t) => [t.date, t.payee])).toEqual([
+      ['2026-01-05', 'CITY POWER'],
+      ['2026-01-03', 'ACME PAYROLL'],
+    ]);
   });
 
   it('compares payees the way banks vary them', () => {

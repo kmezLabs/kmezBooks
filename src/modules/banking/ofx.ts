@@ -172,6 +172,21 @@ function transaction(n: Node, where: string): OfxTransaction {
   };
 }
 
+/**
+ * The statement period. When the file's start is after its end (Bank of
+ * America's card files can say December 1 to November 24), neither can be
+ * trusted, so the period spans them and the transactions' dates.
+ */
+function period(
+  start: string | null,
+  end: string | null,
+  transactions: OfxTransaction[],
+): { startDate: string | null; endDate: string | null } {
+  if (!start || !end || start <= end) return { startDate: start, endDate: end };
+  const dates = [start, end, ...transactions.map((t) => t.date)].sort();
+  return { startDate: dates[0]!, endDate: dates.at(-1)! };
+}
+
 function statement(n: Node): OfxStatement {
   const card = n.name === 'CCSTMTRS';
   const from = child(n, card ? 'CCACCTFROM' : 'BANKACCTFROM');
@@ -191,8 +206,7 @@ function statement(n: Node): OfxStatement {
     accountNumber,
     accountType: card ? null : tidy(value(from, 'ACCTTYPE')),
     currency: tidy(value(n, 'CURDEF')),
-    startDate: ofxDate(value(list, 'DTSTART')),
-    endDate: ofxDate(value(list, 'DTEND')),
+    ...period(ofxDate(value(list, 'DTSTART')), ofxDate(value(list, 'DTEND')), transactions),
     balance: ofxAmount(value(ledger, 'BALAMT')),
     balanceDate: ofxDate(value(ledger, 'DTASOF')),
     transactions,

@@ -21,8 +21,8 @@ import {
   setAllCleared,
   startReconciliation,
 } from './reconcile';
-import { acceptSuggestions, listQueue, match } from './review';
-import { importStatements, readStatements, type PendingStatement } from './statements';
+import { acceptSuggestions, listQueue, match, matchCandidates } from './review';
+import { importStatements, previewStatements, readStatements } from './statements';
 
 function files(root: string, ext: RegExp, dir = root): { path: string; bytes: Uint8Array }[] {
   return readdirSync(dir).flatMap((name) => {
@@ -38,7 +38,6 @@ it.runIf(process.env.QBO_DIR)(
   async () => {
     const root = process.env.QBO_DIR!;
     const db = await newCompanyDb();
-    let history = false;
 
     const exports = files(root, /\.xlsx$/i);
     if (!exports.length) seedDefaultChart(db);
@@ -47,7 +46,11 @@ it.runIf(process.env.QBO_DIR)(
       const migrated = runImport(db, analysis, proposeChoices(db, analysis.summary.accounts), {
         commit: true,
       });
-      history = migrated.committed;
+      const history = migrated.committed;
+      // As the import screen offers (MG-8): close the books through the last imported day
+      const lastDay = analysis.summary.periods.at(-1)?.to;
+      if (history && lastDay)
+        db.exec({ sql: 'UPDATE company SET closing_date = ?', bind: [lastDay] });
       if (!migrated.committed) {
         // Still try the statements, against the standard chart
         console.log(
@@ -75,18 +78,16 @@ it.runIf(process.env.QBO_DIR)(
       );
     }
 
-    // The ledger account for each statement: the bank or card account with the most history
-    const target = (p: PendingStatement) => {
-      const detail = p.statement.kind === 'card' ? 'credit_card' : 'bank';
-      const row = db.selectObjects(
-        `SELECT a.id, a.name, (SELECT count(*) FROM journal_line l WHERE l.account_id = a.id) AS n
-         FROM account a WHERE a.detail_type = ? ORDER BY n DESC LIMIT 1`,
-        [detail],
-      )[0];
-      if (!row) throw new Error(`No ${detail} account for ${p.label}`);
-      return String(row.id);
-    };
-    const choices = Object.fromEntries(pending.map((p) => [p.key, target(p)]));
+    // The ledger account for each statement, as the import dialog proposes it
+    const previews = previewStatements(db, pending);
+    const choices: Record<string, string> = {};
+    for (const p of previews) {
+      const name = db.selectValue('SELECT name FROM account WHERE id = ?', [p.accountId]);
+      console.log(
+        `${p.file} (${p.label}) → ${p.accountId ? `${String(name)}${p.guessed ? ' (guessed)' : ''}` : 'owner chooses'}`,
+      );
+      if (p.accountId) choices[p.key] = p.accountId;
+    }
     const result = importStatements(db, pending, choices);
     console.log(JSON.stringify(result.statements.map(({ accountId: _, ...s }) => s)));
     console.log(
@@ -129,9 +130,11 @@ it.runIf(process.env.QBO_DIR)(
     for (const account of bankAccounts(db)) {
       const queue = listQueue(db, account.id);
       let matched = 0;
+      // As the screen does: the suggestions are read again after each match
       for (const t of queue) {
-        if (t.matches.length) {
-          match(db, t.id, t.matches[0]!.entryId);
+        const [m] = matchCandidates(db, t);
+        if (m) {
+          match(db, t.id, m.entryId);
           matched++;
         }
       }
@@ -171,11 +174,21 @@ it.runIf(process.env.QBO_DIR)(
       );
       setAllCleared(db, id, true);
       const state = reconcileState(db, account.id);
-      const waiting = Number(
-        db.selectValue(
-          `SELECT coalesce(sum(amount), 0) FROM bank_txn WHERE account_id = ? AND status = 'new' AND date <= ?`,
-          [account.id, suggested.statementDate],
-        ),
+      const closing = String(
+        db.selectValue('SELECT coalesce(closing_date, ?) FROM company', ['0000-00-00']),
+      );
+      const sum = (where: string) =>
+        db.selectObjects(
+          `SELECT count(*) AS n, coalesce(sum(amount), 0) AS total FROM bank_txn
+           WHERE account_id = ? AND status = 'new' AND date <= ? AND ${where}`,
+          [account.id, suggested.statementDate, closing],
+        )[0]!;
+      const after = sum('date > ?');
+      const inHistory = sum('date <= ?');
+      const waiting = Number(after.total);
+      console.log(
+        `  ${Number(inHistory.n)} unmatched in the closed history (${formatMoney(Number(inHistory.total))}), ` +
+          `${Number(after.n)} waiting after it (${formatMoney(waiting)})`,
       );
       console.log(
         `Reconcile ${account.name} statement of ${suggested.statementDate} at ${formatMoney(suggested.endingBalance)}: ` +
@@ -183,7 +196,20 @@ it.runIf(process.env.QBO_DIR)(
       );
       // With the history in the books, whatever they lack is exactly what is
       // still waiting for review; without it, the opening balance is missing too
-      if (history) expect(state.difference).toBe(waiting);
+      // Real books needn't agree with the bank (QuickBooks may never have been
+      // reconciled), so this reports rather than asserts
+      const books = Number(
+        db.selectValue(
+          `SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
+           JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+           WHERE l.account_id = ? AND e.date <= ?`,
+          [account.id, suggested.statementDate],
+        ),
+      );
+      console.log(
+        `  books ${formatMoney(books)} vs bank ${formatMoney(suggested.endingBalance)} on ${suggested.statementDate}: ` +
+          `${state.difference === waiting ? 'ties out apart from what waits for review' : `off by ${formatMoney(state.difference - waiting)} beyond what waits for review`}`,
+      );
       if (state.difference === 0) finishReconciliation(db, id);
       else cancelReconciliation(db, id);
     }

@@ -664,6 +664,7 @@ function ImportDialog(props: {
     Object.fromEntries(
       keys.map((s) => [
         s.key,
+        // Remembered, or guessed from the account's name, or the tab being viewed
         s.accountId ??
           (keys.length === 1 &&
           props.current &&

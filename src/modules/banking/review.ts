@@ -202,18 +202,32 @@ export function historyIndex(db: Database, accountId: string): History {
      GROUP BY b.id ORDER BY b.date DESC, b.id DESC LIMIT 5000`,
     [accountId],
   );
+  // The last few uses of each payee, newest first; a split has no single category
+  const uses = new Map<string, { category: string | null; payee: string | null }[]>();
   for (const r of rows) {
     const key = payeeKey(String(r.payee));
-    // The newest single-category use wins; splits say nothing about a category
-    if (!key || index.has(key) || Number(r.n) !== 1) continue;
-    index.set(key, {
-      source: 'history',
-      categoryId: String(r.category),
+    if (!key) continue;
+    const list = uses.get(key) ?? [];
+    if (list.length >= HISTORY_USES) continue;
+    list.push({
+      category: Number(r.n) === 1 ? String(r.category) : null,
       payee: r.name === null ? null : String(r.name),
     });
+    uses.set(key, list);
+  }
+  // Only a payee whose recent uses agree: a bank's "Check" or "Zelle payment
+  // to" is a different payee each time, so its last category says nothing
+  for (const [key, list] of uses) {
+    const category = list[0]!.category;
+    if (category && list.every((u) => u.category === category)) {
+      index.set(key, { source: 'history', categoryId: category, payee: list[0]!.payee });
+    }
   }
   return index;
 }
+
+/** How many of a payee's latest uses must agree for "like last time". */
+const HISTORY_USES = 3;
 
 function suggest(t: BankTxn, rules: RuleRow[], history: History): Suggestion | null {
   const rule = firstRule(rules, t);
@@ -401,6 +415,15 @@ export function match(db: Database, id: number, entryId: number): void {
   inSavepoint(db, 'bank_match', () => {
     const t = getTxn(db, id);
     requireNew(t);
+    const taken = db.selectValue(
+      'SELECT count(*) FROM bank_txn WHERE entry_id = ? AND account_id = ?',
+      [entryId, t.accountId],
+    );
+    if (Number(taken) > 0) {
+      throw new LedgerRuleError(
+        'That entry is already matched to another transaction in this account. Choose another match.',
+      );
+    }
     setReviewed(db, t, 'matched', entryId);
   });
 }
@@ -550,16 +573,21 @@ function isTransferEntry(db: Database, entryId: number, accountId: string): bool
 
 /**
  * Post waiting transactions as their suggested category says (BK-3, BK-5).
- * Ones that may already be in the books (a matching entry) are left for the
- * owner, so a bulk accept never enters anything twice. Returns the new entries.
+ * Ones that may already be in the books (a matching entry) or fall in a
+ * closed period are left for the owner, so a bulk accept never enters
+ * anything twice. Returns the new entries.
  */
 export function acceptSuggestions(db: Database, ids: number[], opts: PostOptions = {}): number[] {
   return inSavepoint(db, 'bank_accept', () => {
     const rules = listRules(db).filter((r) => r.active);
+    const closing = db.selectValue('SELECT closing_date FROM company');
     const posted: number[] = [];
     for (const id of ids) {
       const t = getTxn(db, id);
       if (t.status !== 'new' || matchCandidates(db, t).length > 0) continue;
+      // Never in bulk into a closed period, e.g. history brought over from
+      // QuickBooks: those are looked at one by one
+      if (typeof closing === 'string' && t.date <= closing) continue;
       const s = suggest(t, rules, historyIndex(db, t.accountId));
       if (!s) continue;
       posted.push(

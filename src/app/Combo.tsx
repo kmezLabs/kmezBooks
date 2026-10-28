@@ -1,7 +1,9 @@
 // A text field with a list that narrows as you type, to what starts with the
 // typed text (not what merely contains it). Used for accounts (categories)
 // and payees. Arrow keys move through the list; Enter or Tab picks; Escape
-// closes it and puts the field back.
+// closes it and puts the field back. Actions (such as "Add … as a vendor")
+// can follow the list once something is typed; they're picked only by
+// clicking or arrowing down to them, never by just pressing Enter or Tab.
 
 import { useEffect, useId, useRef, useState } from 'react';
 
@@ -12,6 +14,11 @@ export interface ComboOption {
   group?: string;
   /** Texts whose beginning is matched against what's typed */
   keys: string[];
+}
+
+export interface ComboAction {
+  label: string;
+  run: (typed: string) => void;
 }
 
 /** At most this many options are listed; typing narrows the rest */
@@ -29,6 +36,8 @@ export function Combo(props: {
   emptyLabel?: string;
   ariaLabel?: string;
   autoFocus?: boolean;
+  /** Offered after the list for what has been typed, e.g. adding it as a new payee */
+  actions?: (typed: string) => ComboAction[];
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
@@ -37,6 +46,8 @@ export function Combo(props: {
   const [query, setQuery] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  // Arrow keys were used since the last keystroke: an action may be picked with Enter
+  const [navigated, setNavigated] = useState(false);
 
   const selected = props.options.find((o) => o.value === props.value);
   const shown = props.freeText ? props.value : (selected?.label ?? '');
@@ -48,6 +59,20 @@ export function Combo(props: {
         ...props.options,
       ];
   const items = matches.slice(0, SHOWN);
+  const typed = (query ?? '').trim();
+  const actions = typed && props.actions ? props.actions(typed) : [];
+  const count = items.length + actions.length;
+  const runAction = (a: ComboAction) => {
+    setQuery(null);
+    setOpen(false);
+    a.run(typed);
+  };
+  /** Enter picks this: an option, or an action reached with the arrow keys */
+  const enterPick = () => {
+    if (active < items.length) return items[active] ? () => pick(items[active]) : null;
+    const a = actions[active - items.length];
+    return a && navigated ? () => runAction(a) : null;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +93,7 @@ export function Combo(props: {
         aria-label={props.ariaLabel}
         aria-expanded={open}
         aria-controls={`${id}-list`}
-        aria-activedescendant={open && items[active] ? `${id}-${active}` : undefined}
+        aria-activedescendant={open && active < count ? `${id}-${active}` : undefined}
         aria-autocomplete="list"
         autoComplete="off"
         autoFocus={props.autoFocus}
@@ -83,6 +108,7 @@ export function Combo(props: {
         onChange={(e) => {
           setQuery(e.target.value);
           setActive(0);
+          setNavigated(false);
           setOpen(true);
           if (props.freeText) props.onChange(e.target.value);
         }}
@@ -101,10 +127,11 @@ export function Combo(props: {
             e.preventDefault();
             if (!open) setOpen(true);
             const step = e.key === 'ArrowDown' ? 1 : -1;
-            setActive((a) => Math.min(Math.max(a + step, 0), Math.max(items.length - 1, 0)));
-          } else if (e.key === 'Enter' && open && items[active]) {
+            setNavigated(true);
+            setActive((a) => Math.min(Math.max(a + step, 0), Math.max(count - 1, 0)));
+          } else if (e.key === 'Enter' && open && enterPick()) {
             e.preventDefault();
-            pick(items[active]);
+            enterPick()!();
           } else if (e.key === 'Tab' && open && query !== null && q && items[active]) {
             pick(items[active]);
           } else if (e.key === 'Escape' && open) {
@@ -116,7 +143,7 @@ export function Combo(props: {
           }
         }}
       />
-      {open && items.length > 0 && (
+      {open && count > 0 && (
         <ul ref={list} id={`${id}-list`} role="listbox" className="combo-list">
           {items.map((o, i) => (
             <ComboItem
@@ -134,6 +161,21 @@ export function Combo(props: {
               {matches.length - SHOWN} more: keep typing
             </li>
           )}
+          {actions.map((a, i) => (
+            <li
+              key={a.label}
+              id={`${id}-${items.length + i}`}
+              role="option"
+              aria-selected={items.length + i === active && navigated}
+              className={`combo-action${items.length + i === active && navigated ? ' active' : ''}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                runAction(a);
+              }}
+            >
+              {a.label}
+            </li>
+          ))}
         </ul>
       )}
     </div>

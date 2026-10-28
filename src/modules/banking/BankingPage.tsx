@@ -596,7 +596,18 @@ function ReviewEditor(props: {
       <div className="fields">
         <label>
           Payee
-          <PayeeField value={payee} onChange={setPayee} />
+          <PayeeField
+            value={payee}
+            onChange={setPayee}
+            onAdded={(p) =>
+              // A new vendor's default category goes into an empty category
+              setLines((current) =>
+                p.defaultAccountId && current.length === 1 && !current[0]!.accountId
+                  ? [{ ...current[0]!, accountId: p.defaultAccountId }]
+                  : current,
+              )
+            }
+          />
         </label>
         <label>
           Memo

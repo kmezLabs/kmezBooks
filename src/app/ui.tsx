@@ -32,7 +32,12 @@ export function Dialog(props: { title: string; children: ReactNode; onClose?: ()
         aria-modal="true"
         aria-label={props.title}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.key === 'Escape' && props.onClose?.()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape' || !props.onClose) return;
+          // Only the innermost dialog closes
+          e.stopPropagation();
+          props.onClose();
+        }}
       >
         <h2>{props.title}</h2>
         {props.children}

@@ -32,6 +32,18 @@ import {
   type EntryInput,
 } from '../ledger/postEntry';
 import {
+  createPayee,
+  deletePayee,
+  getPayee,
+  listPayees,
+  mergePayee,
+  payeeNames,
+  updatePayee,
+  type Payee,
+  type PayeeInput,
+  type PayeeKind,
+} from '../ledger/payees';
+import {
   register,
   simpleToEntry,
   type RegisterQuery,
@@ -816,6 +828,41 @@ export class CompanySession {
 
   migrationDiscard(): void {
     this.migration = null;
+  }
+
+  // ---- payees: customers, vendors and other names (GL-11, AR-1, AP-1) ----
+
+  payees(opts?: { kind?: PayeeKind; search?: string; includeInactive?: boolean }): Payee[] {
+    return listPayees(this.open_().db, opts);
+  }
+
+  payee(id: string): Payee {
+    return getPayee(this.open_().db, id);
+  }
+
+  payeeNames(): string[] {
+    return payeeNames(this.open_().db);
+  }
+
+  createPayee(input: PayeeInput): string {
+    const id = createPayee(this.writable().db, input);
+    this.touch();
+    return id;
+  }
+
+  updatePayee(id: string, input: PayeeInput): void {
+    updatePayee(this.writable().db, id, input);
+    this.touch();
+  }
+
+  mergePayee(fromId: string, intoId: string): void {
+    mergePayee(this.writable().db, fromId, intoId);
+    this.touch();
+  }
+
+  deletePayee(id: string): void {
+    deletePayee(this.writable().db, id);
+    this.touch();
   }
 
   // ---- transactions register (GL-9) and changing posted entries (GL-6) ----

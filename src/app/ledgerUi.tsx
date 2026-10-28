@@ -1,10 +1,10 @@
-// Small pieces shared by the ledger pages: account picker, money input,
-// closed-period override prompt, dates.
+// Small pieces shared by the ledger pages: account picker, payee field, money
+// input, closed-period override prompt, dates.
 
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { TYPE_LABELS, ACCOUNT_TYPES, isDebitNormal, type AccountRow } from '../shared/accounts';
 import { formatMoney, parseMoney, type Cents } from '../shared/money';
-import { errorName } from '../shared/workerClient';
+import { db, errorName } from '../shared/workerClient';
 import { Dialog, ErrorText, TextField, useAction } from './ui';
 
 export function todayIso(): string {
@@ -66,6 +66,38 @@ export function AccountSelect(props: {
 }
 
 /** A money field: free typing, tidied to 1,234.56 when it loses focus. */
+/**
+ * A payee name, suggesting the company's payees as you type (GL-11). Any name
+ * can be typed: a new one becomes a payee when the entry is saved.
+ */
+export function PayeeField(props: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const id = useId();
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    void db.payeeNames().then(setNames);
+  }, []);
+  return (
+    <>
+      <input
+        list={id}
+        value={props.value}
+        placeholder={props.placeholder}
+        autoComplete="off"
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+      <datalist id={id}>
+        {names.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
+    </>
+  );
+}
+
 export function MoneyInput(props: {
   value: string;
   onChange: (text: string) => void;

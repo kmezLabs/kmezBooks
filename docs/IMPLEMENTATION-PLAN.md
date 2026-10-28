@@ -14,7 +14,7 @@ How the MVP in `docs/MVP-REQUIREMENTS.md` gets built. M1 is planned in detail; M
 | M4 | Reports (done) | RP-1–RP-6, RP-10 |
 | M5 | QuickBooks Online migration | MG-1–MG-6 |
 | M6 | Banking (built) | BK-1, BK-3–BK-9 |
-| M7 | Expenses, bills, sales | EX-1, EX-2, AP-1–AP-5, AR-1–AR-8 |
+| M7 | Payees, customers and vendors, expenses (slim, Oct 28) | GL-11, AR-1, AP-1, EX-1–EX-3 |
 | M8 | Polish, export, restore drill | Offline, Portability, Backup NFRs |
 | Later | Should-haves, bookkeeper handoff first | DF-5–DF-8, US-2, US-4, then the other S items |
 
@@ -281,11 +281,28 @@ Added at the owner's request on branch `gl9-register` (migration 0012).
 
 A void can't be undone (GL-6: the schema only lets an entry go from posted to void). A voided entry's page in the journal has **Re-enter**, which opens the entry form filled in from it: date, ref, payee, memo and lines, with each line's memo and name. The owner checks it and posts it as a new journal entry through `postEntry()`, so every check applies (balance, closing date, inactive accounts); the void and its audit history stay. When the voided entry came from bank review, the form warns that its bank transaction is back in review, so it isn't entered twice. Attachments stay on the voided entry. No schema change. Checked end to end in headless Chrome (add, void, re-enter, post).
 
-## M7 — Expenses, bills, sales (outline)
+## M7 — Payees, customers and vendors, expenses (slim)
 
-- **Expenses** (EX-1, EX-2): post immediately, with split lines and encrypted attachments.
-- **Bills** (AP-1–AP-5): documents only. Bill payments post pro rata over the bill's lines and can't exceed what's still owed. The bills-due list is sorted by due date.
-- **Sales** (AR-1–AR-8):
+Owner's decision, Oct 28: the QuickBooks history of both companies tried so far has no invoices, bills, sales receipts or payments (Mawad Child Services 2025: 2,598 expenses, 241 deposits, 23 card credits, 13 journal entries, 3 checks, 2 card payments; Mawad Holdings: 63 expenses, 25 deposits, 13 journal entries, 12 checks), and the other two companies don't use them now either. So M7 builds what they use, and invoices, estimates and bills (AR-2 to AR-8, AP-2 to AP-5) become S, built when a company needs them; the outline for them is kept below.
+
+### Slice 1: payees (GL-11, AR-1, AP-1; migration 0014)
+
+| Requirement | How |
+| --- | --- |
+| GL-11 | One `payee` table replaces the `customer` and `vendor` tables: names unique ignoring case, as in QuickBooks, so a vendor named like a customer is one payee with both flags. `journal_entry` and `journal_line` get `payee_id`; the name text stays on them (MG-3). `postEntry()` turns names into payees, adding one on first use and storing the payee's spelling, so every module (register, bank review, rules, QuickBooks import) keeps passing names. The upgrade makes a payee of every name already on the books and links it, without changing the text. Names aren't amounts: a posted or void entry's name and payee may change, but only together and always to the payee's own name (schema rule GL-11), so renaming renames everywhere and merging moves every entry and line; each change is a compact `payee` audit event. Bank rules that name the payee follow. A payee on transactions can't be deleted; merge it or make it inactive |
+| AR-1, AP-1 | The Payees page (Books): All, Customers, Vendors, Other names; search; inactive. Each payee's record: name, customer and vendor flags, contact, email, phone, address (billing for a customer) and shipping address, terms in days, your account number with a vendor, default category, 1099 flag (flag only), notes, active. Show transactions opens the register filtered to the payee. Merge into another payee keeps the other's details and fills in what it lacks |
+| Fields | Payee fields in the register's Add Transaction and quick edit, bank review, bank rules and journal entries (new) suggest the company's payees as you type |
+
+Checked: Vitest on the real schema (upgrade from schema 13 with customers, vendors and names in other capitals; the rules on posted and void entries and lines; audit; rename, merge, delete; register filter), the real QuickBooks exports of both companies (tie-out still exact; 13 customers and 1,206 vendors in one list), and headless Chrome (add with names, merge, rename, vendor record, Show transactions, suggestions).
+
+### Slice 2: expenses (EX-1 to EX-3)
+
+Add Transaction becomes the expense and deposit form: payee, ref or check number, split over categories, receipts attached (EX-2), and a vendor's default category filled in. Bank review uses a vendor's default category when nothing else suggests one.
+
+### Later: invoices, estimates, bills (S)
+
+- **Bills** (AP-2–AP-5): documents only. Bill payments post pro rata over the bill's lines and can't exceed what's still owed. The bills-due list is sorted by due date.
+- **Sales** (AR-2–AR-8):
   - Estimates convert to invoices.
   - Invoices are documents only; PDF uses the company template and logo. Sending goes through the Web Share API with the PDF where supported, otherwise download plus `mailto:`.
   - Sales receipts post immediately.

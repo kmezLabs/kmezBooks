@@ -23,6 +23,7 @@ import {
   formatDate,
   todayIso,
   useClosedPeriodOverride,
+  PayeeField,
 } from '../ledgerUi';
 import { registerAccount, setRegisterAccount } from '../settings';
 import { Dialog, ErrorText } from '../ui';
@@ -52,7 +53,13 @@ function accountView(a: AccountRow | undefined): AccountView | null {
   return { out: 'Decrease', in: 'Increase', sign: a.type === 'expense' ? 1 : -1 };
 }
 
-export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: number) => void }) {
+export function RegisterPage(props: {
+  status: SessionStatus;
+  onOpenEntry: (id: number) => void;
+  /** Only this payee's transactions, chosen on the Payees page (GL-11) */
+  payee?: { id: string; name: string } | null;
+  onClearPayee?: () => void;
+}) {
   const companyId = props.status.companyId ?? '';
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [fyStartMonth, setFyStartMonth] = useState(1);
@@ -89,14 +96,19 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
     let current = true;
     const t = setTimeout(() => {
       void db
-        .register({ ...query, limit, balanceAccountId: query.accountId ?? null })
+        .register({
+          ...query,
+          payeeId: props.payee?.id ?? null,
+          limit,
+          balanceAccountId: query.accountId ?? null,
+        })
         .then((r) => current && setResult(r));
     }, 150);
     return () => {
       current = false;
       clearTimeout(t);
     };
-  }, [query, limit, props.status.lastSavedAt, version]);
+  }, [query, limit, props.status.lastSavedAt, version, props.payee?.id]);
 
   useLayoutEffect(() => {
     const target = scroll.current;
@@ -219,6 +231,18 @@ export function RegisterPage(props: { status: SessionStatus; onOpenEntry: (id: n
             <option value="desc">Newest first</option>
           </select>
         </label>
+        {props.payee && (
+          <span className="filter-chip">
+            Payee: <strong>{props.payee.name}</strong>{' '}
+            <button
+              className="link"
+              title="Show every payee's transactions"
+              onClick={() => props.onClearPayee?.()}
+            >
+              ✕
+            </button>
+          </span>
+        )}
         <label className="check inline">
           <input
             type="checkbox"
@@ -471,7 +495,7 @@ function EntryEditor(props: {
             </label>
             <label>
               Payee
-              <input value={payee} onChange={(e) => setPayee(e.target.value)} />
+              <PayeeField value={payee} onChange={setPayee} />
             </label>
             <label>
               Memo
@@ -682,9 +706,9 @@ function QuickAdd(props: {
         </label>
         <label>
           Payee
-          <input
+          <PayeeField
             value={payee}
-            onChange={(e) => setPayee(e.target.value)}
+            onChange={setPayee}
             placeholder={kind === 'expense' ? 'Paid to' : 'Received from'}
           />
         </label>

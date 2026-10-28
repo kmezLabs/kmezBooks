@@ -191,38 +191,37 @@ export function runImport(
       }
     }
 
-    // ---- customers and vendors (MG-1) ----
-    for (const c of analysis.customers) {
-      db.exec({
-        sql: `INSERT INTO customer (id, company_id, name, contact_name, email, phone, billing_address, shipping_address)
-              VALUES (?, (SELECT id FROM company), ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-        bind: [
-          crypto.randomUUID(),
-          c.name,
-          c.contactName,
-          c.email,
-          c.phone,
-          c.address,
-          c.shippingAddress,
-        ],
-      });
-      counts.customers += db.changes();
-    }
-    for (const v of analysis.vendors) {
-      db.exec({
-        sql: `INSERT INTO vendor (id, company_id, name, contact_name, email, phone, address, account_number)
-              VALUES (?, (SELECT id FROM company), ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-        bind: [
-          crypto.randomUUID(),
-          v.name,
-          v.contactName,
-          v.email,
-          v.phone,
-          v.address,
-          v.accountNumber,
-        ],
-      });
-      counts.vendors += db.changes();
+    // ---- customers and vendors (MG-1), into the payee list (GL-11) ----
+    // One name is one payee: a vendor with a customer's name is both
+    for (const [list, flag] of [
+      [analysis.customers, 'is_customer'],
+      [analysis.vendors, 'is_vendor'],
+    ] as const) {
+      for (const c of list) {
+        db.exec({
+          sql: `INSERT INTO payee (id, company_id, name, ${flag}, contact_name, email, phone, address,
+                                   shipping_address, account_number)
+                VALUES (?, (SELECT id FROM company), ?, 1, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO UPDATE SET ${flag} = 1,
+                  contact_name = coalesce(contact_name, excluded.contact_name),
+                  email = coalesce(email, excluded.email), phone = coalesce(phone, excluded.phone),
+                  address = coalesce(address, excluded.address),
+                  shipping_address = coalesce(shipping_address, excluded.shipping_address),
+                  account_number = coalesce(account_number, excluded.account_number)
+                WHERE ${flag} = 0`,
+          bind: [
+            crypto.randomUUID(),
+            c.name.trim().replace(/\s+/g, ' '),
+            c.contactName,
+            c.email,
+            c.phone,
+            c.address,
+            c.shippingAddress,
+            c.accountNumber,
+          ],
+        });
+        if (db.changes()) counts[flag === 'is_customer' ? 'customers' : 'vendors']++;
+      }
     }
 
     // ---- entries ----

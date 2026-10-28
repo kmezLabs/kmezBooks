@@ -97,6 +97,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | GL-9 | Transactions register, the home panel when a company opens: every entry (or every income and expense) in date order, oldest first and opening at the latest; filters at the top (defaults: all dates, all transactions, oldest first); with one account chosen, that account's payments, deposits and balance after each transaction, and the account is remembered per company; income, expense and net totals and an Add Transaction button (expense or income dialog) at the bottom; edit, void and (where GL-6 allows) delete from the list | M |
 | GL-8 | Cash-basis ledger: only cash movements post. Invoices and bills don't post when created; a payment against one posts on its date, spread pro rata over the document's lines, to the cent, so the parts always add up exactly to the payment. A/R and A/P accounts take no new postings; they exist only for migrated history | M |
 | GL-10 | Re-enter a voided entry: a new entry filled in from it (date, ref, payee, memo, lines), checked and posted like any other; the void stays on record. Added at the owner's request, Oct 28 | M |
+| GL-11 | Payees: one list of the names on transactions, unique ignoring case, each a customer, a vendor, both, or just a name. Name fields suggest payees and a new name adds one. Rename a payee on every transaction, merge two payees into one, make one inactive, and see its transactions in the register. Added at the owner's request, Oct 28 | M |
 
 ### Period close (PC)
 
@@ -108,16 +109,18 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 
 ### Customers and sales (AR)
 
+Owner's decision, Oct 28: none of the four companies uses invoices, estimates or bills today (their QuickBooks history is expenses, deposits, checks and journal entries), so AR-2 to AR-8 and AP-2 to AP-5 are S: built when a company needs them. Customer and vendor records stay M.
+
 | ID | Requirement | Pri |
 | --- | --- | --- |
 | AR-1 | Customer records: name, contact, billing/shipping address, terms, notes | M |
-| AR-2 | Products and services list with name, rate and income account (no inventory tracking) | M |
-| AR-3 | Create estimates and convert them to invoices | M |
-| AR-4 | Create invoices with line items, discounts, due date from terms; produce a PDF and hand it to your mail app to send (share sheet where Chrome supports it; otherwise download plus a prefilled email). Sending directly from the app needs a server and is out of scope | M |
-| AR-5 | Invoice statuses: draft, sent, partially paid, paid, overdue, void | M |
-| AR-6 | Sales receipts for paid-on-the-spot sales | M |
-| AR-7 | Record full or partial payments against one or more invoices; deposit to a bank or Undeposited Funds; each payment posts its income pro rata over the invoice's lines (GL-8). In the MVP a payment can't exceed what is still owed (customer credits are a future Receivables extra) | M |
-| AR-8 | Invoice template with each company's logo and details | M |
+| AR-2 | Products and services list with name, rate and income account (no inventory tracking) | S |
+| AR-3 | Create estimates and convert them to invoices | S |
+| AR-4 | Create invoices with line items, discounts, due date from terms; produce a PDF and hand it to your mail app to send (share sheet where Chrome supports it; otherwise download plus a prefilled email). Sending directly from the app needs a server and is out of scope | S |
+| AR-5 | Invoice statuses: draft, sent, partially paid, paid, overdue, void | S |
+| AR-6 | Sales receipts for paid-on-the-spot sales | S |
+| AR-7 | Record full or partial payments against one or more invoices; deposit to a bank or Undeposited Funds; each payment posts its income pro rata over the invoice's lines (GL-8). In the MVP a payment can't exceed what is still owed (customer credits are a future Receivables extra) | S |
+| AR-8 | Invoice template with each company's logo and details | S |
 | AR-9 | Recurring invoices (created when the company is next opened, since nothing runs while the app is closed) | S |
 
 ### Vendors and bills (AP)
@@ -125,10 +128,10 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | ID | Requirement | Pri |
 | --- | --- | --- |
 | AP-1 | Vendor records: name, contact, address, terms, default expense account, 1099 flag (flag only) | M |
-| AP-2 | Enter bills with line items by account, due date from terms, attachments | M |
-| AP-3 | Pay one or many bills, recording check, ACH or card, fully or partially; each payment posts its expenses pro rata over the bill's lines (GL-8) and can't exceed what is still owed | M |
-| AP-4 | Bill statuses: open, partially paid, paid, overdue, void | M |
-| AP-5 | List of bills due, sorted by due date | M |
+| AP-2 | Enter bills with line items by account, due date from terms, attachments | S |
+| AP-3 | Pay one or many bills, recording check, ACH or card, fully or partially; each payment posts its expenses pro rata over the bill's lines (GL-8) and can't exceed what is still owed | S |
+| AP-4 | Bill statuses: open, partially paid, paid, overdue, void | S |
+| AP-5 | List of bills due, sorted by due date | S |
 
 ### Expenses (EX)
 
@@ -136,7 +139,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | --- | --- | --- |
 | EX-1 | Record an expense or check paid directly from a bank or card account, split across accounts | M |
 | EX-2 | Attach receipt images or PDFs to any expense (stored encrypted in the company folder's attachments, and included in backups) | M |
-| EX-3 | Optional payee and customer (for billable tracking later) | S |
+| EX-3 | Optional payee and customer (for billable tracking later) | M |
 
 ### Banking (BK)
 
@@ -246,7 +249,7 @@ The ledger tables are the only source of truth for the financial statements; inv
 | Account | id, company, type, detail type, parent account, active | GL |
 | JournalEntry | id, company, date, ref, name (payee, customer or vendor), source type, source id, memo, status (draft/posted/void) | GL |
 | JournalLine | entry id, account, debit, credit (integer cents), memo, name (when the line names someone else), source document line (optional, for payments) | GL |
-| Customer, Vendor | contact details (imported from QuickBooks in M5); terms and default accounts arrive with AR / AP | AR / AP |
+| Payee (customer, vendor) | one list of names (GL-11), flagged customer and/or vendor, with contact details, terms, default category and 1099 flag (imported from QuickBooks in M5); entries and lines link to their payee | GL / AR / AP |
 | QboImportRun, QboEntry | one row per QuickBooks import (status, summary, tie-out); per migrated entry its QuickBooks transaction type and source file and row | MG |
 | Item | name, rate, income or expense account | AR |
 | Invoice, Estimate, SalesReceipt | header, lines, totals, status | AR |

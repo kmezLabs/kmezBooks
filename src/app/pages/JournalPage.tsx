@@ -10,6 +10,7 @@ import { db } from '../../shared/workerClient';
 import {
   AccountSelect,
   MoneyInput,
+  PayeeField,
   cents,
   formatDate,
   todayIso,
@@ -261,6 +262,7 @@ function NewEntry(props: {
   const [postedEdits, setPostedEdits] = useState(false);
   const [date, setDate] = useState(from?.date ?? todayIso());
   const [ref, setRef] = useState(from?.ref ?? '');
+  const [name, setName] = useState(from?.name ?? '');
   const [memo, setMemo] = useState(from?.memo ?? '');
   const [lines, setLines] = useState<LineDraft[]>(
     from
@@ -310,6 +312,7 @@ function NewEntry(props: {
       const entry = {
         date,
         ref,
+        name,
         memo,
         lines: used.map((l) => ({
           accountId: l.accountId,
@@ -320,8 +323,8 @@ function NewEntry(props: {
         })),
       };
       const id = e0
-        ? await db.saveEntryChange(e0.id, { ...entry, name: e0.name }, overridePassphrase)
-        : await db.postJournalEntry({ ...entry, name: from?.name ?? null }, overridePassphrase);
+        ? await db.saveEntryChange(e0.id, entry, overridePassphrase)
+        : await db.postJournalEntry(entry, overridePassphrase);
       for (const f of files) await db.addAttachment('journal_entry', String(id), f);
       props.onDone(id);
     });
@@ -386,6 +389,10 @@ function NewEntry(props: {
             width="short"
             hint="Journal or check number"
           />
+          <label>
+            Payee
+            <PayeeField value={name} onChange={setName} placeholder="Optional" />
+          </label>
           <TextField label="Memo" value={memo} onChange={setMemo} width="long" />
         </div>
         <table className="lines">

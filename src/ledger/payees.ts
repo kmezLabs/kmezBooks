@@ -153,9 +153,14 @@ export function payeeFor(
 ): { id: string; name: string } | null {
   const clean = name?.trim().replace(/\s+/g, ' ');
   if (!clean) return null;
-  const found = db.selectObjects(`SELECT id, name FROM payee WHERE name = ? COLLATE NOCASE`, [
-    clean,
-  ])[0];
+  const found =
+    db.selectObjects(`SELECT id, name FROM payee WHERE name = ? COLLATE NOCASE`, [clean])[0] ??
+    // Payees made by the 0014 upgrade kept QuickBooks' runs of spaces ("ADP Tax   DES")
+    db
+      .selectObjects(
+        `SELECT id, name FROM payee WHERE instr(name, '  ') > 0 OR instr(name, char(9)) > 0`,
+      )
+      .find((p) => String(p.name).replace(/\s+/g, ' ').toLowerCase() === clean.toLowerCase());
   if (found) return { id: String(found.id), name: String(found.name) };
   const id = crypto.randomUUID();
   db.exec({
@@ -234,6 +239,11 @@ function renameEverywhere(db: Database, id: string, oldName: string, newName: st
     sql: `UPDATE bank_rule SET payee = ? WHERE payee = ? COLLATE NOCASE`,
     bind: [newName, oldName],
   });
+  // Recurring entries name their payee as text: the next posting must find it (GL-5)
+  db.exec({
+    sql: `UPDATE recurring_entry SET payee = ? WHERE payee = ? COLLATE NOCASE`,
+    bind: [newName, oldName],
+  });
 }
 
 /** Save a payee's record; a new name is the payee's name on every transaction from now on. */
@@ -301,6 +311,10 @@ export function mergePayee(db: Database, fromId: string, intoId: string): void {
     });
     db.exec({
       sql: `UPDATE bank_rule SET payee = ? WHERE payee = ? COLLATE NOCASE`,
+      bind: [into.name, from.name],
+    });
+    db.exec({
+      sql: `UPDATE recurring_entry SET payee = ? WHERE payee = ? COLLATE NOCASE`,
       bind: [into.name, from.name],
     });
     db.exec({ sql: `DELETE FROM payee WHERE id = ?`, bind: [fromId] });

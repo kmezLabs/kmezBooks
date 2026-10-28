@@ -576,7 +576,7 @@ export class CompanySession {
       exportedAt,
       schema: Number(c.db.selectValue('PRAGMA user_version')),
     });
-    return { fileName: `${safeName(company)} export ${exportedAt.slice(0, 10)}.zip`, bytes };
+    return { fileName: `${safeName(company)} export ${localDate(this.now())}.zip`, bytes };
   }
 
   /** The company database, decrypted, as a SQLite file; recorded in the audit log. */
@@ -588,7 +588,7 @@ export class CompanySession {
     }
     const company = readDetails(c.db).legalName;
     return {
-      fileName: `${safeName(company)} ${new Date().toISOString().slice(0, 10)}.sqlite`,
+      fileName: `${safeName(company)} ${localDate(this.now())}.sqlite`,
       bytes: serializeDatabase(c.sqlite3, c.db),
     };
   }

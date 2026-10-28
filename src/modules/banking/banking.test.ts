@@ -165,6 +165,31 @@ describe('statement import (BK-1, BK-6)', () => {
     expect(listQueue(db, checking).every((t) => !t.possibleDuplicate)).toBe(true);
   });
 
+  it('keeps identical transactions without bank ids in one file, and adds none of them twice (BK-6)', () => {
+    const parking = { date: '2026-01-14', amount: '-5.00', name: 'CITY PARKING' };
+    const jan = file('jan.qbo', {
+      txns: [
+        { fitid: null, ...parking },
+        { fitid: null, ...parking },
+        // With a bank id, the same id, date and amount is the bank sending it twice
+        { fitid: 'P1', ...parking },
+        { fitid: 'P1', ...parking },
+      ],
+    });
+    expect(importFiles(jan).statements[0]).toMatchObject({ added: 3, duplicates: 1 });
+    expect(importFiles(jan).statements[0]).toMatchObject({ added: 0, duplicates: 4 });
+    // A later file with one more of them adds just that one
+    const more = file('jan2.qbo', {
+      txns: [
+        { fitid: null, ...parking },
+        { fitid: null, ...parking },
+        { fitid: null, ...parking },
+      ],
+    });
+    expect(importFiles(more).statements[0]).toMatchObject({ added: 1, duplicates: 2 });
+    expect(listQueue(db, checking)).toHaveLength(4);
+  });
+
   it('reports files that aren’t statements, and statements in another currency', () => {
     const usd = qboFile(JAN);
     const { pending, problems } = readStatements([

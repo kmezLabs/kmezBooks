@@ -16,6 +16,7 @@ import {
   updatePayee,
 } from './payees';
 import { postEntry, voidEntry } from './postEntry';
+import { createRecurring, postDue } from './recurring';
 
 let db: Database;
 beforeEach(async () => {
@@ -160,6 +161,45 @@ describe('payees (GL-11)', () => {
     expect(defaultCategoryFor(db, 'Nobody')).toBeNull();
     db.exec({ sql: 'UPDATE account SET active = 0 WHERE id = ?', bind: [utilities] });
     expect(defaultCategoryFor(db, 'Power Co')).toBeNull();
+  });
+
+  it('renames and merges the payee on recurring entries too, so they don’t bring the old name back', () => {
+    const lines = [
+      { accountId: accountId(db, 'Utilities'), debit: 10_00, credit: 0, memo: null },
+      { accountId: accountId(db, 'Checking'), debit: 0, credit: 10_00, memo: null },
+    ];
+    const template = (payee: string, startDate: string) =>
+      createRecurring(db, {
+        name: payee,
+        frequency: 'monthly',
+        dayOfMonth: 1,
+        startDate,
+        endDate: null,
+        ref: null,
+        payee,
+        memo: null,
+        lines,
+      });
+    const power = createPayee(db, blankPayee('City Power'));
+    const gas = createPayee(db, blankPayee('Gas Co'));
+    const atl = createPayee(db, blankPayee('Atlanta Gas'));
+    template('city power', '2026-01-01');
+    template('Gas Co', '2026-01-01');
+    updatePayee(db, power, { ...getPayee(db, power), name: 'Georgia Power' });
+    mergePayee(db, gas, atl);
+    postDue(db, '2026-01-01');
+    expect(payeeNames(db)).toEqual(['Atlanta Gas', 'Georgia Power']);
+  });
+
+  it('finds a payee whose name kept QuickBooks’ runs of spaces', () => {
+    db.exec(
+      `INSERT INTO payee (id, company_id, name) VALUES ('p1', (SELECT id FROM company), 'ADP Tax   DES:ADP Tax')`,
+    );
+    expect(payeeFor(db, 'adp tax des:adp tax')).toEqual({
+      id: 'p1',
+      name: 'ADP Tax   DES:ADP Tax',
+    });
+    expect(payeeNames(db)).toHaveLength(1);
   });
 
   it('deletes only an unused payee', () => {

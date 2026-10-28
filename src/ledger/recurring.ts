@@ -270,7 +270,7 @@ const reasonOf = (raw: unknown) => {
   return e instanceof ClosedPeriodError
     ? 'the date is in a closed period'
     : e instanceof LedgerRuleError
-      ? e.message.replace(/\.$/, '')
+      ? e.message.replace(/\.$/, '').replace(/^\p{Lu}(?!\p{Lu})/u, (c) => c.toLowerCase())
       : e instanceof Error
         ? e.message
         : String(e);
@@ -283,9 +283,18 @@ const reasonOf = (raw: unknown) => {
 export function postDue(db: Database, today: string): RecurringResult {
   const result: RecurringResult = { posted: [], waiting: [] };
   for (const t of listRecurring(db).filter((x) => x.active)) {
-    for (let n = 0; n < CATCH_UP_LIMIT; n++) {
+    for (let n = 0; ; n++) {
       const r = n === 0 ? t : getRecurring(db, t.id);
       if (!r.nextDate || r.nextDate > today) break;
+      if (n === CATCH_UP_LIMIT) {
+        result.waiting.push({
+          recurringId: r.id,
+          name: r.name,
+          date: r.nextDate,
+          reason: `more than ${CATCH_UP_LIMIT} dates were due at once; use Post due now for the rest`,
+        });
+        break;
+      }
       try {
         const entryId = postNext(db, r);
         result.posted.push({ entryId, recurringId: r.id, name: r.name, date: r.nextDate });

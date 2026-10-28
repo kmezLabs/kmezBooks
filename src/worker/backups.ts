@@ -3,6 +3,8 @@
 // was made. Backups are found by listing the backup folder; their names carry
 // the time, so nothing about them is stored in the database.
 
+import { safeName } from './exportCompany';
+
 export const BACKUP_DIR = 'backups';
 export const KEEP_BACKUPS = 30;
 export const BACKUP_EVERY_MS = 4 * 60 * 60_000;
@@ -47,6 +49,26 @@ export async function defaultBackupDir(
   companyDir: FileSystemDirectoryHandle,
 ): Promise<FileSystemDirectoryHandle> {
   return companyDir.getDirectoryHandle(BACKUP_DIR, { create: true });
+}
+
+/**
+ * A company's own folder inside a backup folder the owner chose, so several
+ * companies can share one (a synced folder, say) without listing, restoring
+ * or pruning each other's backups. Named after the company, and found again
+ * by its id if the company is renamed: "Acme LLC [1a2b3c4d]".
+ */
+export async function companyBackupDir(
+  chosen: FileSystemDirectoryHandle,
+  companyId: string,
+  legalName: string,
+): Promise<FileSystemDirectoryHandle> {
+  const tag = `[${companyId.slice(0, 8)}]`;
+  for await (const [name, handle] of chosen.entries()) {
+    if (handle.kind === 'directory' && name.endsWith(tag)) {
+      return handle as FileSystemDirectoryHandle;
+    }
+  }
+  return chosen.getDirectoryHandle(`${safeName(legalName)} ${tag}`, { create: true });
 }
 
 /** Newest first. Files that aren't backups are ignored. */

@@ -280,7 +280,7 @@ export function BackupsPage({ status }: { status: SessionStatus }) {
         Backups go to{' '}
         {folder ? (
           <>
-            the folder <strong>{folder.name}</strong>
+            the folder <strong>{folder.name}</strong>, in a folder of their own for this company
             {!folderInUse &&
               ' (EasyBooks needs permission again, so they currently go to the company folder)'}
           </>

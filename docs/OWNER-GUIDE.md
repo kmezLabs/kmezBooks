@@ -47,7 +47,7 @@ EasyBooks makes its own encrypted backups, on top of your normal file backups.
 
 - **When:** on the first save of each day, then every 4 hours while you work, before a restore, and before an app update changes the company's format. **Back up now** (on **Backups**) makes one on demand.
 - **How many:** the newest 30 regular backups are kept; older ones are removed.
-- **Where:** in `backups/` inside the company folder, unless you choose another folder. **Choose a folder that's synced to cloud storage or on another drive**, so a lost or broken disk doesn't take the backups with it. Attachments are copied there too.
+- **Where:** in `backups/` inside the company folder, unless you choose another folder. **Choose a folder that's synced to cloud storage or on another drive**, so a lost or broken disk doesn't take the backups with it. Attachments are copied there too. All four companies can share one such folder: each gets its own folder inside it, named after the company.
 - **Warning:** if a company has had no backup for 7 days, EasyBooks says so.
 
 ### Test a backup (the restore drill)

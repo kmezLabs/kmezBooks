@@ -14,6 +14,12 @@ export interface CompanyDetails {
   state: string | null;
   postalCode: string | null;
   fiscalYearStartMonth: number;
+  /** On invoices and estimates (AR-8) */
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  /** Printed at the foot of every invoice: how to pay, a thank-you */
+  invoiceFooter?: string | null;
 }
 
 export interface NewCompany extends CompanyDetails {
@@ -30,7 +36,17 @@ const blankToNull = (s: string | null | undefined) => {
 /** Trim, upper-case codes, and turn blanks into nulls. */
 export function normalizeDetails<T extends Partial<CompanyDetails>>(d: T): T {
   const out = { ...d };
-  for (const key of ['ein', 'addressLine1', 'addressLine2', 'city', 'postalCode'] as const) {
+  for (const key of [
+    'ein',
+    'addressLine1',
+    'addressLine2',
+    'city',
+    'postalCode',
+    'email',
+    'phone',
+    'website',
+    'invoiceFooter',
+  ] as const) {
     if (key in out) out[key] = blankToNull(out[key]);
   }
   if ('state' in out) out.state = blankToNull(out.state)?.toUpperCase() ?? null;
@@ -45,6 +61,7 @@ export function validateDetails(d: Partial<CompanyDetails>): string[] {
   if (d.ein && !/^\d{2}-\d{7}$/.test(d.ein)) problems.push('EIN must look like 12-3456789.');
   if (d.state && !/^[A-Z]{2}$/.test(d.state))
     problems.push('State must be a two-letter code, such as IL.');
+  if (d.email && !/^[^\s@]+@[^\s@]+$/.test(d.email)) problems.push('Enter a valid email address.');
   if (d.postalCode && !/^\d{5}(-\d{4})?$/.test(d.postalCode)) {
     problems.push('ZIP code must look like 62701 or 62701-1234.');
   }

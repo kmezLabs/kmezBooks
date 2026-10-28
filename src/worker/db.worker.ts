@@ -101,6 +101,9 @@ const api = {
     session.setEstimateStatus(id, status),
   convertEstimate: (id: string, date: string) => session.convertEstimate(id, date),
   customerBalances: () => session.customerBalances(),
+  docPdf: (id: string) => session.docPdf(id),
+  companyLogo: () => session.companyLogo(),
+  setCompanyLogo: (png: Uint8Array | null) => session.setCompanyLogo(png),
   payments: (query?: { customerId?: string | null; docId?: string | null }) =>
     session.payments(query),
   receivePayment: (input: PaymentInput, overridePassphrase?: string) =>

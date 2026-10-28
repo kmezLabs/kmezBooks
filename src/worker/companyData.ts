@@ -24,6 +24,10 @@ const COLUMNS: Record<keyof CompanyDetails, string> = {
   state: 'state',
   postalCode: 'postal_code',
   fiscalYearStartMonth: 'fiscal_year_start_month',
+  email: 'email',
+  phone: 'phone',
+  website: 'website',
+  invoiceFooter: 'invoice_footer',
 };
 
 export function readDetails(db: Database): CompanyDetails & { id: string; createdAt: string } {
@@ -41,7 +45,31 @@ export function readDetails(db: Database): CompanyDetails & { id: string; create
     state: text(row.state),
     postalCode: text(row.postal_code),
     fiscalYearStartMonth: Number(row.fiscal_year_start_month),
+    email: text(row.email),
+    phone: text(row.phone),
+    website: text(row.website),
+    invoiceFooter: text(row.invoice_footer),
   };
+}
+
+/** The company's logo, a PNG, for invoices (AR-8); null without one. */
+export function readLogo(db: Database): Uint8Array | null {
+  const png = db.selectValue('SELECT png FROM company_logo');
+  return png instanceof Uint8Array ? png : null;
+}
+
+/** Store the logo (a PNG made small in the browser), or remove it with null. */
+export function writeLogo(db: Database, png: Uint8Array | null): void {
+  if (!png) {
+    db.exec('DELETE FROM company_logo');
+    return;
+  }
+  db.exec({
+    sql: `INSERT INTO company_logo (company_id, png) VALUES ((SELECT id FROM company), ?)
+          ON CONFLICT (company_id) DO UPDATE SET png = excluded.png,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+    bind: [png],
+  });
 }
 
 export function updateDetails(db: Database, changes: Partial<CompanyDetails>): void {

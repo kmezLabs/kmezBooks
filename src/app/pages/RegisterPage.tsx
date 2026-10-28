@@ -31,6 +31,8 @@ import { Dialog, ErrorText } from '../ui';
 const PAGE = 200;
 type Period = RangePreset | 'all';
 
+const DEFAULT_PERIOD: Exclude<RangePreset, 'custom'> = 'this_year_to_date';
+
 const SOURCES: Record<string, string> = {
   journal: 'Journal entry',
   qbo_migration: 'From QuickBooks',
@@ -64,11 +66,15 @@ export function RegisterPage(props: {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [fyStartMonth, setFyStartMonth] = useState(1);
   const [postedEdits, setPostedEdits] = useState(false);
-  const [period, setPeriod] = useState<Period>('all');
+  // Opens on this year to date (owner's choice, Oct 28); calendar year until
+  // the company's fiscal year is read
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
+  const periodNow = useRef<Period>(DEFAULT_PERIOD);
   const [query, setQuery] = useState<RegisterQuery>(() => ({
     scope: 'all',
     order: 'asc',
     accountId: registerAccount(companyId),
+    ...rangeFor(DEFAULT_PERIOD, todayIso(), 1),
   }));
   const [limit, setLimit] = useState(PAGE);
   const [result, setResult] = useState<RegisterResult | null>(null);
@@ -88,7 +94,14 @@ export function RegisterPage(props: {
         q.accountId && !list.some((a) => a.id === q.accountId) ? { ...q, accountId: null } : q,
       );
     });
-    void db.details().then((d) => setFyStartMonth(d.fiscalYearStartMonth));
+    void db.details().then((d) => {
+      setFyStartMonth(d.fiscalYearStartMonth);
+      // A preset follows the company's fiscal year, and today's date
+      const p = periodNow.current;
+      if (p !== 'all' && p !== 'custom') {
+        setQuery((q) => ({ ...q, ...rangeFor(p, todayIso(), d.fiscalYearStartMonth) }));
+      }
+    });
     void db.postedEdits().then(setPostedEdits);
   }, [props.status.companyId, props.status.lastSavedAt]);
 
@@ -133,6 +146,7 @@ export function RegisterPage(props: {
   };
   const choosePeriod = (p: Period) => {
     setPeriod(p);
+    periodNow.current = p;
     if (p === 'all') setQ({ from: null, to: null });
     else if (p !== 'custom') setQ(rangeFor(p, todayIso(), fyStartMonth));
   };
@@ -177,7 +191,7 @@ export function RegisterPage(props: {
             type="date"
             value={query.from ?? ''}
             onChange={(e) => {
-              setPeriod('custom');
+              choosePeriod('custom');
               setQ({ from: e.target.value || null });
             }}
           />
@@ -188,7 +202,7 @@ export function RegisterPage(props: {
             type="date"
             value={query.to ?? ''}
             onChange={(e) => {
-              setPeriod('custom');
+              choosePeriod('custom');
               setQ({ to: e.target.value || null });
             }}
           />

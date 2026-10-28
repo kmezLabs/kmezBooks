@@ -2,7 +2,9 @@
 // or card statement until the difference is zero, then keep the result. The
 // schema refuses to finish with a difference, to change a finished one, or to
 // clear an item twice. Balances here are debit minus credit, as the ledger
-// counts the account; the screen shows them the way the statement does.
+// counts the account; the screen shows them the way the statement does. A
+// reconciliation can include the account's sub-accounts: a card kept as a
+// parent with a sub-account per card holder is reconciled as one card.
 
 import type { AccountType } from '../../shared/accounts';
 import type { Cents } from '../../shared/money';
@@ -19,6 +21,8 @@ export interface StatementRef {
   id: string;
   statementDate: string;
   endingBalance: Cents;
+  /** The account's sub-accounts are part of it */
+  includeSubaccounts: boolean;
 }
 
 export interface ReconcileItem {
@@ -31,11 +35,15 @@ export interface ReconcileItem {
   /** Debit minus credit */
   amount: Cents;
   cleared: boolean;
+  /** The sub-account the line is in, when it isn't the reconciled account itself */
+  subaccount: string | null;
 }
 
 export interface ReconcileState {
   accountId: string;
   accountType: AccountType;
+  /** Whether the account has sub-accounts, so a reconciliation can include them */
+  hasSubaccounts: boolean;
   /** The last finished reconciliation */
   last: StatementRef | null;
   open: StatementRef | null;
@@ -62,13 +70,14 @@ const statementRef = (r: Record<string, unknown> | undefined): StatementRef | nu
         id: String(r.id),
         statementDate: String(r.statement_date),
         endingBalance: Number(r.ending_balance),
+        includeSubaccounts: r.include_subaccounts === 1,
       }
     : null;
 
 function lastDone(db: Database, accountId: string): StatementRef | null {
   return statementRef(
     db.selectObjects(
-      `SELECT id, statement_date, ending_balance FROM reconciliation
+      `SELECT id, statement_date, ending_balance, include_subaccounts FROM reconciliation
        WHERE account_id = ? AND status = 'done' ORDER BY statement_date DESC LIMIT 1`,
       [accountId],
     )[0],
@@ -78,19 +87,36 @@ function lastDone(db: Database, accountId: string): StatementRef | null {
 function openOne(db: Database, accountId: string): StatementRef | null {
   return statementRef(
     db.selectObjects(
-      `SELECT id, statement_date, ending_balance FROM reconciliation WHERE account_id = ? AND status = 'open'`,
+      `SELECT id, statement_date, ending_balance, include_subaccounts FROM reconciliation
+       WHERE account_id = ? AND status = 'open'`,
       [accountId],
     )[0],
   );
 }
 
-/** Posted lines in the account, not cleared by a finished reconciliation, on or before the date. */
+/** The account, and with :include = 1 its sub-accounts at any depth. Starts the statement. */
+const COVERED = `
+  WITH RECURSIVE covered (id) AS (
+    SELECT :account
+    UNION
+    SELECT a.id FROM account a JOIN covered ON a.parent_id = covered.id WHERE :include = 1
+  )`;
+
+/** Posted lines in the covered accounts, not cleared by a finished reconciliation, on or before the date. */
 const CANDIDATES = `
   FROM journal_line l
   JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
   LEFT JOIN reconciled_line r ON r.line_id = l.id
-  WHERE l.account_id = :account AND e.date <= :date
+  WHERE l.account_id IN (SELECT id FROM covered) AND e.date <= :date
     AND (r.line_id IS NULL OR r.reconciliation_id = :open)`;
+
+/** The account's name for a line in a sub-account, relative to the reconciled account. */
+function subaccountName(names: Map<string, string>, accountId: string, lineAccount: string) {
+  if (lineAccount === accountId) return null;
+  const parent = names.get(accountId) ?? '';
+  const full = names.get(lineAccount) ?? '?';
+  return full.startsWith(`${parent}:`) ? full.slice(parent.length + 1) : full;
+}
 
 const dayAfter = (d: string, days: number) =>
   new Date(Date.parse(`${d}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
@@ -145,12 +171,15 @@ export function reconcileState(
 ): ReconcileState {
   const type = db.selectValue('SELECT type FROM account WHERE id = ?', [accountId]);
   if (type === undefined) throw new LedgerRuleError('That account does not exist.');
+  const hasSubaccounts =
+    Number(db.selectValue('SELECT count(*) FROM account WHERE parent_id = ?', [accountId])) > 0;
   const last = lastDone(db, accountId);
   const open = openOne(db, accountId);
   const beginningBalance = last?.endingBalance ?? 0;
   const base: ReconcileState = {
     accountId,
     accountType: type as AccountType,
+    hasSubaccounts,
     last,
     open,
     beginningBalance,
@@ -164,17 +193,24 @@ export function reconcileState(
   if (!open) {
     return { ...base, suggested: suggestedStatement(db, accountId, last?.statementDate ?? null) };
   }
-  const bind = { ':account': accountId, ':date': open.statementDate, ':open': open.id };
+  const bind = {
+    ':account': accountId,
+    ':include': open.includeSubaccounts ? 1 : 0,
+    ':date': open.statementDate,
+    ':open': open.id,
+  };
+  const names = accountFullNames(db);
   const totals = db.selectObjects(
-    `SELECT count(*) AS n, count(r.line_id) AS cleared,
+    `${COVERED} SELECT count(*) AS n, count(r.line_id) AS cleared,
             coalesce(sum(CASE WHEN r.line_id IS NOT NULL THEN l.debit - l.credit END), 0) AS total
      ${CANDIDATES}`,
     bind,
   )[0]!;
   const items = db
     .selectObjects(
-      `SELECT l.id AS line_id, e.id AS entry_id, e.date, e.ref, coalesce(l.name, e.name) AS name,
-              coalesce(l.memo, e.memo) AS memo, l.debit - l.credit AS amount, r.line_id IS NOT NULL AS cleared
+      `${COVERED} SELECT l.id AS line_id, e.id AS entry_id, e.date, e.ref, coalesce(l.name, e.name) AS name,
+              coalesce(l.memo, e.memo) AS memo, l.debit - l.credit AS amount, r.line_id IS NOT NULL AS cleared,
+              l.account_id
        ${CANDIDATES}
        ORDER BY e.date DESC, e.id DESC, l.line_no DESC LIMIT :limit`,
       { ...bind, ':limit': limit },
@@ -188,6 +224,7 @@ export function reconcileState(
       memo: r.memo === null ? null : String(r.memo),
       amount: Number(r.amount),
       cleared: r.cleared === 1,
+      subaccount: subaccountName(names, accountId, String(r.account_id)),
     }))
     .reverse();
   const clearedTotal = Number(totals.total);
@@ -206,12 +243,16 @@ function checkStatement(statementDate: string, endingBalance: Cents) {
   if (!Number.isSafeInteger(endingBalance)) throw new LedgerRuleError('Enter the ending balance.');
 }
 
-/** Start reconciling a statement. Returns the reconciliation's id. */
+/**
+ * Start reconciling a statement, optionally with the account's sub-accounts.
+ * Returns the reconciliation's id.
+ */
 export function startReconciliation(
   db: Database,
   accountId: string,
   statementDate: string,
   endingBalance: Cents,
+  includeSubaccounts = false,
 ): string {
   checkStatement(statementDate, endingBalance);
   const id = crypto.randomUUID();
@@ -219,9 +260,10 @@ export function startReconciliation(
     if (openOne(db, accountId))
       throw new LedgerRuleError('This account already has a reconciliation in progress.');
     db.exec({
-      sql: `INSERT INTO reconciliation (id, company_id, account_id, statement_date, ending_balance)
-            VALUES (?, (SELECT id FROM company), ?, ?, ?)`,
-      bind: [id, accountId, statementDate, endingBalance],
+      sql: `INSERT INTO reconciliation (id, company_id, account_id, statement_date, ending_balance,
+                                          include_subaccounts)
+            VALUES (?, (SELECT id FROM company), ?, ?, ?, ?)`,
+      bind: [id, accountId, statementDate, endingBalance, includeSubaccounts ? 1 : 0],
     });
   });
   return id;
@@ -264,7 +306,7 @@ export function setCleared(db: Database, id: string, lineIds: number[], cleared:
 export function setAllCleared(db: Database, id: string, cleared: boolean): void {
   inSavepoint(db, 'reconcile_clear_all', () => {
     const r = db.selectObjects(
-      `SELECT account_id, statement_date, status FROM reconciliation WHERE id = ?`,
+      `SELECT account_id, statement_date, status, include_subaccounts FROM reconciliation WHERE id = ?`,
       [id],
     )[0];
     if (!r) throw new LedgerRuleError('That reconciliation no longer exists.');
@@ -273,9 +315,15 @@ export function setAllCleared(db: Database, id: string, cleared: boolean): void 
       return;
     }
     db.exec({
-      sql: `INSERT INTO reconciled_line (line_id, company_id, reconciliation_id)
+      sql: `${COVERED}
+            INSERT INTO reconciled_line (line_id, company_id, reconciliation_id)
             SELECT l.id, (SELECT id FROM company), :open ${CANDIDATES} AND r.line_id IS NULL`,
-      bind: { ':account': String(r.account_id), ':date': String(r.statement_date), ':open': id },
+      bind: {
+        ':account': String(r.account_id),
+        ':include': Number(r.include_subaccounts),
+        ':date': String(r.statement_date),
+        ':open': id,
+      },
     });
   });
 }
@@ -329,6 +377,7 @@ export function reconciliationHistory(db: Database, accountId: string): Reconcil
       accountId: String(r.account_id),
       statementDate: String(r.statement_date),
       endingBalance: Number(r.ending_balance),
+      includeSubaccounts: r.include_subaccounts === 1,
       beginningBalance: Number(r.beginning_balance),
       finishedAt: String(r.finished_at),
       clearedCount: Number(r.cleared),
@@ -358,6 +407,7 @@ export function reconciliationReport(db: Database, id: string): ReconciliationRe
   if (!head) throw new LedgerRuleError('That reconciliation does not exist.');
   const accountId = String(head.account_id);
   const summary = reconciliationHistory(db, accountId).find((s) => s.id === id)!;
+  const names = accountFullNames(db);
   const item = (r: Record<string, unknown>): ReportItem => ({
     lineId: Number(r.line_id),
     entryId: Number(r.entry_id),
@@ -367,9 +417,10 @@ export function reconciliationReport(db: Database, id: string): ReconciliationRe
     memo: r.memo === null ? null : String(r.memo),
     amount: Number(r.amount),
     voided: r.status === 'void',
+    subaccount: subaccountName(names, accountId, String(r.account_id)),
   });
   const columns = `l.id AS line_id, e.id AS entry_id, e.date, e.ref, coalesce(l.name, e.name) AS name,
-                   coalesce(l.memo, e.memo) AS memo, l.debit - l.credit AS amount, e.status`;
+                   coalesce(l.memo, e.memo) AS memo, l.debit - l.credit AS amount, e.status, l.account_id`;
   const cleared = db
     .selectObjects(
       `SELECT ${columns} FROM reconciled_line r JOIN journal_line l ON l.id = r.line_id
@@ -380,17 +431,23 @@ export function reconciliationReport(db: Database, id: string): ReconciliationRe
     .map(item);
   const outstanding = db
     .selectObjects(
-      `SELECT ${columns} FROM journal_line l JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
-       WHERE l.account_id = ? AND e.date <= ?
+      `${COVERED}
+       SELECT ${columns} FROM journal_line l JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+       WHERE l.account_id IN (SELECT id FROM covered) AND e.date <= :date
          AND NOT EXISTS (SELECT 1 FROM reconciled_line r JOIN reconciliation c ON c.id = r.reconciliation_id
                          WHERE r.line_id = l.id AND c.status = 'done')
-       ORDER BY e.date, e.id, l.line_no LIMIT ?`,
-      [accountId, summary.statementDate, ITEMS_SHOWN],
+       ORDER BY e.date, e.id, l.line_no LIMIT :limit`,
+      {
+        ':account': accountId,
+        ':include': summary.includeSubaccounts ? 1 : 0,
+        ':date': summary.statementDate,
+        ':limit': ITEMS_SHOWN,
+      },
     )
     .map(item);
   return {
     summary,
-    account: accountFullNames(db).get(accountId) ?? '?',
+    account: names.get(accountId) ?? '?',
     accountType: db.selectValue('SELECT type FROM account WHERE id = ?', [
       accountId,
     ]) as AccountType,

@@ -1072,8 +1072,19 @@ export class CompanySession {
     return reconcileState(this.open_().db, accountId);
   }
 
-  reconcileStart(accountId: string, statementDate: string, endingBalance: Cents): string {
-    const id = startReconciliation(this.writable().db, accountId, statementDate, endingBalance);
+  reconcileStart(
+    accountId: string,
+    statementDate: string,
+    endingBalance: Cents,
+    includeSubaccounts = false,
+  ): string {
+    const id = startReconciliation(
+      this.writable().db,
+      accountId,
+      statementDate,
+      endingBalance,
+      includeSubaccounts,
+    );
     this.touch();
     return id;
   }

@@ -3,6 +3,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { accountId, newLedgerDb, post, startImportRun } from '../../../db/tests/ledgerTestDb';
+import { createAccount } from '../../ledger/accounts';
 import { trialBalance } from '../../ledger/balances';
 import { getEntry } from '../../ledger/entries';
 import { postEntry, voidEntry } from '../../ledger/postEntry';
@@ -680,6 +681,30 @@ describe('reconciliation (BK-7, BK-8)', () => {
       statementDate: '2026-01-31',
       endingBalance: null,
     });
+  });
+
+  it('reconciles a card together with its card holders’ sub-accounts', () => {
+    const holder = (name: string) =>
+      createAccount(db, { name, type: 'liability', detailType: 'credit_card', parentId: card });
+    holder('Ann 1111');
+    holder('Bob 2222');
+    post(db, '2026-01-05', 'Meals', 'Ann 1111', 40_00);
+    post(db, '2026-01-06', 'Utilities', 'Bob 2222', 60_00);
+    post(db, '2026-01-20', 'Credit Card', 'Checking', 70_00); // the payment, on the main account
+    expect(reconcileState(db, card).hasSubaccounts).toBe(true);
+    const id = startReconciliation(db, card, '2026-01-31', -30_00, true);
+    setAllCleared(db, id, true);
+    const s = reconcileState(db, card);
+    expect(s.items.map((i) => [i.subaccount, i.amount])).toEqual([
+      ['Ann 1111', -40_00],
+      ['Bob 2222', -60_00],
+      [null, 70_00],
+    ]);
+    expect(s.difference).toBe(0);
+    finishReconciliation(db, id);
+    const report = reconciliationReport(db, id);
+    expect(report.summary.includeSubaccounts).toBe(true);
+    expect(report.cleared.map((i) => i.subaccount)).toEqual(['Ann 1111', 'Bob 2222', null]);
   });
 
   it('suggests the latest imported statement balance, signed for a card', () => {

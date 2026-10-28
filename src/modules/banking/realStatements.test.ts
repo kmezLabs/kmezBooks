@@ -156,6 +156,40 @@ it.runIf(process.env.QBO_DIR)(
       );
     }
 
+    // A card kept as a parent with a sub-account per card holder is one card:
+    // its books (parent and every sub-account) against the card files' balances
+    const parents = db.selectObjects(
+      `SELECT DISTINCT p.id, p.name FROM account p JOIN account c ON c.parent_id = p.id
+       JOIN bank_feed f ON f.account_id IN (p.id, c.id) WHERE p.type = 'liability'`,
+    );
+    for (const p of parents) {
+      const files = db.selectObjects(
+        `SELECT i.account_id, i.end_date, i.balance FROM bank_import i
+         JOIN account a ON a.id = i.account_id WHERE a.id = ? OR a.parent_id = ?
+         ORDER BY i.end_date`,
+        [p.id, p.id],
+      );
+      const latest = new Map(files.map((f) => [String(f.account_id), f]));
+      const bank = [...latest.values()].reduce((t, f) => t + Number(f.balance), 0);
+      const date = [...latest.values()]
+        .map((f) => String(f.end_date))
+        .sort()
+        .at(-1)!;
+      const books = Number(
+        db.selectValue(
+          `WITH RECURSIVE covered (id) AS (SELECT ? UNION SELECT a.id FROM account a JOIN covered ON a.parent_id = covered.id)
+           SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
+           JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+           WHERE l.account_id IN (SELECT id FROM covered) AND e.date <= ?`,
+          [p.id, date],
+        ),
+      );
+      console.log(
+        `${String(p.name)} with its sub-accounts: books ${formatMoney(books)} on ${date}; ` +
+          `the ${latest.size} card files' balances add up to ${formatMoney(bank)}`,
+      );
+    }
+
     // Reconcile each account at the statement the reconcile screen suggests
     for (const account of bankAccounts(db).filter((a) => a.lastImportAt)) {
       const suggested = reconcileState(db, account.id).suggested;

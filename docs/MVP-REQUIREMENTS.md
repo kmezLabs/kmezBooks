@@ -147,7 +147,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | BK-4 | Match imported transactions to existing payments, bill payments and expenses | M |
 | BK-5 | Rules that auto-categorize by payee, amount or description | M |
 | BK-6 | Duplicate detection on import, using the .qbo transaction IDs plus date and amount, including transactions already brought over from QuickBooks | M |
-| BK-7 | Reconcile an account against a statement: ending balance, check off cleared items, difference must be zero | M |
+| BK-7 | Reconcile an account against a statement: ending balance, check off cleared items, difference must be zero. A card kept as a parent account with sub-accounts per card holder is reconciled together with its sub-accounts | M |
 | BK-8 | Keep reconciliation reports; warn when a reconciled transaction is edited | M |
 | BK-9 | Transfers between accounts, auto-matched when both sides appear in imports | M |
 

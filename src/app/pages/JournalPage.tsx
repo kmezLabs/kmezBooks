@@ -1,4 +1,5 @@
-// Journal entries (GL-3, GL-4, GL-6): list, view, void, attachments, new entry.
+// Journal entries (GL-3, GL-4, GL-6, GL-10): list, view, void, attachments,
+// new entry, and re-entering a voided one from a filled-in copy.
 
 import { useEffect, useState } from 'react';
 import type { AccountRow } from '../../shared/accounts';
@@ -20,7 +21,8 @@ type View =
   | { kind: 'list' }
   | { kind: 'new' }
   | { kind: 'entry'; id: number }
-  | { kind: 'edit'; entry: EntryData };
+  | { kind: 'edit'; entry: EntryData }
+  | { kind: 'reenter'; entry: EntryData };
 const PAGE = 100;
 
 const SOURCES: Record<string, string> = {
@@ -43,18 +45,20 @@ export function JournalPage(props: {
   const [view, setView] = useState<View>(
     props.initialEntryId ? { kind: 'entry', id: props.initialEntryId } : { kind: 'list' },
   );
-  if (view.kind === 'new' || view.kind === 'edit') {
+  if (view.kind === 'new' || view.kind === 'edit' || view.kind === 'reenter') {
     const editing = view.kind === 'edit' ? view.entry : undefined;
+    const copyOf = view.kind === 'reenter' ? view.entry : undefined;
     return (
       <NewEntry
         status={props.status}
         editing={editing}
+        copyOf={copyOf}
         onDone={(id) =>
           setView(
             id
               ? { kind: 'entry', id }
-              : editing
-                ? { kind: 'entry', id: editing.id }
+              : (editing ?? copyOf)
+                ? { kind: 'entry', id: (editing ?? copyOf)!.id }
                 : { kind: 'list' },
           )
         }
@@ -67,6 +71,7 @@ export function JournalPage(props: {
         status={props.status}
         id={view.id}
         onEdit={(entry) => setView({ kind: 'edit', entry })}
+        onReenter={(entry) => setView({ kind: 'reenter', entry })}
         onDeleted={props.onBackToReport ?? (() => setView({ kind: 'list' }))}
         onBack={props.onBackToReport ?? (() => setView({ kind: 'list' }))}
         backLabel={
@@ -227,6 +232,8 @@ interface LineDraft {
   debit: string;
   credit: string;
   memo: string;
+  /** A line's own payee (MG-3), kept from the entry it was filled from */
+  name?: string | null;
 }
 
 let nextKey = 1;
@@ -238,26 +245,32 @@ const blankLine = (): LineDraft => ({
   memo: '',
 });
 
-/** A new entry, or a change to a posted one (GL-6: in place, or void and re-enter). */
+/**
+ * A new entry, or a change to a posted one (GL-6: in place, or void and
+ * re-enter), or a new entry filled in from a voided one (GL-10).
+ */
 function NewEntry(props: {
   status: SessionStatus;
   editing?: EntryData;
+  copyOf?: EntryData;
   onDone: (id: number | null) => void;
 }) {
   const e0 = props.editing;
+  const from = e0 ?? props.copyOf;
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [postedEdits, setPostedEdits] = useState(false);
-  const [date, setDate] = useState(e0?.date ?? todayIso());
-  const [ref, setRef] = useState(e0?.ref ?? '');
-  const [memo, setMemo] = useState(e0?.memo ?? '');
+  const [date, setDate] = useState(from?.date ?? todayIso());
+  const [ref, setRef] = useState(from?.ref ?? '');
+  const [memo, setMemo] = useState(from?.memo ?? '');
   const [lines, setLines] = useState<LineDraft[]>(
-    e0
-      ? e0.lines.map((l) => ({
+    from
+      ? from.lines.map((l) => ({
           ...blankLine(),
           accountId: l.accountId,
           debit: l.debit ? formatMoney(l.debit) : '',
           credit: l.credit ? formatMoney(l.credit) : '',
           memo: l.memo ?? '',
+          name: l.name,
         }))
       : [blankLine(), blankLine()],
   );
@@ -303,11 +316,12 @@ function NewEntry(props: {
           debit: cents(l.debit),
           credit: cents(l.credit),
           memo: l.memo,
+          name: l.name ?? null,
         })),
       };
       const id = e0
         ? await db.saveEntryChange(e0.id, { ...entry, name: e0.name }, overridePassphrase)
-        : await db.postJournalEntry(entry, overridePassphrase);
+        : await db.postJournalEntry({ ...entry, name: from?.name ?? null }, overridePassphrase);
       for (const f of files) await db.addAttachment('journal_entry', String(id), f);
       props.onDone(id);
     });
@@ -328,8 +342,25 @@ function NewEntry(props: {
   return (
     <section>
       <h2>
-        {e0 ? `${postedEdits ? 'Change' : 'Correct'} journal entry ${e0.id}` : 'New journal entry'}
+        {e0
+          ? `${postedEdits ? 'Change' : 'Correct'} journal entry ${e0.id}`
+          : from
+            ? `Re-enter journal entry ${from.id}`
+            : 'New journal entry'}
       </h2>
+      {props.copyOf && (
+        <p className="muted">
+          Filled in from the voided entry{props.copyOf.name ? ` (${props.copyOf.name})` : ''}. Check
+          it and post it as a new entry; the voided one stays on record.
+        </p>
+      )}
+      {props.copyOf?.sourceType === 'bank' && (
+        <p className="warning">
+          This entry came from bank review, and voiding it sent its bank transaction back there.
+          Adding it again in Bank transactions keeps it linked to the bank; if you post it here,
+          match the bank transaction to this entry so it isn&rsquo;t entered twice.
+        </p>
+      )}
       {e0 && (
         <p className="muted">
           {postedEdits
@@ -486,6 +517,7 @@ function EntryView(props: {
   id: number;
   onBack: () => void;
   onEdit: (entry: EntryData) => void;
+  onReenter: (entry: EntryData) => void;
   onDeleted: () => void;
   backLabel: string;
 }) {
@@ -650,6 +682,17 @@ function EntryView(props: {
           )}
         </div>
       )}
+      {entry.status === 'void' && !readOnly && (
+        <div className="buttons">
+          <button
+            className="secondary"
+            title="A new entry filled in from this one, to check and post; this one stays void"
+            onClick={() => props.onReenter(entry)}
+          >
+            Re-enter
+          </button>
+        </div>
+      )}
       {voiding && (
         <VoidDialog
           id={entry.id}
@@ -675,7 +718,7 @@ function VoidDialog(props: {
     <Dialog title={`Void journal entry ${props.id}`} onClose={busy ? undefined : props.onClose}>
       <p>
         The entry stays on record, marked void, and drops out of every balance and report. This
-        can't be undone; to restore it, enter it again.
+        can't be undone; to restore it, use Re-enter on the voided entry.
       </p>
       {props.reconciled.length > 0 && (
         <p className="warning">

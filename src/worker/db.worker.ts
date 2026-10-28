@@ -3,6 +3,7 @@
 
 import * as Comlink from 'comlink';
 import type { EntryQuery } from '../ledger/entries';
+import type { PayeeInput, PayeeKind } from '../ledger/payees';
 import type { EntryChange, EntryInput } from '../ledger/postEntry';
 import type { RegisterQuery, SimpleEntry } from '../ledger/register';
 import type { CategorizeInput, QueueView } from '../modules/banking/review';
@@ -81,6 +82,14 @@ const api = {
   ) => session.postJournalEntry(input, overridePassphrase),
   voidEntry: (id: number, reason: string | null, overridePassphrase?: string) =>
     session.voidEntry(id, reason, overridePassphrase),
+  payees: (opts?: { kind?: PayeeKind; search?: string; includeInactive?: boolean }) =>
+    session.payees(opts),
+  payee: (id: string) => session.payee(id),
+  payeeNames: () => session.payeeNames(),
+  createPayee: (input: PayeeInput) => session.createPayee(input),
+  updatePayee: (id: string, input: PayeeInput) => session.updatePayee(id, input),
+  mergePayee: (fromId: string, intoId: string) => session.mergePayee(fromId, intoId),
+  deletePayee: (id: string) => session.deletePayee(id),
   register: (query?: RegisterQuery) => session.register(query),
   postedEdits: () => session.postedEdits(),
   setPostedEdits: (on: boolean, passphrase?: string) => session.setPostedEdits(on, passphrase),

@@ -91,22 +91,9 @@ describe('names on entries (MG-3)', () => {
     const db = await newLedgerDb();
     const id = post(db, '2026-01-05', 'Meals', 'Checking', 10_00, { name: 'Diner' });
     expect(db.selectValue('SELECT name FROM journal_entry WHERE id = ?', [id])).toBe('Diner');
-    expect(raise(db, `UPDATE journal_entry SET name = 'Other' WHERE id = ?`, [id])).toThrow(/GL-6/);
-  });
-});
-
-describe('customers and vendors (MG-1)', () => {
-  it('keeps names unique within each list, ignoring case', async () => {
-    const db = await newLedgerDb();
-    const add = (table: string, name: string) =>
-      raise(
-        db,
-        `INSERT INTO ${table} (id, company_id, name) VALUES (?, (SELECT id FROM company), ?)`,
-        [crypto.randomUUID(), name],
-      );
-    expect(add('customer', 'Acme')).not.toThrow();
-    expect(add('customer', 'ACME')).toThrow(/UNIQUE/);
-    expect(add('vendor', 'Acme')).not.toThrow();
-    expect(add('vendor', ' ')).toThrow(/CHECK/);
+    // Only together with its payee (GL-11, migration 0014)
+    expect(raise(db, `UPDATE journal_entry SET name = 'Other' WHERE id = ?`, [id])).toThrow(
+      /GL-11/,
+    );
   });
 });

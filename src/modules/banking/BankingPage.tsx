@@ -9,6 +9,7 @@ import {
   cents,
   formatDate,
   useClosedPeriodOverride,
+  PayeeField,
 } from '../../app/ledgerUi';
 import { Dialog, ErrorText, formatDateTime, useAction } from '../../app/ui';
 import type { AccountRow } from '../../shared/accounts';
@@ -590,7 +591,7 @@ function ReviewEditor(props: {
       <div className="fields">
         <label>
           Payee
-          <input value={payee} onChange={(e) => setPayee(e.target.value)} />
+          <PayeeField value={payee} onChange={setPayee} />
         </label>
         <label>
           Memo

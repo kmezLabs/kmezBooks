@@ -18,6 +18,8 @@ export interface RegisterQuery {
   scope?: 'pl' | 'all';
   /** Matches ref, name or memo */
   search?: string;
+  /** Entries naming this payee, on the entry or a line (GL-11) */
+  payeeId?: string | null;
   includeVoid?: boolean;
   /**
    * desc: newest first. asc: oldest first, but the page is the latest `limit`
@@ -162,6 +164,12 @@ function where(q: RegisterQuery): { sql: string; bind: (string | number)[] } {
       'EXISTS (SELECT 1 FROM journal_line l WHERE l.entry_id = e.id AND l.account_id = ?)',
     );
     bind.push(q.accountId);
+  }
+  if (q.payeeId) {
+    parts.push(
+      '(e.payee_id = ? OR EXISTS (SELECT 1 FROM journal_line l WHERE l.entry_id = e.id AND l.payee_id = ?))',
+    );
+    bind.push(q.payeeId, q.payeeId);
   }
   if (q.search?.trim()) {
     parts.push(

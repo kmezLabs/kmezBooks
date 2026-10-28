@@ -16,6 +16,7 @@ import { CloseBooksPage } from './pages/CloseBooksPage';
 import { CompanyPage } from './pages/CompanyPage';
 import { JournalPage } from './pages/JournalPage';
 import { M1LabPage } from './pages/M1LabPage';
+import { PayeesPage } from './pages/PayeesPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ModulesPage } from './pages/ModulesPage';
@@ -27,6 +28,7 @@ const PAGES = {
   register: 'Transactions',
   journal: 'Journal entries',
   accounts: 'Accounts',
+  payees: 'Payees',
   reports: 'Reports',
   close: 'Close books',
   banking: 'Bank transactions',
@@ -43,7 +45,7 @@ const PAGES = {
 type Page = keyof typeof PAGES;
 
 const NAV: { group: string; pages: Page[] }[] = [
-  { group: 'Books', pages: ['register', 'journal', 'accounts', 'reports', 'close'] },
+  { group: 'Books', pages: ['register', 'journal', 'accounts', 'payees', 'reports', 'close'] },
   { group: 'Banking', pages: ['banking', 'rules', 'reconcile'] },
   { group: 'Modules', pages: ['migration'] },
   { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
@@ -155,6 +157,8 @@ export function Workspace({ status }: { status: SessionStatus }) {
   // Transactions is the home panel (GL-9)
   const [page, setPage] = useState<Page>('register');
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
+  // The register narrowed to one payee, from the Payees page (GL-11)
+  const [payeeFilter, setPayeeFilter] = useState<{ id: string; name: string } | null>(null);
   // An entry opened from a report or the register, so its Back button returns there
   const [openEntry, setOpenEntry] = useState<number | null>(null);
   const [entryFrom, setEntryFrom] = useState<Page>('reports');
@@ -266,7 +270,11 @@ export function Workspace({ status }: { status: SessionStatus }) {
           {/* Kept mounted, so its filters survive opening an entry and coming back */}
           <div hidden={page !== 'register'}>
             <RegisterPage
+              // A payee filter starts the register over, at that payee's latest
+              key={payeeFilter?.id ?? 'all'}
               status={status}
+              payee={payeeFilter}
+              onClearPayee={() => setPayeeFilter(null)}
               onOpenEntry={(id) => {
                 setOpenEntry(id);
                 setEntryFrom('register');
@@ -274,6 +282,15 @@ export function Workspace({ status }: { status: SessionStatus }) {
               }}
             />
           </div>
+          {page === 'payees' && (
+            <PayeesPage
+              status={status}
+              onShowTransactions={(p) => {
+                setPayeeFilter(p);
+                setPage('register');
+              }}
+            />
+          )}
           {page === 'close' && <CloseBooksPage status={status} />}
           {page === 'banking' && <BankingPage status={status} />}
           {page === 'rules' && <RulesPage status={status} />}

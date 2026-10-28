@@ -3,10 +3,12 @@
 // then posts it, all in one savepoint. The schema's triggers check the balance
 // (GL-3), the closing date (PC-1), inactive accounts (GL-7) and the cash-basis
 // rule (GL-8) whatever the caller does; validateEntry() just says it nicely first.
+// Names on entries and lines become payees (GL-11), added on first use.
 
 import { MAX_CENTS, type Cents } from '../shared/money';
 import { LedgerRuleError } from '../worker/errors';
 import type { Database } from '../worker/sqlite';
+import { payeeFor } from './payees';
 import { inSavepoint } from './tx';
 
 export interface EntryLineInput {
@@ -21,7 +23,7 @@ export interface EntryLineInput {
 export interface EntryInput {
   date: string;
   ref?: string | null;
-  /** Payee, customer or vendor (MG-3) */
+  /** Payee, customer or vendor (MG-3, GL-11): the payee with this name, added if new */
   name?: string | null;
   memo?: string | null;
   /** Which kind of document produced the entry: 'journal', 'qbo_migration', … */
@@ -75,11 +77,12 @@ function withOverride<T>(db: Database, on: boolean | undefined, fn: () => T): T 
 
 function writeLines(db: Database, id: number, lines: EntryLineInput[]) {
   const insert = db.prepare(
-    `INSERT INTO journal_line (company_id, entry_id, line_no, account_id, debit, credit, memo, name)
-     VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO journal_line (company_id, entry_id, line_no, account_id, debit, credit, memo, name, payee_id)
+     VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   try {
-    lines.forEach((l, i) =>
+    lines.forEach((l, i) => {
+      const payee = payeeFor(db, l.name);
       insert
         .bind([
           id,
@@ -88,10 +91,11 @@ function writeLines(db: Database, id: number, lines: EntryLineInput[]) {
           l.debit,
           l.credit,
           l.memo?.trim() || null,
-          l.name?.trim() || null,
+          payee?.name ?? null,
+          payee?.id ?? null,
         ])
-        .stepReset(),
-    );
+        .stepReset();
+    });
   } finally {
     insert.finalize();
   }
@@ -116,14 +120,16 @@ export function postEntry(db: Database, input: EntryInput, opts: PostOptions = {
   const lines = checked(input);
   return inSavepoint(db, 'post_entry', () =>
     withOverride(db, opts.closingOverride, () => {
+      const payee = payeeFor(db, input.name);
       const id = Number(
         db.selectValue(
-          `INSERT INTO journal_entry (company_id, date, ref, name, memo, source_type, source_id)
-           VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?) RETURNING id`,
+          `INSERT INTO journal_entry (company_id, date, ref, name, payee_id, memo, source_type, source_id)
+           VALUES ((SELECT id FROM company), ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
           [
             input.date,
             input.ref?.trim() || null,
-            input.name?.trim() || null,
+            payee?.name ?? null,
+            payee?.id ?? null,
             input.memo?.trim() || null,
             input.sourceType,
             input.sourceId ?? null,
@@ -196,12 +202,14 @@ export function changeEntry(
       const links = bankLinks(db, id);
       db.exec({ sql: `UPDATE journal_entry SET status = 'draft' WHERE id = ?`, bind: [id] });
       db.exec({ sql: 'DELETE FROM journal_line WHERE entry_id = ?', bind: [id] });
+      const payee = payeeFor(db, change.name);
       db.exec({
-        sql: 'UPDATE journal_entry SET date = ?, ref = ?, name = ?, memo = ? WHERE id = ?',
+        sql: 'UPDATE journal_entry SET date = ?, ref = ?, name = ?, payee_id = ?, memo = ? WHERE id = ?',
         bind: [
           change.date,
           change.ref?.trim() || null,
-          change.name?.trim() || null,
+          payee?.name ?? null,
+          payee?.id ?? null,
           change.memo?.trim() || null,
           id,
         ],

@@ -62,6 +62,23 @@ describe('transactions register (GL-9)', () => {
     expect(register(db, { limit: 1, offset: 1 }).rows.map((x) => x.name)).toEqual(['Power Co']);
   });
 
+  it('filters by payee, on the entry or a line (GL-11)', () => {
+    postEntry(db, {
+      date: '2026-01-11',
+      name: 'Owner',
+      sourceType: 'journal',
+      lines: [
+        { accountId: accountId(db, 'Utilities'), debit: 30_00, credit: 0, name: 'power co' },
+        { accountId: checking, debit: 0, credit: 30_00 },
+      ],
+    });
+    const power = String(db.selectValue(`SELECT id FROM payee WHERE name = 'Power Co'`));
+    expect(register(db, { scope: 'all', payeeId: power }).rows.map((r) => r.date)).toEqual([
+      '2026-01-11',
+      '2026-01-05',
+    ]);
+  });
+
   it('pages oldest first from the latest, so a register opens at its end', () => {
     const r = register(db, { scope: 'all', order: 'asc', limit: 2 });
     expect(r.rows.map((x) => x.date)).toEqual(['2026-01-07', '2026-01-09']);

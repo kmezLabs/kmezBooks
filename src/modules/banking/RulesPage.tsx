@@ -3,7 +3,7 @@
 // The first matching rule in the list wins; a rule can also post on import.
 
 import { useEffect, useState } from 'react';
-import { AccountSelect, MoneyInput, cents } from '../../app/ledgerUi';
+import { AccountSelect, MoneyInput, PayeeField, cents } from '../../app/ledgerUi';
 import { Dialog, ErrorText, TextField, useAction } from '../../app/ui';
 import type { AccountRow } from '../../shared/accounts';
 import { formatMoney } from '../../shared/money';
@@ -260,12 +260,11 @@ function RuleDialog(props: {
           />
         </div>
         <div className="fields">
-          <TextField
-            label="Payee"
-            value={payee}
-            onChange={setPayee}
-            hint="Optional: replaces the bank’s payee"
-          />
+          <label>
+            Payee
+            <PayeeField value={payee} onChange={setPayee} />
+            <span className="hint">Optional: replaces the bank’s payee</span>
+          </label>
           <TextField label="Memo" value={memo} onChange={setMemo} hint="Optional" />
         </div>
         <label className="check">

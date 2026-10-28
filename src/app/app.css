@@ -843,3 +843,25 @@ table.register-list tr.editor > td {
   background: var(--panel);
   padding: 4px 12px 12px;
 }
+
+/* ---- payees (GL-11) ---- */
+
+textarea {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  width: 100%;
+  resize: vertical;
+}
+
+.filter-chip {
+  align-self: flex-end;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  white-space: nowrap;
+}

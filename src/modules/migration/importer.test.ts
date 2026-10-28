@@ -274,8 +274,7 @@ describe('dry run and import (MG-4, MG-5, MG-6)', () => {
       'account',
       'journal_entry',
       'journal_line',
-      'customer',
-      'vendor',
+      'payee',
       'qbo_import_run',
       'qbo_entry',
     ]) {
@@ -329,11 +328,16 @@ describe('dry run and import (MG-4, MG-5, MG-6)', () => {
     const re = tb.rows.find((r) => r.account === 'Retained Earnings')!;
     expect(re.credit - re.debit).toBe(p.trialBalances[1]!.balances.get('Retained Earnings')! * -1);
 
-    expect(db.selectValues(`SELECT name FROM customer`)).toEqual(['Tenant Co']);
-    expect(db.selectValues(`SELECT name FROM vendor ORDER BY name`)).toEqual([
+    // Customers and vendors are payees (GL-11), and so is every other name on the history
+    expect(db.selectValues(`SELECT name FROM payee WHERE is_customer = 1`)).toEqual(['Tenant Co']);
+    expect(db.selectValues(`SELECT name FROM payee WHERE is_vendor = 1 ORDER BY name`)).toEqual([
       'Bank',
       'Lender Bank',
     ]);
+    expect(
+      count(`journal_entry WHERE name IS NOT NULL AND payee_id IS NULL`),
+      'entries with a name and no payee',
+    ).toBe(0);
   });
 
   it('audits the run once instead of every entry (US-5)', () => {

@@ -70,7 +70,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 4. **M4** `RP`: trial balance, GL detail, P&L, balance sheet (done)
 5. **M5** `MG`: QuickBooks Online cash-basis import with dry run and year-end tie-out (`MG-5`), run against real data per company (built; one company-year tied out; the full runs per company are the owner's, with the app)
 6. **M6** `BK`: `.qbo` import, duplicate detection, review queue, rules, reconciliation (built; tried on real bank statements; card statements still to try)
-7. **M7** `EX`, `AP`, `AR`
+7. **M7** (slim, owner decision 2026-10-28): payees with customer and vendor records (`GL-11`, `AR-1`, `AP-1`), then expenses (`EX`). Invoices, estimates and bills are S until a company needs them
 8. **M8** Offline polish, export, restore drill
 
 ## Conversation history (how we got here)

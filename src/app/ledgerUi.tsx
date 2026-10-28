@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import { TYPE_LABELS, ACCOUNT_TYPES, isDebitNormal, type AccountRow } from '../shared/accounts';
 import { formatMoney, parseMoney, type Cents } from '../shared/money';
 import { db, errorName } from '../shared/workerClient';
-import { Combo, type ComboOption } from './Combo';
+import { Combo, type ComboAction, type ComboOption } from './Combo';
+import { QuickPayeeDialog, type QuickPayeeResult } from './QuickPayee';
 import { Dialog, ErrorText, TextField, useAction } from './ui';
 
 export function todayIso(): string {
@@ -76,21 +77,48 @@ export function PayeeField(props: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /** A customer or vendor was just added from here; a vendor may bring a default category */
+  onAdded?: (p: QuickPayeeResult) => void;
 }) {
   const [names, setNames] = useState<ComboOption[]>([]);
+  const [adding, setAdding] = useState<{ name: string; kind: 'vendor' | 'customer' } | null>(null);
+  const load = () =>
+    db.payeeNames().then((list) => setNames(list.map((n) => ({ value: n, label: n, keys: [n] }))));
   useEffect(() => {
-    void db
-      .payeeNames()
-      .then((list) => setNames(list.map((n) => ({ value: n, label: n, keys: [n] }))));
+    void load();
   }, []);
+  // A name that isn't a payee yet can be added on the spot as a vendor or customer
+  const actions = (typed: string): ComboAction[] =>
+    names.some((n) => n.value.toLowerCase() === typed.toLowerCase())
+      ? []
+      : (['vendor', 'customer'] as const).map((kind) => ({
+          label: `+ Add “${typed}” as a ${kind}…`,
+          run: () => setAdding({ name: typed, kind }),
+        }));
   return (
-    <Combo
-      options={names}
-      value={props.value}
-      onChange={props.onChange}
-      freeText
-      placeholder={props.placeholder}
-    />
+    <>
+      <Combo
+        options={names}
+        value={props.value}
+        onChange={props.onChange}
+        freeText
+        placeholder={props.placeholder}
+        actions={actions}
+      />
+      {adding && (
+        <QuickPayeeDialog
+          name={adding.name}
+          kind={adding.kind}
+          onClose={() => setAdding(null)}
+          onSaved={(p) => {
+            setAdding(null);
+            void load();
+            props.onChange(p.name);
+            props.onAdded?.(p);
+          }}
+        />
+      )}
+    </>
   );
 }
 

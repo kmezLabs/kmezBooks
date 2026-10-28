@@ -1078,3 +1078,16 @@ table.report-gl tr.peek td {
 .notice-banner {
   background: var(--notice-bg);
 }
+
+.combo-list li.combo-action {
+  border-top: 1px solid var(--line);
+  color: var(--accent);
+}
+
+.combo-list li.combo-action + li.combo-action {
+  border-top: none;
+}
+
+.combo-list li.combo-action.active {
+  color: var(--accent-fg);
+}

@@ -616,6 +616,50 @@ describe('rules (BK-5)', () => {
     });
   });
 
+  it('remembers a payee’s deposits and payments apart', () => {
+    const amazon = (fitid: string, date: string, amount: string) => ({
+      fitid,
+      date,
+      amount,
+      name: 'AMAZON MKTPLACE PMTS',
+    });
+    importFiles(
+      file('jan.qbo', {
+        txns: [
+          amazon('A1', '2026-01-02', '-30.00'),
+          amazon('A2', '2026-01-03', '12.00'),
+          amazon('A3', '2026-01-05', '-41.00'),
+          amazon('A4', '2026-01-06', '9.50'),
+        ],
+      }),
+    );
+    for (const t of listQueue(db, checking).reverse()) {
+      categorize(db, t.id, {
+        lines: [
+          {
+            accountId: accountId(
+              db,
+              t.amount < 0 ? 'Office Supplies and Software' : 'Other Income',
+            ),
+            amount: Math.abs(t.amount),
+          },
+        ],
+      });
+    }
+    importFiles(
+      file('feb.qbo', {
+        txns: [amazon('B1', '2026-02-02', '-18.00'), amazon('B2', '2026-02-03', '7.25')],
+      }),
+    );
+    const suggested = Object.fromEntries(
+      listQueue(db, checking).map((t) => [t.amount, t.suggestion?.categoryId]),
+    );
+    expect(suggested).toEqual({
+      [-18_00]: accountId(db, 'Office Supplies and Software'),
+      [7_25]: accountId(db, 'Other Income'),
+    });
+  });
+
   it('suggests from history only when the payee’s recent uses agree', () => {
     importFiles(
       file('jan.qbo', {

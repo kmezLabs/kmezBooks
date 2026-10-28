@@ -4,7 +4,8 @@ Double-entry bookkeeping for four US small businesses, as a standalone Chrome PW
 
 - Scope: [docs/MVP-REQUIREMENTS.md](docs/MVP-REQUIREMENTS.md)
 - Build plan: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md)
-- Progress: M1 (technical test, [results](docs/spikes/M1-results.md)) M2 (company files, unlock, audit log), M3 (ledger, period close), M4 (reports), M5 (QuickBooks migration), M6 (banking) and the transactions register (GL-9) are built; M7 (expenses, bills, sales) is next
+- Progress: M1 to M7 are built: the technical test ([results](docs/spikes/M1-results.md)), company files, ledger and period close, reports, QuickBooks migration, banking, the transactions register, and slim M7 (payees with customer and vendor records, expenses). M8 (polish) is in progress
+- Owner guide (folders, passphrases, backups, restore drill, export): [docs/OWNER-GUIDE.md](docs/OWNER-GUIDE.md)
 
 ## Run it
 

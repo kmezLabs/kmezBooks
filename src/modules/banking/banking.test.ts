@@ -286,7 +286,7 @@ describe('review queue (BK-3, BK-4)', () => {
     db.exec(`UPDATE qbo_import_run SET status = 'done', finished_at = '2026-01-31T00:00:00Z'`);
     importFiles(file('jan.qbo', JAN));
     const power = listQueue(db, checking).find((t) => t.payee === 'CITY POWER')!;
-    expect(power.possibleDuplicate).toBe(true);
+    expect(power).toMatchObject({ alreadyInBooks: true, possibleDuplicate: false });
     expect(power.matches[0]!.sourceType).toBe('qbo_migration');
   });
 

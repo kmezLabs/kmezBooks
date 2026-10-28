@@ -411,7 +411,22 @@ function SuggestionText({ t, names }: { t: QueueItem; names: Map<string, string>
   const m = t.matches[0];
   return (
     <>
-      {t.possibleDuplicate && <span className="badge small warn">possible duplicate</span>}{' '}
+      {t.possibleDuplicate && (
+        <span
+          className="badge small warn"
+          title="An earlier imported transaction has the same bank id: the bank may have sent this one twice"
+        >
+          possible duplicate
+        </span>
+      )}
+      {t.alreadyInBooks && (
+        <span
+          className="badge small"
+          title="The QuickBooks history already has this transaction: Match it rather than adding it again"
+        >
+          already in the books
+        </span>
+      )}{' '}
       {m ? (
         <>
           Match {formatDate(m.date)} {m.name ?? m.memo ?? ''}

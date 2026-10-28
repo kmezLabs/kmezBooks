@@ -72,8 +72,10 @@ export interface QueueItem extends BankTxn {
   suggestion: Suggestion | null;
   matches: MatchCandidate[];
   transfer: TransferCandidate | null;
-  /** Probably already in the books: a flagged bank id, or a migrated entry with the same amount */
+  /** The bank may have sent it twice: an earlier transaction has its bank id (BK-6) */
   possibleDuplicate: boolean;
+  /** Already in the books from the QuickBooks history: match it, don't add it again (BK-6) */
+  alreadyInBooks: boolean;
   /** For reviewed items: the entry's other accounts */
   entryAccounts: string | null;
 }
@@ -272,6 +274,7 @@ export function listQueue(
         matches: [],
         transfer: null,
         possibleDuplicate: false,
+        alreadyInBooks: false,
         entryAccounts: t.entryId === null ? null : otherAccounts(db, names, t.entryId, t.accountId),
       };
     }
@@ -281,8 +284,8 @@ export function listQueue(
       suggestion: suggest(t, rules, history),
       matches,
       transfer: matches.length ? null : transferCandidate(db, t, names),
-      possibleDuplicate:
-        t.duplicateOf !== null || matches.some((m) => m.sourceType === 'qbo_migration'),
+      possibleDuplicate: t.duplicateOf !== null,
+      alreadyInBooks: matches.some((m) => m.sourceType === 'qbo_migration'),
       entryAccounts: null,
     };
   });

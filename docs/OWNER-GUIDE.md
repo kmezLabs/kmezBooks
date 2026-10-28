@@ -68,6 +68,12 @@ If balances differ, entries were probably changed in place or deleted since the 
 
 **Restore…** on a backup puts the company back to how it was then. Everything since is replaced, but the current version is backed up first, so a restore can itself be undone. To restore into a new folder from a backup file, use **Restore from backup…** on the start screen.
 
+## Invoices (optional)
+
+A company that bills customers can turn on **Customers and sales** on the **Modules** page. Its Sales pages then appear: **Invoices**, **Estimates** and **Products & services**.
+
+An invoice only records what a customer owes. Nothing goes into the books until the customer pays. **Receive payment** puts the money into the bank account it went to, and counts it as income that day (cash basis). Bank review then offers that payment as the match for the deposit on your statement.
+
 ## Recurring entries
 
 Depreciation, amortization and other entries that repeat are set up once, on **Recurring entries**. The quickest way is to open last month's entry in **Journal entries** and click **Make recurring**.

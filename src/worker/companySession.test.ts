@@ -114,7 +114,14 @@ describe('company session: create, autosave, close (DF-1, DF-2, DF-9)', () => {
     const dir = new FakeDir();
     const { session } = newSession();
     await session.create(asDir(dir), ACME, 'pw', 'Office PC');
-    expect(Object.values(session.modules()).every(Boolean)).toBe(true);
+    // Invoices and bills are opted into; the rest start on
+    expect(session.modules()).toEqual({
+      sales: false,
+      bills: false,
+      expenses: true,
+      banking: true,
+      migration: true,
+    });
     session.setModule('banking', false);
     expect(session.modules().banking).toBe(false);
     expect(session.audit()[0]).toMatchObject({ action: 'update', entity: 'company_module' });

@@ -110,17 +110,19 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 
 ### Customers and sales (AR)
 
+Owner's decision, Oct 28 (later): invoices and bills are built as module M9 for a new company, and any company can turn them on (Modules page); they start off. Still cash basis: documents never post, payments do (GL-8). Bringing open QuickBooks invoices and bills over (MG-9) stays out until needed.
+
 Owner's decision, Oct 28: none of the four companies uses invoices, estimates or bills today (their QuickBooks history is expenses, deposits, checks and journal entries), so AR-2 to AR-8 and AP-2 to AP-5 are S: built when a company needs them. Customer and vendor records stay M.
 
 | ID | Requirement | Pri |
 | --- | --- | --- |
 | AR-1 | Customer records: name, contact, billing/shipping address, terms, notes | M |
-| AR-2 | Products and services list with name, rate and income account (no inventory tracking) | S |
-| AR-3 | Create estimates and convert them to invoices | S |
-| AR-4 | Create invoices with line items, discounts, due date from terms; produce a PDF and hand it to your mail app to send (share sheet where Chrome supports it; otherwise download plus a prefilled email). Sending directly from the app needs a server and is out of scope | S |
-| AR-5 | Invoice statuses: draft, sent, partially paid, paid, overdue, void | S |
-| AR-6 | Sales receipts for paid-on-the-spot sales | S |
-| AR-7 | Record full or partial payments against one or more invoices; deposit to a bank or Undeposited Funds; each payment posts its income pro rata over the invoice's lines (GL-8). In the MVP a payment can't exceed what is still owed (customer credits are a future Receivables extra) | S |
+| AR-2 | Products and services list with name, rate and income account (no inventory tracking). Built Oct 28 (M9 slice 1) | S |
+| AR-3 | Create estimates and convert them to invoices. Built Oct 28 (M9 slice 1) | S |
+| AR-4 | Create invoices with line items, discounts, due date from terms; produce a PDF and hand it to your mail app to send (share sheet where Chrome supports it; otherwise download plus a prefilled email). Sending directly from the app needs a server and is out of scope Invoices with lines, discounts and due dates built Oct 28 (M9 slice 1); the PDF and sending are slice 2 | S |
+| AR-5 | Invoice statuses: draft, sent, partially paid, paid, overdue, void. Built Oct 28 (M9 slice 1): paid, partly paid and overdue are worked out from payments and the due date | S |
+| AR-6 | Sales receipts for paid-on-the-spot sales. Not planned (owner, Oct 28): Add Transaction on the Transactions page records a sale paid on the spot | S |
+| AR-7 | Record full or partial payments against one or more invoices; deposit to a bank or Undeposited Funds; each payment posts its income pro rata over the invoice's lines (GL-8). In the MVP a payment can't exceed what is still owed (customer credits are a future Receivables extra). Built Oct 28 (M9 slice 1) with deposits straight to a bank account (owner's choice); Undeposited Funds is not used | S |
 | AR-8 | Invoice template with each company's logo and details | S |
 | AR-9 | Recurring invoices (created when the company is next opened, since nothing runs while the app is closed) | S |
 

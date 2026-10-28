@@ -317,6 +317,14 @@ export function mergePayee(db: Database, fromId: string, intoId: string): void {
       sql: `UPDATE recurring_entry SET payee = ? WHERE payee = ? COLLATE NOCASE`,
       bind: [into.name, from.name],
     });
+    // Invoices and payments name their customer by id (AR-7)
+    // Payments first: a paid invoice follows its payments' customer
+    for (const sql of [
+      `UPDATE customer_payment SET customer_id = ? WHERE customer_id = ?`,
+      `UPDATE sales_doc SET customer_id = ? WHERE customer_id = ?`,
+    ]) {
+      db.exec({ sql, bind: [intoId, fromId] });
+    }
     db.exec({ sql: `DELETE FROM payee WHERE id = ?`, bind: [fromId] });
   });
 }

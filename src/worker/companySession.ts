@@ -32,6 +32,38 @@ import {
   type EntryInput,
 } from '../ledger/postEntry';
 import {
+  convertEstimate,
+  createDoc,
+  customerBalances,
+  deleteDoc,
+  getDoc,
+  listDocs,
+  markSent,
+  nextNumber,
+  setEstimateStatus,
+  updateDoc,
+  voidDoc,
+  type CustomerBalance,
+  type Doc,
+  type DocInput,
+  type DocKind,
+  type DocQuery,
+} from '../modules/sales/documents';
+import {
+  createItem,
+  listItems,
+  updateItem,
+  type Item,
+  type ItemInput,
+} from '../modules/sales/items';
+import {
+  listPayments,
+  receivePayment,
+  voidPayment,
+  type Payment,
+  type PaymentInput,
+} from '../modules/sales/payments';
+import {
   createRecurring,
   deleteRecurring,
   getRecurring,
@@ -1016,6 +1048,101 @@ export class CompanySession {
       sourceType: String(r?.source_type ?? 'journal'),
       sourceId: r?.source_id === null || r?.source_id === undefined ? null : String(r.source_id),
     };
+  }
+
+  // ---- sales: products & services, estimates, invoices, payments (AR-2 to AR-7) ----
+
+  items(includeInactive = false): Item[] {
+    return listItems(this.open_().db, includeInactive);
+  }
+
+  createItem(input: ItemInput): string {
+    const id = createItem(this.writable().db, input);
+    this.touch();
+    return id;
+  }
+
+  updateItem(id: string, input: ItemInput): void {
+    updateItem(this.writable().db, id, input);
+    this.touch();
+  }
+
+  salesDocs(query: DocQuery): Doc[] {
+    return listDocs(this.open_().db, query, localDate(this.now()));
+  }
+
+  salesDoc(id: string): Doc {
+    return getDoc(this.open_().db, id, localDate(this.now()));
+  }
+
+  nextDocNumber(kind: DocKind): string {
+    return nextNumber(this.open_().db, kind);
+  }
+
+  createSalesDoc(input: DocInput): string {
+    const id = createDoc(this.writable().db, input);
+    this.touch();
+    return id;
+  }
+
+  updateSalesDoc(id: string, input: DocInput): void {
+    updateDoc(this.writable().db, id, input, localDate(this.now()));
+    this.touch();
+  }
+
+  voidSalesDoc(id: string): void {
+    voidDoc(this.writable().db, id);
+    this.touch();
+  }
+
+  deleteSalesDoc(id: string): void {
+    deleteDoc(this.writable().db, id);
+    this.touch();
+  }
+
+  markDocSent(id: string): void {
+    markSent(this.writable().db, id);
+    this.touch();
+  }
+
+  setEstimateStatus(id: string, status: 'accepted' | 'declined' | 'sent'): void {
+    setEstimateStatus(this.writable().db, id, status);
+    this.touch();
+  }
+
+  convertEstimate(id: string, date: string): string {
+    const invoice = convertEstimate(this.writable().db, id, date, localDate(this.now()));
+    this.touch();
+    return invoice;
+  }
+
+  customerBalances(): CustomerBalance[] {
+    return customerBalances(this.open_().db, localDate(this.now()));
+  }
+
+  payments(query: { customerId?: string | null; docId?: string | null } = {}): Payment[] {
+    return listPayments(this.open_().db, query);
+  }
+
+  /** Receive a payment on invoices; a date in a closed period needs the passphrase (PC-2). */
+  async receivePayment(
+    input: PaymentInput,
+    overridePassphrase?: string,
+  ): Promise<{ paymentId: string; entryId: number }> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const result = receivePayment(db, input, { closingOverride });
+    this.touch();
+    emitLedgerEvent('posted', this.source(result.entryId));
+    return result;
+  }
+
+  async voidPayment(id: string, reason: string | null, overridePassphrase?: string): Promise<void> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const entryId = voidPayment(db, id, reason, { closingOverride });
+    this.touch();
+    emitLedgerEvent('voided', this.source(entryId));
   }
 
   // ---- recurring entries (GL-5) ----

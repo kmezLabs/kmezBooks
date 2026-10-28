@@ -9,8 +9,9 @@ import { ErrorText, useAction } from '../ui';
 const LABELS: Record<Module, { name: string; about: string; note: string | null }> = {
   sales: {
     name: 'Customers and sales',
-    about: 'Estimates, invoices, sales receipts, payments',
-    note: 'not built yet: added when a company needs invoices; customers are on the Payees page',
+    about:
+      'Invoices, estimates, products & services, and customer payments (Sales in the sidebar). Payments count as income when they arrive (cash basis)',
+    note: null,
   },
   bills: {
     name: 'Vendors and bills',

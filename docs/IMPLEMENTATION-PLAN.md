@@ -277,6 +277,20 @@ Added at the owner's request on branch `gl9-register` (migration 0012).
 | GL-9 | **Transactions** is the first page in the sidebar and where a company opens. Only filters at the top: period, account, text, all transactions or income and expenses, order, void; defaults this year to date (owner, Oct 28; was all dates), all transactions, oldest first, and it opens scrolled to the latest (oldest first pages from the latest, 200 at a time, with Show earlier). With one account chosen it reads like a bank register: payment, deposit and the balance after each transaction (a card shows what's owed), counting entries the filter hides; that account is remembered per company on this device. At the bottom: income, expense and net totals over the whole filter, and Add Transaction, a dialog for an expense (paid from) or income (deposited to) with a category. Clicking a row opens quick changes: date, ref, payee, memo, money account and category lines (split), Void, Delete, Open in journal. Entries with several lines on both sides are changed in the journal, whose entry form now edits too |
 | GL-6 | Off by default, as before: Edit is a **correction**, which voids the entry and posts the corrected copy from the same source in one step (bank links and attachments follow it). A Company page setting, which needs the passphrase to turn on, allows changing in place and deleting: the entry goes back to draft and is rewritten and posted again, so the schema checks it like a new entry. The closing date guards the old and the new date; entries cleared by a finished reconciliation can't be changed (BK-8); QuickBooks history can be corrected but not deleted (MG-6); bank transactions stay linked while the entry still fits them. The audit log records an "unpost" event with the old lines, then the new "post", or a "delete" |
 
+## M9 — Invoices and bills (cash basis)
+
+Planned Oct 28, at the owner's request, for a new company that is cash basis but may need invoices and bills. Any company can turn them on (Modules page); they start off, so the four existing companies are unaffected. Owner's choices: both, invoices first; invoice extras PDF to email, products & services, estimates and recurring invoices; customer payments straight to the bank (no Undeposited Funds); no sales receipts (Add Transaction covers them); MG-9 left out. Design unchanged from Oct 26: documents never post; a payment posts on its date through `postEntry()`, spread over the document's lines by `allocateProRata()` (GL-8). Slices, each its own PR: 1 products & services, estimates, invoices, customer payments; 2 the invoice PDF and sending it (company logo and details, `pdf-lib`, share sheet or download plus `mailto:`); 3 recurring invoices (created, as drafts, when the company opens); 4 bills and bill payments, bills due.
+
+### Slice 1 (built Oct 28): products & services, estimates, invoices, customer payments
+
+| Part | How |
+| --- | --- |
+| Schema (migration 0016) | `item`; `sales_doc` (estimate or invoice: number unique per kind, customer, date, due date, terms, message, status draft/sent/accepted/declined/void) and `sales_doc_line` (item, description, quantity in thousandths, rate, amount, income account; discounts are negative lines); `customer_payment` (deposit account, amount, method, ref, its entry; draft → posted → void) and `payment_application` (payment × invoice). View `invoice_paid`. The schema refuses: paying more than an invoice owes; paying another customer's invoice, an estimate or a void invoice; applications that don't add up to the payment; posting a payment without its own posted entry (source `invoice_payment`, same date, its amount into the deposit account); changing a posted payment or its applications; changing a paid invoice's lines, or voiding it, while payments apply; deleting a paid invoice or a converted estimate; changing a payment's entry in place (void the payment). Voiding the entry in the journal voids the payment, so the invoice is owed again. Payees named on documents can't be deleted; a merge moves payments and then their invoices. The `sales` and `bills` modules are switched off (new companies too) |
+| Logic (`src/modules/sales/`) | `items.ts`; `documents.ts` (numbers from 1001, due date from the customer's terms, convert an estimate, paid / partly paid / overdue derived, what customers owe); `payments.ts` (`receivePayment`: one entry per payment, the deposit debited and each invoice's part spread over its lines by `allocateProRata()`, summed per income account; `voidPayment`); `math.ts` (quantity × rate to the cent, dates) shared with the screens. Correcting a payment's entry from the journal or register is refused |
+| Screens | Sidebar group **Sales** (module on): **Invoices** (filters, what customers owe, Receive payment from a row), **Estimates** (Convert to invoice, Accepted, Declined), **Products & services**. The document form picks a product to fill description, rate and account; quantity × rate fills the amount; Add discount; the customer comes from a picker with quick add. Receive payment lists the customer's open invoices, oldest first, prefilled with what's owed |
+
+Checked: Vitest on the schema (each rule above; an upgrade from schema 15 leaves the books alone and the modules off), the logic (pro rata to the cent with a discount line, partial and several-invoice payments, statuses, conversion, void and re-open, payee merge, no A/R in the trial balance) and the session (events on post and void); headless Chrome (module off then on, product, invoice for a customer added on the spot, partial then full payment, income in Transactions, estimate to invoice).
+
 ## GL-5 — Recurring journal entries (built Oct 28)
 
 Asked for as depreciation and amortization. The QuickBooks history of both companies tried so far books them as **fixed monthly journal entries on the 1st**: Mawad Child Services, Depreciation 2,292.73; Mawad Holdings, Depreciation Expense 4,203.91 and Amortization Expense 153.43. Owner's decisions: recurring entries only (amounts set by the owner or CPA, no asset register); no loan schedules for now (mortgage payments are split by hand in bank review); post automatically and say so.
@@ -319,19 +333,9 @@ Checked: Vitest on the real schema (upgrade from schema 13 with customers, vendo
 
 Checked: Vitest (default category for a typed name; bank suggestions for payments only, history first, alike vendors left out, bulk accept) and headless Chrome (vendor with a default category, check number and receipt, split over two categories).
 
-### Later: invoices, estimates, bills (S)
+### Invoices and bills: M9 (planned Oct 28)
 
-- **Bills** (AP-2–AP-5): documents only. Bill payments post pro rata over the bill's lines and can't exceed what's still owed. The bills-due list is sorted by due date.
-- **Sales** (AR-2–AR-8):
-  - Estimates convert to invoices.
-  - Invoices are documents only; PDF uses the company template and logo. Sending goes through the Web Share API with the PDF where supported, otherwise download plus `mailto:`.
-  - Sales receipts post immediately.
-  - Payments post pro rata over the invoice lines into a bank account or Undeposited Funds; deposits move Undeposited Funds to the bank.
-- **Statuses** are derived from payments and due dates (AR-5, AP-4).
-- **Editing rules:**
-  - Once any payment is applied, an invoice's or bill's lines are locked; void the payment first.
-  - Voiding a document requires no applied payments.
-  - Discounts are negative lines and reduce income pro rata.
+Moved to M9 below.
 
 ## M8 — Polish
 

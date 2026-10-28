@@ -28,7 +28,7 @@ describe('0002 company address (CO-1)', () => {
 });
 
 describe('0004 company modules (CO-4)', () => {
-  it('turns every module on for a company that existed before the migration', async () => {
+  it('turns every module on for a company that existed before the migration; 0016 then switches sales and bills off', async () => {
     const db = openEmptyDatabase(await loadSqlite());
     migrate(db, MIGRATIONS.slice(0, 3));
     insertCompany(db);
@@ -37,7 +37,7 @@ describe('0004 company modules (CO-4)', () => {
       db
         .selectArrays('SELECT module, enabled FROM company_module ORDER BY module')
         .map((r) => r.join(':')),
-    ).toEqual(['banking:1', 'bills:1', 'expenses:1', 'migration:1', 'sales:1']);
+    ).toEqual(['banking:1', 'bills:0', 'expenses:1', 'migration:1', 'sales:0']);
   });
 
   it('rejects unknown modules and non-boolean flags', async () => {

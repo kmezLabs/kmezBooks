@@ -120,12 +120,55 @@ export function mapQboType(qboType: string, qboDetail: string): MappedType | nul
   return detail ? { type: base.type, detailType: detail } : base;
 }
 
-/** Where a balance sheet heading puts an account, for accounts missing from the Account List. */
+/**
+ * Where a balance sheet or profit and loss heading puts an account, for
+ * accounts missing from the Account List.
+ */
 export function typeFromStatementPath(path: string[]): AccountType | null {
   const top = path.map((p) => p.toLowerCase());
   if (top.some((p) => p === 'equity')) return 'equity';
   if (top.some((p) => p === 'liabilities')) return 'liability';
   if (top.some((p) => p === 'assets')) return 'asset';
+  if (top.some((p) => p === 'income' || p === 'other income')) return 'income';
+  if (
+    top.some((p) =>
+      ['cost of goods sold', 'expenses', 'other expenses', 'other expense'].includes(p),
+    )
+  )
+    return 'expense';
+  return null;
+}
+
+/** QuickBooks's statement sub-headings that say what kind of account sits under them. */
+const SECTION_DETAILS: Record<string, string> = {
+  'bank accounts': 'bank',
+  'credit cards': 'credit_card',
+  'accounts receivable': 'accounts_receivable',
+  'accounts payable': 'accounts_payable',
+  'fixed assets': 'fixed_asset',
+  'long-term liabilities': 'long_term_liability',
+  'cost of goods sold': 'cost_of_goods_sold',
+  'other income': 'other_income',
+};
+
+/** Accounts the reports rely on, recognised by their QuickBooks name. */
+const NAME_DETAILS: Record<string, string> = {
+  'retained earnings': 'retained_earnings',
+  'opening balance equity': 'opening_balance_equity',
+  'undeposited funds': 'undeposited_funds',
+};
+
+/**
+ * A detail type for an account missing from the Account List, from its name
+ * or the statement heading it sits under; null when neither says.
+ */
+export function detailFromStatement(path: string[], name: string): string | null {
+  const byName = NAME_DETAILS[name.trim().toLowerCase()];
+  if (byName) return byName;
+  for (const heading of [...path].reverse()) {
+    const detail = SECTION_DETAILS[heading.trim().toLowerCase()];
+    if (detail) return detail;
+  }
   return null;
 }
 

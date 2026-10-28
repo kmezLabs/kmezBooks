@@ -145,6 +145,19 @@ describe('statement import (BK-1, BK-6)', () => {
     ]);
   });
 
+  it('keeps two transactions that share a bank id in one file, without flagging them', () => {
+    const r = importFiles(
+      file('jan.qbo', {
+        txns: [
+          { fitid: 'SAME', date: '2026-01-14', amount: '-1000.00', name: 'TRANSFER' },
+          { fitid: 'SAME', date: '2026-01-14', amount: '1213.17', name: 'DEPOSIT' },
+        ],
+      }),
+    );
+    expect(r.statements[0]).toMatchObject({ added: 2, duplicates: 0, flagged: 0 });
+    expect(listQueue(db, checking).every((t) => !t.possibleDuplicate)).toBe(true);
+  });
+
   it('reports files that aren’t statements, and statements in another currency', () => {
     const usd = qboFile(JAN);
     const { pending, problems } = readStatements([
@@ -557,8 +570,8 @@ describe('reconciliation (BK-7, BK-8)', () => {
     expect(reconcileState(db, checking).open).toBeNull();
   });
 
-  it('takes a balance dated after the statement period as the period’s ending balance', () => {
-    // Some banks date it when the file was downloaded
+  it('trusts a balance dated after the statement only when the transactions confirm it', () => {
+    // Dated at download, alone: the statement date is offered, the balance isn't
     importFiles(
       file('jan.qbo', {
         ...JAN,
@@ -569,7 +582,41 @@ describe('reconciliation (BK-7, BK-8)', () => {
     );
     expect(reconcileState(db, checking).suggested).toEqual({
       statementDate: '2026-01-31',
-      endingBalance: 2_454_90,
+      endingBalance: null,
+    });
+    // The next statement: January's balance plus February's transactions gives
+    // February's, so the file's balances are the statements' ending balances
+    importFiles(
+      file('feb.qbo', {
+        start: '2026-02-01',
+        end: '2026-02-28',
+        balance: '2444.90',
+        balanceDate: '2026-03-16',
+        txns: [{ fitid: 'F1', date: '2026-02-03', amount: '-10.00', name: 'FEE' }],
+      }),
+    );
+    expect(reconcileState(db, checking).suggested).toEqual({
+      statementDate: '2026-02-28',
+      endingBalance: 2_444_90,
+    });
+  });
+
+  it('doesn’t trust a card file that gives the balance on the download day', () => {
+    const cardFile = (name: string, start: string, end: string, txns: FixtureStatement['txns']) =>
+      file(name, { kind: 'card', start, end, balance: '-500.00', balanceDate: '2026-03-01', txns });
+    importFiles(
+      cardFile('dec.qbo', '2025-12-01', '2025-12-31', [
+        { fitid: 'C1', date: '2025-12-05', amount: '-40.00', name: 'SHOP' },
+      ]),
+    );
+    importFiles(
+      cardFile('jan.qbo', '2026-01-01', '2026-01-31', [
+        { fitid: 'C2', date: '2026-01-05', amount: '-60.00', name: 'SHOP' },
+      ]),
+    );
+    expect(reconcileState(db, card).suggested).toEqual({
+      statementDate: '2026-01-31',
+      endingBalance: null,
     });
   });
 

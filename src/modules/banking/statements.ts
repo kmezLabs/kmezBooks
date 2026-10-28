@@ -130,13 +130,22 @@ function existing(db: Database, accountId: string, t: OfxTransaction): number | 
   return id === undefined ? null : Number(id);
 }
 
-/** An earlier transaction with the same bank id but a different date or amount. */
-function sameFitid(db: Database, accountId: string, t: OfxTransaction): number | null {
+/**
+ * An earlier transaction from another file with the same bank id but a
+ * different date or amount. Within one file a shared id means two different
+ * transactions (Bank of America reuses ids within a day).
+ */
+function sameFitid(
+  db: Database,
+  accountId: string,
+  importId: string,
+  t: OfxTransaction,
+): number | null {
   if (t.fitid === null) return null;
-  const id = db.selectValue(`SELECT min(id) FROM bank_txn WHERE account_id = ? AND fitid = ?`, [
-    accountId,
-    t.fitid,
-  ]);
+  const id = db.selectValue(
+    `SELECT min(id) FROM bank_txn WHERE account_id = ? AND fitid = ? AND import_id <> ?`,
+    [accountId, t.fitid, importId],
+  );
   return id === undefined || id === null ? null : Number(id);
 }
 
@@ -184,7 +193,7 @@ export function importStatements(
           duplicates++;
           continue;
         }
-        const duplicateOf = sameFitid(db, accountId, t);
+        const duplicateOf = sameFitid(db, accountId, importId, t);
         if (duplicateOf !== null) flagged++;
         const id = db.selectValue(
           `INSERT INTO bank_txn (company_id, account_id, import_id, fitid, date, amount, payee, memo,

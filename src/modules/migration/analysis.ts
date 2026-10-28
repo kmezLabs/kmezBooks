@@ -10,9 +10,14 @@
 // differ (the Journal shows invoices and bills on their own dates), the
 // transactions are rebuilt from the General Ledger instead.
 
-import type { AccountType } from '../../shared/accounts';
+import { SINGLE_DETAIL_TYPES, type AccountType } from '../../shared/accounts';
 import { dayBefore } from '../../shared/periods';
-import { isDeletedName, mapQboType, typeFromStatementPath } from './qboAccounts';
+import {
+  detailFromStatement,
+  isDeletedName,
+  mapQboType,
+  typeFromStatementPath,
+} from './qboAccounts';
 import {
   KIND_LABELS,
   QboFileError,
@@ -210,6 +215,10 @@ function readFile(
         break;
       case 'balanceSheet':
         f.asOf = parseAsOf(header.subtitle) ?? periodFromPath(name)?.to ?? null;
+        f.statement = parseStatement(sheet, short);
+        break;
+      case 'profitAndLoss':
+        // Read only to type accounts missing from the Account List
         f.statement = parseStatement(sheet, short);
         break;
       case 'accountList':
@@ -548,24 +557,50 @@ export function analyze(sources: SourceFile[]): Analysis {
   if (opening) for (const name of opening.balances.keys()) add(name);
   for (const tb of trialBalances) for (const name of tb.balances.keys()) add(name);
 
-  // Types for accounts missing from the list: from the balance sheet, or from a typed parent
+  // Types for accounts missing from the list: from the balance sheet or the
+  // profit and loss (the heading they sit under), or from a typed parent
   const known = new Set(accounts.keys());
-  for (const bs of balanceSheets) {
-    for (const line of bs.statement!) {
+  const statements = parsed.filter(
+    (f) => (f.kind === 'balanceSheet' || f.kind === 'profitAndLoss') && f.statement,
+  );
+  for (const st of statements) {
+    for (const line of st.statement!) {
       const name = resolveStatementName(line, known);
       const a = name ? accounts.get(name) : undefined;
-      if (a && !a.type) {
+      if (a && !a.inList && !a.type) {
         const type = typeFromStatementPath(line.path);
-        if (type) a.type = type;
+        if (type) {
+          a.type = type;
+          a.detailType = detailFromStatement(line.path, a.name.split(':').at(-1)!);
+        }
       }
     }
   }
   const byDepth = [...accounts.values()].sort(
     (a, b) => a.name.split(':').length - b.name.split(':').length,
   );
+  // A heading account with no balance of its own has its sub-accounts' type
+  for (const a of [...byDepth].reverse()) {
+    const parent = a.parent ? accounts.get(a.parent) : undefined;
+    if (parent && !parent.inList && !parent.type && a.type) {
+      parent.type = a.type;
+      if (a.detailType && !SINGLE_DETAIL_TYPES.includes(a.detailType)) {
+        parent.detailType = a.detailType;
+      }
+    }
+  }
   for (const a of byDepth) {
     const parent = a.parent ? accounts.get(a.parent) : undefined;
-    if (!a.type && parent?.type) a.type = parent.type;
+    if (!a.type && parent?.type) {
+      a.type = parent.type;
+      // A card under a card is a card; one-per-company accounts aren't inherited
+      if (parent.detailType && !SINGLE_DETAIL_TYPES.includes(parent.detailType)) {
+        a.detailType = parent.detailType;
+      }
+    }
+    if (!a.inList && a.type && !a.detailType) {
+      a.detailType = detailFromStatement([], a.name.split(':').at(-1)!);
+    }
     if (a.type && !a.detailType) a.detailType = defaultDetail(a.type);
   }
   for (const a of accounts.values()) {

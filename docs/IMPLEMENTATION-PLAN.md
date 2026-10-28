@@ -217,7 +217,7 @@ What QuickBooks gives (from the real export): **Export data** writes one folder 
 Decisions made while building:
 
 - Import into a **new, empty company** (create it with "Start with the standard chart" unticked). Accounts with the same name as an existing account, and the one-per-company accounts (Retained Earnings, Opening Balance Equity, Undeposited Funds), are matched to the existing ones.
-- Accounts shown as "(deleted)" are created inactive after their history is posted. Accounts missing from the Account List get their type from the balance sheet if possible; otherwise the owner chooses.
+- Accounts shown as "(deleted)" are created inactive after their history is posted. Accounts missing from the Account List get their type from the heading they sit under on the balance sheet or the profit and loss (Bank Accounts, Credit Cards, Fixed Assets, Long-Term Liabilities, Income, Cost of Goods Sold, Expenses…), from their sub-accounts or parent, and Retained Earnings and Opening Balance Equity by name; only what's left is the owner's to choose. So the Account List is optional (checked Oct 27 on a second company exported without one: every one of its 90 accounts was typed).
 - $0 transactions (voided in QuickBooks) are left out.
 - A dry run doesn't mark the company as having unsaved changes.
 - Migrated history doesn't announce each posting as a ledger event (rule 8): it is history, not new activity.
@@ -257,6 +257,7 @@ Tried on real files (Oct 27): two Bank of America checking statements for one co
 - Bank of America dates a statement's ending balance when the file was downloaded, not at the statement's end. A balance dated after the statement period is taken as the balance on its last day.
 - Banks shorten and vary payee text between statements ("… DES:ROYALTY ID:DP_67 I" one month, "… DES:ROYALTY" the next). Suggestions compare payees ignoring capitals, ids and words with digits, using the first four words.
 - "Like last time" also learns from transactions matched to existing entries, so matching the QuickBooks history once gives suggestions (category and the QuickBooks payee name) for the following statements: five of January 2026's seven transactions.
+- A second company (Oct 27: two Bank of America checking statements, two Capital One card statements): its card files carry the balance on the download day, not each statement's (both statements showed the same balance). So a balance dated after the statement period is trusted as its ending balance only when the transactions confirm it (the previous statement's balance plus the transactions in between); otherwise the reconcile screen fills in the statement date and asks for the balance. The checking statements confirmed each other this way. Bank of America also reuses a bank id for two different transactions on one day in one file; a shared id is flagged as a possible duplicate only across files. The card payment from checking was offered as a transfer on both sides.
 
 Still to do:
 

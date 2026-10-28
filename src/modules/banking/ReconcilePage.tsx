@@ -111,10 +111,9 @@ function Start(props: {
 }) {
   const { account, state } = props;
   const [date, setDate] = useState(state.suggested?.statementDate ?? todayIso());
+  const suggestedBalance = state.suggested?.endingBalance ?? null;
   const [ending, setEnding] = useState(
-    state.suggested
-      ? formatMoney(statementBalance(account.type, state.suggested.endingBalance))
-      : '',
+    suggestedBalance === null ? '' : formatMoney(statementBalance(account.type, suggestedBalance)),
   );
   const { busy, error, run } = useAction();
   const show = (c: Cents) => formatMoney(statementBalance(account.type, c));
@@ -161,7 +160,9 @@ function Start(props: {
           </div>
           {state.suggested && (
             <p className="muted small">
-              Filled in from the last imported statement; check it against the statement itself.
+              {suggestedBalance === null
+                ? 'The statement date is from the last imported statement. Its file gives the balance on the day it was downloaded, not at the statement’s end, so enter the ending balance from the statement itself.'
+                : 'Filled in from the last imported statement; check it against the statement itself.'}
             </p>
           )}
           <ErrorText>{error}</ErrorText>

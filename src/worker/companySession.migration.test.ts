@@ -76,7 +76,7 @@ describe('session: QuickBooks import (MG-2, MG-4, MG-6)', () => {
     const plan = await session.migrationAnalyze(asDir(await exportsFolder()));
     expect(plan.summary.errors).toEqual([]);
     expect(plan.companyHasTransactions).toBe(false);
-    expect(plan.summary.files.filter((f) => f.kind).length).toBe(7);
+    expect(plan.summary.files.filter((f) => f.kind).length).toBe(8);
 
     const progress: number[] = [];
     const dry = session.migrationRun(plan.choices, { commit: false }, (done) =>

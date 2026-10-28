@@ -48,8 +48,12 @@ export interface ReconcileState {
   clearedTotal: Cents;
   /** Statement ending balance minus (beginning balance + cleared items): zero to finish */
   difference: Cents;
-  /** The latest imported statement's balance after the last reconciliation, to start from */
-  suggested: { statementDate: string; endingBalance: Cents } | null;
+  /**
+   * The latest imported statement after the last reconciliation, to start
+   * from: its last day, and its ending balance when the file's balance can be
+   * trusted to be that (null when it may be the balance on another day)
+   */
+  suggested: { statementDate: string; endingBalance: Cents | null } | null;
 }
 
 const statementRef = (r: Record<string, unknown> | undefined): StatementRef | null =>
@@ -88,6 +92,52 @@ const CANDIDATES = `
   WHERE l.account_id = :account AND e.date <= :date
     AND (r.line_id IS NULL OR r.reconciliation_id = :open)`;
 
+const dayAfter = (d: string, days: number) =>
+  new Date(Date.parse(`${d}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * The statement to reconcile next. A file's balance is the statement's ending
+ * balance when it is dated within a few days of the statement's last day. Some
+ * banks date it when the file was downloaded instead: Bank of America's
+ * statement files still hold the statement's ending balance, but card files
+ * can hold the balance on the download day. Such a balance is trusted only
+ * when the transactions confirm it: the previous statement's balance plus the
+ * transactions in between.
+ */
+function suggestedStatement(
+  db: Database,
+  accountId: string,
+  after: string | null,
+): ReconcileState['suggested'] {
+  const imports = db
+    .selectObjects(
+      `SELECT end_date, balance, balance_date FROM bank_import
+       WHERE account_id = ? AND end_date IS NOT NULL AND balance IS NOT NULL AND balance_date IS NOT NULL
+       ORDER BY end_date, imported_at`,
+      [accountId],
+    )
+    .map((r) => ({
+      end: String(r.end_date),
+      balance: Number(r.balance),
+      dated: String(r.balance_date),
+    }));
+  const latest = imports.at(-1);
+  if (!latest || (after !== null && latest.end <= after)) return null;
+  const onTime = (i: { end: string; dated: string }) => i.dated <= dayAfter(i.end, 3);
+  let trusted = onTime(latest);
+  const previous = imports.filter((i) => i.end < latest.end).at(-1);
+  if (!trusted && previous) {
+    const between = Number(
+      db.selectValue(
+        `SELECT coalesce(sum(amount), 0) FROM bank_txn WHERE account_id = ? AND date > ? AND date <= ?`,
+        [accountId, previous.end, latest.end],
+      ),
+    );
+    trusted = previous.balance + between === latest.balance;
+  }
+  return { statementDate: latest.end, endingBalance: trusted ? latest.balance : null };
+}
+
 export function reconcileState(
   db: Database,
   accountId: string,
@@ -112,24 +162,7 @@ export function reconcileState(
     suggested: null,
   };
   if (!open) {
-    // Some banks (Bank of America) date the statement's ending balance when it
-    // was downloaded; it is the balance on the statement's last day
-    const s = db.selectObjects(
-      `SELECT statement_date, balance FROM (
-         SELECT CASE WHEN end_date IS NOT NULL AND balance_date > end_date THEN end_date
-                     ELSE balance_date END AS statement_date,
-                balance, imported_at
-         FROM bank_import WHERE account_id = ? AND balance IS NOT NULL AND balance_date IS NOT NULL)
-       WHERE statement_date > ?
-       ORDER BY statement_date DESC, imported_at DESC LIMIT 1`,
-      [accountId, last?.statementDate ?? '0000-00-00'],
-    )[0];
-    return {
-      ...base,
-      suggested: s
-        ? { statementDate: String(s.statement_date), endingBalance: Number(s.balance) }
-        : null,
-    };
+    return { ...base, suggested: suggestedStatement(db, accountId, last?.statementDate ?? null) };
   }
   const bind = { ':account': accountId, ':date': open.statementDate, ':open': open.id };
   const totals = db.selectObjects(

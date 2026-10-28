@@ -3,7 +3,8 @@
 // matches it to an entry already in the books, or excludes it. Suggestions
 // are worked out when the queue is read, so a new rule shows at once:
 // - a rule (BK-5), or failing that how the same payee was categorized last
-//   time, deposits and payments apart
+//   time, deposits and payments apart, or failing that for a payment the
+//   vendor's default category (AP-1)
 // - entries already in the books that move the same amount (BK-4), including
 //   migrated QuickBooks history, so nothing is entered twice (BK-6). QuickBooks
 //   keeps the bank's own description in the memo of what came from its bank
@@ -51,7 +52,8 @@ export type Suggestion =
       payee: string | null;
       memo: string | null;
     }
-  | { source: 'history'; categoryId: string; payee: string | null };
+  | { source: 'history'; categoryId: string; payee: string | null }
+  | { source: 'vendor'; categoryId: string; payee: string };
 
 export interface MatchCandidate {
   entryId: number;
@@ -281,7 +283,39 @@ export function historyIndex(db: Database, accountId: string): History {
 /** How many of a payee's latest uses must agree for "like last time". */
 const HISTORY_USES = 3;
 
-function suggest(t: BankTxn, rules: RuleRow[], history: History): Suggestion | null {
+/**
+ * Payees with a default category (AP-1), by their name compared the way bank
+ * payees vary (payeeKey): "HOME DEPOT #0149" finds the payee "Home Depot".
+ * A name two payees share this way says nothing, so it's left out.
+ */
+export function vendorDefaults(db: Database): History {
+  const index: History = new Map();
+  const shared = new Set<string>();
+  const rows = db.selectObjects(
+    `SELECT p.name, p.default_account_id FROM payee p
+     JOIN account a ON a.id = p.default_account_id AND a.active = 1
+     WHERE p.active = 1`,
+  );
+  for (const r of rows) {
+    const key = payeeKey(String(r.name));
+    if (!key) continue;
+    if (index.has(key)) shared.add(key);
+    index.set(key, {
+      source: 'vendor',
+      categoryId: String(r.default_account_id),
+      payee: String(r.name),
+    });
+  }
+  for (const key of shared) index.delete(key);
+  return index;
+}
+
+function suggest(
+  t: BankTxn,
+  rules: RuleRow[],
+  history: History,
+  vendors: History = new Map(),
+): Suggestion | null {
   const rule = firstRule(rules, t);
   if (rule) {
     return {
@@ -293,7 +327,11 @@ function suggest(t: BankTxn, rules: RuleRow[], history: History): Suggestion | n
       memo: rule.memo,
     };
   }
-  return history.get(historyKey(t.payee, t.amount)) ?? null;
+  return (
+    history.get(historyKey(t.payee, t.amount)) ??
+    (t.amount < 0 ? vendors.get(payeeKey(t.payee)) : undefined) ??
+    null
+  );
 }
 
 export type QueueView = 'new' | 'excluded' | 'reviewed';
@@ -316,6 +354,7 @@ export function listQueue(
   const names = accountFullNames(db);
   const rules = view === 'new' ? listRules(db).filter((r) => r.active) : [];
   const history: History = view === 'new' ? historyIndex(db, accountId) : new Map();
+  const vendors: History = view === 'new' ? vendorDefaults(db) : new Map();
   return rows.map((t) => {
     if (t.status !== 'new') {
       return {
@@ -331,7 +370,7 @@ export function listQueue(
     const matches = matchCandidates(db, t, names);
     return {
       ...t,
-      suggestion: suggest(t, rules, history),
+      suggestion: suggest(t, rules, history, vendors),
       matches,
       transfer: matches.length ? null : transferCandidate(db, t, names),
       possibleDuplicate: t.duplicateOf !== null,
@@ -665,6 +704,7 @@ export function acceptSuggestions(db: Database, ids: number[], opts: PostOptions
   return inSavepoint(db, 'bank_accept', () => {
     const rules = listRules(db).filter((r) => r.active);
     const closing = db.selectValue('SELECT closing_date FROM company');
+    const vendors = vendorDefaults(db);
     const posted: number[] = [];
     for (const id of ids) {
       const t = getTxn(db, id);
@@ -672,7 +712,7 @@ export function acceptSuggestions(db: Database, ids: number[], opts: PostOptions
       // Never in bulk into a closed period, e.g. history brought over from
       // QuickBooks: those are looked at one by one
       if (typeof closing === 'string' && t.date <= closing) continue;
-      const s = suggest(t, rules, historyIndex(db, t.accountId));
+      const s = suggest(t, rules, historyIndex(db, t.accountId), vendors);
       if (!s) continue;
       posted.push(
         categorize(

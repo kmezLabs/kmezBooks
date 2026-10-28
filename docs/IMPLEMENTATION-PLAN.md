@@ -295,9 +295,16 @@ Owner's decision, Oct 28: the QuickBooks history of both companies tried so far 
 
 Checked: Vitest on the real schema (upgrade from schema 13 with customers, vendors and names in other capitals; the rules on posted and void entries and lines; audit; rename, merge, delete; register filter), the real QuickBooks exports of both companies (tie-out still exact; 13 customers and 1,206 vendors in one list), and headless Chrome (add with names, merge, rename, vendor record, Show transactions, suggestions).
 
-### Slice 2: expenses (EX-1 to EX-3)
+### Slice 2: expenses (EX-1 to EX-3, built Oct 28)
 
-Add Transaction becomes the expense and deposit form: payee, ref or check number, split over categories, receipts attached (EX-2), and a vendor's default category filled in. Bank review uses a vendor's default category when nothing else suggests one.
+| Requirement | How |
+| --- | --- |
+| EX-1 | Add Transaction (Transactions page) is the expense and deposit form: date, ref or check number, payee, paid from or deposited to, one category and amount, or **Split** over several categories with a line memo each and the total shown; memo. It posts through `postEntry()` like every entry. Expenses and checks paid from a bank or card account are the same form; the check number is the ref |
+| EX-2 | Receipts (images or PDFs) chosen in the same form are attached to the new entry, encrypted in the company folder like any attachment |
+| EX-3 | The payee is any payee or a new name (GL-11). Tracking a customer per expense for billing is left for when invoices arrive |
+| AP-1 | Choosing a vendor with a default category fills it into an empty category on an expense. Bank review suggests a vendor's default category for a payment when no rule and no "like last time" applies, matching the bank's payee to the vendor's name the way bank names vary (`payeeKey`); two vendors alike that way suggest nothing. Shown as "City Power's default"; "Add suggested" accepts it under the vendor's name |
+
+Checked: Vitest (default category for a typed name; bank suggestions for payments only, history first, alike vendors left out, bulk accept) and headless Chrome (vendor with a default category, check number and receipt, split over two categories).
 
 ### Later: invoices, estimates, bills (S)
 

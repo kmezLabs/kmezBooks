@@ -925,3 +925,20 @@ textarea {
   color: var(--muted);
   cursor: default;
 }
+
+/* ---- Add Transaction: room for a split (EX-1) ---- */
+
+.dialog:has(form.quick-add) {
+  max-width: 780px;
+}
+
+table.lines td:last-child {
+  white-space: nowrap;
+  width: 1%;
+}
+
+form.quick-add .split-link {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-top: 18px;
+}

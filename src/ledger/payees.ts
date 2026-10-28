@@ -121,6 +121,21 @@ export function getPayee(db: Database, id: string): Payee {
   return payee(r);
 }
 
+/**
+ * The category a payee's expenses usually go to (AP-1), for a name typed in
+ * a form: an active account, or null.
+ */
+export function defaultCategoryFor(db: Database, name: string): string | null {
+  const clean = name.trim().replace(/\s+/g, ' ');
+  if (!clean) return null;
+  const id = db.selectValue(
+    `SELECT p.default_account_id FROM payee p JOIN account a ON a.id = p.default_account_id AND a.active = 1
+     WHERE p.name = ? COLLATE NOCASE`,
+    [clean],
+  );
+  return id === undefined || id === null ? null : String(id);
+}
+
 /** Active payee names, for the name fields' suggestions. */
 export function payeeNames(db: Database): string[] {
   return db

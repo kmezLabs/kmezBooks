@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { accountId, newLedgerDb, post, startImportRun } from '../../../db/tests/ledgerTestDb';
 import { createAccount } from '../../ledger/accounts';
+import { blankPayee, createPayee } from '../../ledger/payees';
 import { trialBalance } from '../../ledger/balances';
 import { getEntry } from '../../ledger/entries';
 import { postEntry, voidEntry } from '../../ledger/postEntry';
@@ -79,6 +80,9 @@ const JAN: FixtureStatement = {
     { fitid: 'J2', date: '2026-01-05', amount: '-45.10', name: 'CITY POWER' },
   ],
 };
+
+const txnId = (fitid: string) =>
+  Number(db.selectValue('SELECT id FROM bank_txn WHERE fitid = ?', [fitid]));
 
 /** Debit minus credit, as of the end of the year */
 const balance = (id: string) => {
@@ -657,6 +661,42 @@ describe('rules (BK-5)', () => {
     expect(suggested).toEqual({
       [-18_00]: accountId(db, 'Office Supplies and Software'),
       [7_25]: accountId(db, 'Other Income'),
+    });
+  });
+
+  it('suggests a vendor’s default category for its payments when nothing else does (AP-1)', () => {
+    const utilities = accountId(db, 'Utilities');
+    const repairs = accountId(db, 'Repairs and Maintenance');
+    createPayee(db, { ...blankPayee('City Power'), isVendor: true, defaultAccountId: utilities });
+    // Two payees alike the way bank names vary: neither is suggested
+    createPayee(db, { ...blankPayee('Acme Co'), defaultAccountId: repairs });
+    createPayee(db, { ...blankPayee('ACME CO 2'), defaultAccountId: utilities });
+    importFiles(
+      file('jan.qbo', {
+        txns: [
+          { fitid: 'V1', date: '2026-01-05', amount: '-45.10', name: 'CITY POWER #0042' },
+          { fitid: 'V2', date: '2026-01-06', amount: '12.00', name: 'CITY POWER' }, // a refund
+          { fitid: 'V3', date: '2026-01-07', amount: '-20.00', name: 'ACME CO' },
+        ],
+      }),
+    );
+    const queue = listQueue(db, checking);
+    const by = (fitid: string) => queue.find((t) => t.id === txnId(fitid))!.suggestion;
+    expect(by('V1')).toEqual({ source: 'vendor', categoryId: utilities, payee: 'City Power' });
+    expect(by('V2')).toBeNull();
+    expect(by('V3')).toBeNull();
+    // Accepted in bulk under the vendor's name
+    const [entry] = acceptSuggestions(db, [txnId('V1')]);
+    expect(getEntry(db, entry!)).toMatchObject({ name: 'City Power' });
+    // Once used, "like last time" takes over
+    importFiles(
+      file('feb.qbo', {
+        txns: [{ fitid: 'V4', date: '2026-02-05', amount: '-47.00', name: 'CITY POWER #0042' }],
+      }),
+    );
+    expect(listQueue(db, checking).find((t) => t.id === txnId('V4'))!.suggestion).toMatchObject({
+      source: 'history',
+      categoryId: utilities,
     });
   });
 

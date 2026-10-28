@@ -942,3 +942,20 @@ form.quick-add .split-link {
   align-self: center;
   margin-top: 18px;
 }
+
+/* ---- new version available (M8) ---- */
+
+.update-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 2px solid var(--accent);
+}
+
+.update-banner .error {
+  flex-basis: 100%;
+  margin: 0;
+}

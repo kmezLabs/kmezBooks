@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // A new version waits until the owner updates, after saving (M8)
+      registerType: 'prompt',
       includeAssets: ['icons/*.png'],
       manifest: {
         name: 'EasyBooks',

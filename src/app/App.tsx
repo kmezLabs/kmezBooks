@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SessionStatus } from '../worker/companySession';
 import { db } from '../shared/workerClient';
 import { StartScreen } from './StartScreen';
+import { UpdateBanner } from './UpdateBanner';
 import { Workspace } from './Workspace';
 import { lockAfterMinutes } from './settings';
 
@@ -76,5 +77,10 @@ export function App() {
   }, [unsaved]);
 
   if (!status) return <p className="loading">Loading…</p>;
-  return status.open ? <Workspace status={status} /> : <StartScreen notice={notice} />;
+  return (
+    <>
+      <UpdateBanner status={status} />
+      {status.open ? <Workspace status={status} /> : <StartScreen notice={notice} />}
+    </>
+  );
 }

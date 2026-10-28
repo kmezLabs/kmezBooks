@@ -73,4 +73,71 @@ describe('session: invoices and payments (AR-4, AR-7)', () => {
     expect(session.salesDoc(invoice).owed).toBe(950_00);
     expect(session.status().dirty).toBe(true);
   });
+
+  it('makes the invoice PDF with the logo, and what the email says (AR-4, AR-8)', async () => {
+    const session = new CompanySession({ iterations: 1_000, heartbeatMs: 0, saveDelayMs: 10_000 });
+    await session.create(asDir(new FakeDir()), ACME, 'pw', 'PC');
+    session.updateDetails({ email: 'office@acme.example', invoiceFooter: 'Pay by Zelle.' });
+    // A 1×1 PNG
+    const png = Uint8Array.from(
+      atob(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      ),
+      (c) => c.charCodeAt(0),
+    );
+    session.setCompanyLogo(png);
+    expect(session.companyLogo()).toEqual(png);
+    expect(() => session.setCompanyLogo(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]))).toThrow(
+      /CHECK/,
+    );
+
+    const id = (name: string) => session.accounts().find((a) => a.name === name)!.id;
+    const customer = session.createPayee({
+      name: 'Smith Family',
+      isCustomer: true,
+      isVendor: false,
+      contactName: null,
+      email: 'smiths@example.com',
+      phone: null,
+      address: '12 Oak Lane',
+      shippingAddress: null,
+      accountNumber: null,
+      termsDays: 15,
+      defaultAccountId: null,
+      is1099: false,
+      notes: null,
+      active: true,
+    });
+    const invoice = session.createSalesDoc({
+      kind: 'invoice',
+      number: '1001',
+      customerId: customer,
+      date: '2026-01-05',
+      dueDate: null,
+      termsDays: 15,
+      memo: null,
+      lines: [
+        {
+          itemId: null,
+          description: 'Tuition',
+          quantity: null,
+          rate: null,
+          amount: 950_00,
+          incomeAccountId: id('Services'),
+        },
+      ],
+    });
+    const pdf = await session.docPdf(invoice);
+    expect(new TextDecoder().decode(pdf.bytes.subarray(0, 5))).toBe('%PDF-');
+    expect(pdf).toMatchObject({
+      fileName: 'Invoice 1001 - Smith Family.pdf',
+      email: 'smiths@example.com',
+      subject: 'Invoice 1001 from Acme LLC',
+    });
+    expect(pdf.body).toContain('invoice 1001 for 950.00, due Jan 20, 2026');
+    session.markDocSent(invoice);
+    expect(session.salesDoc(invoice).status).toBe('sent');
+    session.setCompanyLogo(null);
+    expect(session.companyLogo()).toBeNull();
+  });
 });

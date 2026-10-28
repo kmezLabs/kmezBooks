@@ -12,6 +12,7 @@ import {
   useClosedPeriodOverride,
 } from '../../app/ledgerUi';
 import { Combo } from '../../app/Combo';
+import { download } from '../../app/export/exportReport';
 import { Dialog, ErrorText, TextField, useAction } from '../../app/ui';
 import type { AccountRow } from '../../shared/accounts';
 import { formatMoney, parseMoney, type Cents } from '../../shared/money';
@@ -723,6 +724,7 @@ function DocActions(props: {
   onChanged: () => void;
 }) {
   const d = props.doc;
+  const [sending, setSending] = useState(false);
   const act = (fn: () => Promise<unknown>, then: () => void = props.onChanged) =>
     void props.run(async () => {
       await fn();
@@ -787,6 +789,32 @@ function DocActions(props: {
             </button>
           )}
         </>
+      )}
+      <button type="button" onClick={() => setSending(true)}>
+        Send…
+      </button>
+      <button
+        type="button"
+        className="secondary"
+        disabled={props.busy}
+        onClick={() =>
+          void props.run(async () => {
+            const pdf = await db.docPdf(d.id);
+            download(pdf.fileName, pdf.bytes as Uint8Array<ArrayBuffer>, 'application/pdf');
+          })
+        }
+      >
+        Download PDF
+      </button>
+      {sending && (
+        <SendDialog
+          doc={d}
+          onClose={() => setSending(false)}
+          onSent={() => {
+            setSending(false);
+            props.onChanged();
+          }}
+        />
       )}
       <button type="button" className="secondary" onClick={() => props.onDuplicate(d)}>
         Duplicate
@@ -976,6 +1004,134 @@ function ReceivePaymentDialog(props: {
         </div>
       </form>
       {dialog}
+    </Dialog>
+  );
+}
+
+// ---- sending: the share sheet, or download plus the mail app (AR-4) ----
+
+type DocPdf = Awaited<ReturnType<typeof db.docPdf>>;
+
+/**
+ * Send an invoice or estimate. Sending straight from the app would need a
+ * server, so the PDF goes through the share sheet where Chrome offers one
+ * with files, or is downloaded while the mail app opens with the email filled
+ * in. Either marks the document sent.
+ */
+function SendDialog(props: { doc: Doc; onClose: () => void; onSent: () => void }) {
+  const [pdf, setPdf] = useState<DocPdf | null>(null);
+  const [to, setTo] = useState('');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const { busy, error, run } = useAction();
+
+  useEffect(() => {
+    void db.docPdf(props.doc.id).then((p) => {
+      setPdf(p);
+      setTo(p.email ?? '');
+      setSubject(p.subject);
+      setBody(p.body);
+    });
+  }, [props.doc.id]);
+
+  const file = pdf
+    ? new File([pdf.bytes as Uint8Array<ArrayBuffer>], pdf.fileName, { type: 'application/pdf' })
+    : null;
+  const canShare =
+    !!file && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
+
+  const sent = async () => {
+    await db.markDocSent(props.doc.id);
+    props.onSent();
+  };
+
+  return (
+    <Dialog
+      title={`Send ${props.doc.kind} ${props.doc.number}`}
+      onClose={busy ? undefined : props.onClose}
+    >
+      {!pdf ? (
+        <p className="muted">Making the PDF…</p>
+      ) : (
+        <>
+          <TextField
+            label="To"
+            value={to}
+            onChange={setTo}
+            hint={to ? undefined : 'No email on file for this customer (add it on Payees)'}
+          />
+          <TextField label="Subject" value={subject} onChange={setSubject} />
+          <label>
+            Message
+            <textarea rows={6} value={body} onChange={(e) => setBody(e.target.value)} />
+          </label>
+          <p className="muted small">
+            {pdf.fileName} ·{' '}
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                const url = URL.createObjectURL(file!);
+                window.open(url, '_blank', 'noopener');
+                setTimeout(() => URL.revokeObjectURL(url), 60_000);
+              }}
+            >
+              Preview
+            </button>
+          </p>
+          <ErrorText>{error}</ErrorText>
+          <div className="buttons">
+            {canShare && (
+              <button
+                type="button"
+                disabled={busy}
+                title="Your system's share sheet, with the PDF attached: pick your mail app"
+                onClick={() =>
+                  void run(async () => {
+                    try {
+                      await navigator.share({ files: [file!], title: subject, text: body });
+                    } catch (e) {
+                      if (e instanceof DOMException && e.name === 'AbortError') return;
+                      throw e;
+                    }
+                    await sent();
+                  })
+                }
+              >
+                Share…
+              </button>
+            )}
+            <button
+              type="button"
+              className={canShare ? 'secondary' : undefined}
+              disabled={busy}
+              title="Saves the PDF and opens your mail app with this email; attach the PDF there"
+              onClick={() =>
+                void run(async () => {
+                  download(pdf.fileName, pdf.bytes as Uint8Array<ArrayBuffer>, 'application/pdf');
+                  const a = document.createElement('a');
+                  a.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(
+                    `${body}\n\n(${pdf.fileName} is attached.)`,
+                  )}`;
+                  a.click();
+                  await sent();
+                })
+              }
+            >
+              Download and email
+            </button>
+            <button type="button" className="secondary" disabled={busy} onClick={props.onClose}>
+              Cancel
+            </button>
+          </div>
+          {!canShare && (
+            <p className="muted small">
+              Your mail app opens with the email filled in; attach the PDF that was just saved to
+              your Downloads folder.
+            </p>
+          )}
+        </>
+      )}
     </Dialog>
   );
 }

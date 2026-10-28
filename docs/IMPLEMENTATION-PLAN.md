@@ -291,6 +291,17 @@ Planned Oct 28, at the owner's request, for a new company that is cash basis but
 
 Checked: Vitest on the schema (each rule above; an upgrade from schema 15 leaves the books alone and the modules off), the logic (pro rata to the cent with a discount line, partial and several-invoice payments, statuses, conversion, void and re-open, payee merge, no A/R in the trial balance) and the session (events on post and void); headless Chrome (module off then on, product, invoice for a customer added on the spot, partial then full payment, income in Transactions, estimate to invoice).
 
+### Slice 2 (built Oct 28): the invoice PDF and sending it
+
+| Part | How |
+| --- | --- |
+| Schema (migration 0017) | Company `email`, `phone`, `website`, `invoice_footer`. The logo has its own table `company_logo` (a PNG, at most 300 KB, its signature checked), so a change to the company row doesn't copy the picture into the audit log |
+| PDF (`src/modules/sales/invoicePdf.ts`) | `pdf-lib` 1.17.1 (MIT, pinned), run in the worker: logo, company details, number, dates, terms, bill-to with the customer's address, lines (product, description, quantity, rate, amount), total, paid and balance due (invoices), message and footer. US Letter; a long document continues on more pages with the table header repeated and page numbers. The standard fonts draw only Windows-1252 text, so curly quotes and dashes are straightened and anything else becomes "?" |
+| Sending | **Send…** on an invoice or estimate: To (the customer's email), subject and message filled in and editable, and Preview. **Share…** where Chrome offers a share sheet with files; **Download and email** saves the PDF and opens the mail app with the email filled in, for the PDF to be attached. Either marks the document sent. **Download PDF** too |
+| Company page | "On invoices and estimates": email, phone, website, footer. The logo is made small in the browser (at most 600 × 240, under 280 KB) and saved when chosen |
+
+Checked: Vitest (the PDF's text read back: company, customer, lines, totals, message, footer; a long invoice on several numbered pages; an estimate without a balance due; the session's PDF with a logo, and the email's subject and message; the schema refusing a logo that isn't a PNG); headless Chrome (details and a logo on the Company page, made small; an invoice for a customer with an email; Send… with the email filled in; Download and email saving a PDF with the logo and marking the invoice sent).
+
 ## GL-5 — Recurring journal entries (built Oct 28)
 
 Asked for as depreciation and amortization. The QuickBooks history of both companies tried so far books them as **fixed monthly journal entries on the 1st**: Mawad Child Services, Depreciation 2,292.73; Mawad Holdings, Depreciation Expense 4,203.91 and Amortization Expense 153.43. Owner's decisions: recurring entries only (amounts set by the owner or CPA, no asset register); no loan schedules for now (mortgage payments are split by hand in bank review); post automatically and say so.

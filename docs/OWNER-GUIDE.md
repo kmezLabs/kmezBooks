@@ -74,6 +74,8 @@ A company that bills customers can turn on **Customers and sales** on the **Modu
 
 An invoice only records what a customer owes. Nothing goes into the books until the customer pays. **Receive payment** puts the money into the bank account it went to, and counts it as income that day (cash basis). Bank review then offers that payment as the match for the deposit on your statement.
 
+To send an invoice or estimate, open it and click **Send…**. The customer's email, a subject and a message are filled in. **Share…** (where Chrome offers it) hands the PDF to your mail app. **Download and email** saves the PDF and opens your mail app; attach the PDF there. Either marks it sent. Your logo, contact details and a footer (how to pay, say) go on the **Company** page.
+
 ## Recurring entries
 
 Depreciation, amortization and other entries that repeat are set up once, on **Recurring entries**. The quickest way is to open last month's entry in **Journal entries** and click **Make recurring**.

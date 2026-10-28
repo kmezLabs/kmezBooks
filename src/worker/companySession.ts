@@ -56,6 +56,8 @@ import {
   type Item,
   type ItemInput,
 } from '../modules/sales/items';
+import { formatMoney } from '../shared/money';
+import { longDate, renderDocPdf } from '../modules/sales/invoicePdf';
 import {
   listPayments,
   receivePayment,
@@ -187,6 +189,8 @@ import {
   owner,
   readAuditEvents,
   readDetails,
+  writeLogo,
+  readLogo,
   readModules,
   setModule,
   updateDetails,
@@ -771,6 +775,16 @@ export class CompanySession {
     await this.save();
   }
 
+  /** The company's logo for invoices (AR-8), a PNG; null without one. */
+  companyLogo(): Uint8Array | null {
+    return readLogo(this.open_().db);
+  }
+
+  setCompanyLogo(png: Uint8Array | null): void {
+    writeLogo(this.writable().db, png);
+    this.touch();
+  }
+
   details(): CompanyDetails & { id: string; createdAt: string } {
     return readDetails(this.open_().db);
   }
@@ -1114,6 +1128,51 @@ export class CompanySession {
     const invoice = convertEstimate(this.writable().db, id, date, localDate(this.now()));
     this.touch();
     return invoice;
+  }
+
+  /**
+   * An estimate or invoice as a PDF (AR-4), with what an email to the
+   * customer would say: their address, a subject and a short message.
+   */
+  async docPdf(id: string): Promise<{
+    fileName: string;
+    bytes: Uint8Array;
+    email: string | null;
+    subject: string;
+    body: string;
+  }> {
+    const db = this.open_().db;
+    const d = getDoc(db, id, localDate(this.now()));
+    const company = readDetails(db);
+    const customer = getPayee(db, d.customerId);
+    const itemNames = new Map(listItems(db, true).map((i) => [i.id, i.name]));
+    const bytes = await renderDocPdf(
+      {
+        kind: d.kind,
+        number: d.number,
+        date: d.date,
+        dueDate: d.dueDate,
+        termsDays: d.termsDays,
+        memo: d.memo,
+        customer: d.customer,
+        customerAddress: customer.address,
+        lines: d.lines.map((l) => ({ ...l, itemName: l.itemId ? itemNames.get(l.itemId) : null })),
+        total: d.total,
+        paid: d.paid,
+      },
+      company,
+      readLogo(db),
+    );
+    const title = d.kind === 'invoice' ? 'Invoice' : 'Estimate';
+    const amount = formatMoney(d.kind === 'invoice' ? d.owed : d.total);
+    const due = d.kind === 'invoice' && d.dueDate ? `, due ${longDate(d.dueDate)}` : '';
+    return {
+      fileName: `${title} ${d.number} - ${safeName(d.customer)}.pdf`,
+      bytes,
+      email: customer.email,
+      subject: `${title} ${d.number} from ${company.legalName}`,
+      body: `Hello,\n\nPlease find attached ${title.toLowerCase()} ${d.number} for ${amount}${due}.\n\nThank you,\n${company.legalName}`,
+    };
   }
 
   customerBalances(): CustomerBalance[] {

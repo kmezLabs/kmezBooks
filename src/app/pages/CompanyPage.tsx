@@ -1,4 +1,4 @@
-// Company details (CO-1).
+// Company details (CO-1), and what invoices show about the company (AR-8).
 
 import { useEffect, useState } from 'react';
 import { normalizeDetails, validateDetails, type CompanyDetails } from '../../shared/company';
@@ -65,6 +65,46 @@ export function CompanyPage({ status }: { status: SessionStatus }) {
               setDraft({ ...draft, ...d });
             }}
           />
+          <h3>On invoices and estimates</h3>
+          <div className="fields">
+            <TextField
+              label="Email"
+              value={draft.email ?? ''}
+              onChange={(email) => {
+                setDone(false);
+                setDraft({ ...draft, email });
+              }}
+            />
+            <TextField
+              label="Phone"
+              value={draft.phone ?? ''}
+              onChange={(phone) => {
+                setDone(false);
+                setDraft({ ...draft, phone });
+              }}
+            />
+            <TextField
+              label="Website"
+              value={draft.website ?? ''}
+              onChange={(website) => {
+                setDone(false);
+                setDraft({ ...draft, website });
+              }}
+            />
+          </div>
+          <label>
+            Footer
+            <textarea
+              rows={2}
+              value={draft.invoiceFooter ?? ''}
+              placeholder="How to pay, a thank-you…"
+              onChange={(e) => {
+                setDone(false);
+                setDraft({ ...draft, invoiceFooter: e.target.value });
+              }}
+            />
+            <span className="hint">Printed at the foot of every invoice and estimate</span>
+          </label>
         </fieldset>
         <ErrorText>{error}</ErrorText>
         {!status.readOnly && (
@@ -81,11 +121,104 @@ export function CompanyPage({ status }: { status: SessionStatus }) {
           </div>
         )}
       </form>
+      <InvoiceLogo status={status} />
       <PostedEdits status={status} />
       <p className="muted">
         Company created {formatDateTime(saved.createdAt)} · id <code>{saved.id}</code>
       </p>
     </section>
+  );
+}
+
+/**
+ * A picture as a small PNG for invoices: at most 600 × 240 pixels, made
+ * smaller still until it's under 280 KB (the database allows 300 KB).
+ */
+async function toSmallPng(file: File): Promise<Uint8Array> {
+  const bitmap = await createImageBitmap(file);
+  let scale = Math.min(1, 600 / bitmap.width, 240 / bitmap.height);
+  for (;;) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('That picture could not be read.'))),
+        'image/png',
+      ),
+    );
+    const png = new Uint8Array(await blob.arrayBuffer());
+    if (png.byteLength <= 280_000) return png;
+    if (scale < 0.05) throw new Error('That picture is too large; try a smaller one.');
+    scale *= 0.7;
+  }
+}
+
+/** The logo on invoices (AR-8): saved as soon as it's chosen. */
+function InvoiceLogo({ status }: { status: SessionStatus }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const { busy, error, run } = useAction();
+
+  useEffect(() => {
+    let current: string | null = null;
+    void db.companyLogo().then((png) => {
+      if (!png) return setUrl(null);
+      current = URL.createObjectURL(
+        new Blob([png as Uint8Array<ArrayBuffer>], { type: 'image/png' }),
+      );
+      setUrl(current);
+    });
+    return () => {
+      if (current) URL.revokeObjectURL(current);
+    };
+  }, [status.companyId, version]);
+
+  return (
+    <>
+      <h3>Logo</h3>
+      <p className="muted">
+        Shown at the top of invoices and estimates. Any picture works; it's made small.
+      </p>
+      {url && <img className="logo-preview" src={url} alt="The company's logo" />}
+      {!status.readOnly && (
+        <div className="buttons">
+          <label className="file-add">
+            {url ? 'Change logo…' : 'Add logo…'}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                void run(async () => {
+                  await db.setCompanyLogo(await toSmallPng(file));
+                  setVersion((v) => v + 1);
+                });
+              }}
+            />
+          </label>
+          {url && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await db.setCompanyLogo(null);
+                  setVersion((v) => v + 1);
+                })
+              }
+            >
+              Remove logo
+            </button>
+          )}
+        </div>
+      )}
+      <ErrorText>{error}</ErrorText>
+    </>
   );
 }
 

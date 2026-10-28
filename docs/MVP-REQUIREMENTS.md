@@ -119,11 +119,11 @@ Owner's decision, Oct 28: none of the four companies uses invoices, estimates or
 | AR-1 | Customer records: name, contact, billing/shipping address, terms, notes | M |
 | AR-2 | Products and services list with name, rate and income account (no inventory tracking). Built Oct 28 (M9 slice 1) | S |
 | AR-3 | Create estimates and convert them to invoices. Built Oct 28 (M9 slice 1) | S |
-| AR-4 | Create invoices with line items, discounts, due date from terms; produce a PDF and hand it to your mail app to send (share sheet where Chrome supports it; otherwise download plus a prefilled email). Sending directly from the app needs a server and is out of scope Invoices with lines, discounts and due dates built Oct 28 (M9 slice 1); the PDF and sending are slice 2 | S |
+| AR-4 | Create invoices with line items, discounts, due date from terms; produce a PDF and hand it to your mail app to send (share sheet where Chrome supports it; otherwise download plus a prefilled email). Sending directly from the app needs a server and is out of scope. Built Oct 28 (M9 slices 1 and 2): Send… shares the PDF through the share sheet where Chrome offers one, or downloads it and opens the mail app with the email filled in | S |
 | AR-5 | Invoice statuses: draft, sent, partially paid, paid, overdue, void. Built Oct 28 (M9 slice 1): paid, partly paid and overdue are worked out from payments and the due date | S |
 | AR-6 | Sales receipts for paid-on-the-spot sales. Not planned (owner, Oct 28): Add Transaction on the Transactions page records a sale paid on the spot | S |
 | AR-7 | Record full or partial payments against one or more invoices; deposit to a bank or Undeposited Funds; each payment posts its income pro rata over the invoice's lines (GL-8). In the MVP a payment can't exceed what is still owed (customer credits are a future Receivables extra). Built Oct 28 (M9 slice 1) with deposits straight to a bank account (owner's choice); Undeposited Funds is not used | S |
-| AR-8 | Invoice template with each company's logo and details | S |
+| AR-8 | Invoice template with each company's logo and details. Built Oct 28 (M9 slice 2): logo, contact details and a footer, on the Company page | S |
 | AR-9 | Recurring invoices (created when the company is next opened, since nothing runs while the app is closed) | S |
 
 ### Vendors and bills (AP)

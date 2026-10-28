@@ -973,3 +973,102 @@ ul.drill li.check-ok span {
 ul.drill li.check-bad span {
   color: var(--error);
 }
+
+/* ---- two-line lists: Journal entries, General Ledger ---- */
+
+table.two-line td {
+  vertical-align: top;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* The wide column takes the room left, and long text ends in "…" */
+table.two-line .wide {
+  width: 100%;
+  max-width: 0;
+}
+
+table.two-line .line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+table.two-line .sub {
+  color: var(--muted);
+  font-size: 0.82rem;
+  min-height: 1.1em;
+}
+
+table.two-line tr.open td {
+  background: var(--panel);
+  border-bottom: none;
+}
+
+table.two-line tr.peek > td {
+  background: var(--panel);
+  padding: 4px 12px 10px;
+}
+
+.entry-peek-memo {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+
+table.lines-peek {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+table.lines-peek th,
+table.lines-peek td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+table.lines-peek .num {
+  text-align: right;
+}
+
+.entry-peek .buttons {
+  margin: 8px 0 0;
+}
+
+/* Fixed columns, so long memos and account names never push it wider */
+table.report-gl.two-line {
+  table-layout: fixed;
+}
+
+table.report-gl.two-line .wide {
+  max-width: none;
+}
+
+table.report-gl col.gl-date {
+  width: 7.5rem;
+}
+
+table.report-gl col.gl-account {
+  width: 22%;
+}
+
+table.report-gl col.gl-money {
+  width: 7rem;
+}
+
+table.report-gl.two-line td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+table.report-gl.two-line tr.section td,
+table.report-gl.two-line tr.subtotal td,
+table.report-gl.two-line tr.total td,
+table.report-gl.two-line tr.peek td {
+  overflow: visible;
+}
+
+table.report-gl tr.peek td {
+  white-space: normal;
+}

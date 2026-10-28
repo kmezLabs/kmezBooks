@@ -149,20 +149,39 @@ function feedAccount(db: Database, key: string): string | null {
 }
 
 /** Already imported (BK-6): the same bank id, date and amount; or, without a bank id, the same details. */
-function existing(db: Database, accountId: string, t: OfxTransaction): number | null {
-  const id =
+/**
+ * How many transactions like this one are already in the account. With a
+ * bank id: any with the same id, date and amount, from any import, this one
+ * included (the bank id names one transaction; the schema allows one).
+ * Without: earlier imports' ones with the same date, amount, payee, memo and
+ * check number.
+ */
+function alreadyImported(
+  db: Database,
+  accountId: string,
+  importId: string,
+  t: OfxTransaction,
+): number {
+  return Number(
     t.fitid !== null
       ? db.selectValue(
-          `SELECT id FROM bank_txn WHERE account_id = ? AND fitid = ? AND date = ? AND amount = ?`,
+          `SELECT count(*) FROM bank_txn WHERE account_id = ? AND fitid = ? AND date = ? AND amount = ?`,
           [accountId, t.fitid, t.date, t.amount],
         )
       : db.selectValue(
-          `SELECT id FROM bank_txn WHERE account_id = ? AND fitid IS NULL AND date = ? AND amount = ?
-             AND payee IS ? AND memo IS ? AND check_no IS ?`,
-          [accountId, t.date, t.amount, t.name, t.memo, t.checkNo],
-        );
-  return id === undefined ? null : Number(id);
+          `SELECT count(*) FROM bank_txn WHERE account_id = ? AND import_id <> ? AND fitid IS NULL
+             AND date = ? AND amount = ? AND payee IS ? AND memo IS ? AND check_no IS ?`,
+          [accountId, importId, t.date, t.amount, t.name, t.memo, t.checkNo],
+        ),
+  );
 }
+
+const sameKey = (t: OfxTransaction) =>
+  JSON.stringify(
+    t.fitid !== null
+      ? [t.fitid, t.date, t.amount]
+      : [null, t.date, t.amount, t.name, t.memo, t.checkNo],
+  );
 
 /**
  * An earlier transaction from another file with the same bank id but a
@@ -222,8 +241,15 @@ export function importStatements(
       let duplicates = 0;
       let flagged = 0;
       let count = 0;
+      // Without bank ids, a file can hold the same transaction twice for real
+      // (two identical charges on a day): the n-th one is only a duplicate if
+      // earlier imports already brought in n of them (BK-6)
+      const seen = new Map<string, number>();
       for (const t of p.statement.transactions) {
-        if (existing(db, accountId, t) !== null) {
+        const key = sameKey(t);
+        const nth = (seen.get(key) ?? 0) + 1;
+        seen.set(key, nth);
+        if (alreadyImported(db, accountId, importId, t) >= (t.fitid !== null ? 1 : nth)) {
           duplicates++;
           continue;
         }

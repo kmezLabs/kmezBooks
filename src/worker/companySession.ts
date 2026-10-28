@@ -141,6 +141,7 @@ import { recordEvent } from './audit';
 import {
   backupDue,
   backupOverdue,
+  companyBackupDir,
   defaultBackupDir,
   listBackups,
   pruneBackups,
@@ -521,8 +522,15 @@ export class CompanySession {
 
   // ---- backups (DF-9, DF-10) ----
 
+  /**
+   * Where this company's backups go: its own folder inside the folder the
+   * owner chose, or backups/ in the company folder.
+   */
   private async backupDir(): Promise<FileSystemDirectoryHandle> {
-    return this.customBackupDir ?? defaultBackupDir(this.open_().dir);
+    const c = this.open_();
+    return this.customBackupDir
+      ? companyBackupDir(this.customBackupDir, c.id, readDetails(c.db).legalName)
+      : defaultBackupDir(c.dir);
   }
 
   private async writeBackupBytes(bytes: Uint8Array<ArrayBuffer>, label?: string) {
@@ -576,7 +584,7 @@ export class CompanySession {
       exportedAt,
       schema: Number(c.db.selectValue('PRAGMA user_version')),
     });
-    return { fileName: `${safeName(company)} export ${exportedAt.slice(0, 10)}.zip`, bytes };
+    return { fileName: `${safeName(company)} export ${localDate(this.now())}.zip`, bytes };
   }
 
   /** The company database, decrypted, as a SQLite file; recorded in the audit log. */
@@ -588,7 +596,7 @@ export class CompanySession {
     }
     const company = readDetails(c.db).legalName;
     return {
-      fileName: `${safeName(company)} ${new Date().toISOString().slice(0, 10)}.sqlite`,
+      fileName: `${safeName(company)} ${localDate(this.now())}.sqlite`,
       bytes: serializeDatabase(c.sqlite3, c.db),
     };
   }
@@ -1390,6 +1398,8 @@ export class CompanySession {
     this.lockLost = false;
     this.error = null;
     this.recurringNotice = null;
+    // The backup folder belongs to this company; the next one sets its own
+    this.customBackupDir = null;
     this.emit();
   }
 }

@@ -4,6 +4,7 @@ import type { Database } from '../worker/sqlite';
 import { trialBalance } from './balances';
 import { deleteEntry, voidEntry } from './postEntry';
 import {
+  CATCH_UP_LIMIT,
   createRecurring,
   deleteRecurring,
   firstDate,
@@ -86,6 +87,24 @@ describe('recurring entries: posting (GL-5)', () => {
     expect(row).toEqual({ source_type: RECURRING_SOURCE, source_id: id, memo: 'Depreciation' });
   });
 
+  it('says so when more dates were due than one go posts', () => {
+    const id = createRecurring(db, depreciation({ startDate: '2020-01-01' }));
+    const r = postDue(db, '2026-01-15');
+    expect(r.posted).toHaveLength(CATCH_UP_LIMIT);
+    expect(r.waiting).toEqual([
+      expect.objectContaining({
+        recurringId: id,
+        date: '2023-01-01',
+        reason: expect.stringMatching(/Post due now/),
+      }),
+    ]);
+    expect(postDue(db, '2026-01-15').posted.at(-1)!.date).toBe('2025-12-01');
+    expect(postDue(db, '2026-01-15')).toMatchObject({
+      posted: [{ date: '2026-01-01' }],
+      waiting: [],
+    });
+  });
+
   it('stops at the end date, and skips inactive templates', () => {
     const id = createRecurring(db, depreciation({ endDate: '2026-02-15' }));
     expect(postDue(db, '2026-12-31').posted).toHaveLength(2);
@@ -121,7 +140,7 @@ describe('recurring entries: posting (GL-5)', () => {
     });
     expect(postDue(db, '2026-01-05').waiting[0]).toMatchObject({
       recurringId: id,
-      reason: expect.stringMatching(/inactive/i),
+      reason: 'this account is inactive',
     });
     db.exec({
       sql: 'UPDATE account SET active = 1 WHERE id = ?',

@@ -1,10 +1,13 @@
 // Backups: list, back up now, where they go, and restore (DF-9, DF-10).
+// Export: all data as an unencrypted .zip, or a decrypted SQLite copy
+// (Portability, M8).
 
 import { useEffect, useState } from 'react';
 import type { BackupFile } from '../../worker/backups';
 import type { BackupPreview } from '../../worker/company';
 import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
+import { download } from '../export/exportReport';
 import { ensureReadWrite, getBackupFolder, pickFolder, setBackupFolder } from '../recentFolders';
 import { Dialog, ErrorText, TextField, formatBytes, formatDateTime, useAction } from '../ui';
 
@@ -222,6 +225,55 @@ export function BackupsPage({ status }: { status: SessionStatus }) {
           }}
         />
       )}
+      <ExportSection />
     </section>
+  );
+}
+
+function ExportSection() {
+  const { busy, error, run } = useAction();
+  return (
+    <>
+      <h3>Export</h3>
+      <p className="muted">
+        Take everything out of EasyBooks, to keep or to open in other software. Unlike backups,{' '}
+        <strong>exports are not encrypted</strong>: anyone with the file can read these books.
+      </p>
+      <div className="buttons">
+        <button
+          className="secondary"
+          disabled={busy}
+          title="Every table as CSV and JSON, a journal with dollar amounts, and the attachments"
+          onClick={() =>
+            void run(async () => {
+              const { fileName, bytes } = await db.exportData();
+              download(fileName, bytes as Uint8Array<ArrayBuffer>, 'application/zip');
+            })
+          }
+        >
+          {busy ? 'Exporting…' : 'Export all data (.zip)'}
+        </button>
+        <button
+          className="secondary"
+          disabled={busy}
+          title="The company database, decrypted, for any SQLite tool"
+          onClick={() =>
+            void run(async () => {
+              if (
+                !confirm(
+                  'Save a decrypted copy of the company database? Anyone with the file can read all of these books.',
+                )
+              )
+                return;
+              const { fileName, bytes } = await db.sqliteCopy();
+              download(fileName, bytes as Uint8Array<ArrayBuffer>, 'application/vnd.sqlite3');
+            })
+          }
+        >
+          Decrypted database copy (.sqlite)
+        </button>
+      </div>
+      <ErrorText>{error}</ErrorText>
+    </>
   );
 }

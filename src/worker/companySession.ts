@@ -147,6 +147,8 @@ import {
   type NewCompany,
 } from './companyData';
 import { readCompanyFile, writeCompanyFile } from './companyFolder';
+import { exportArchive, safeName, type ExportFile } from './exportCompany';
+import { serializeDatabase } from './sqlite';
 import {
   CompanyLockedError,
   fromFolderAccess,
@@ -506,6 +508,61 @@ export class CompanySession {
   private async backupCurrentFile(label?: string) {
     const { bytes } = await readCompanyFile(this.open_().dir);
     await this.writeBackupBytes(bytes, label);
+  }
+
+  // ---- export (Portability, M8) ----
+
+  /** Everything in the company, unencrypted, as a .zip; recorded in the audit log. */
+  async exportData(): Promise<{ fileName: string; bytes: Uint8Array }> {
+    const c = this.open_();
+    const files: ExportFile[] = [];
+    const missing: string[] = [];
+    const used = new Set<string>();
+    const rows = c.db.selectObjects(
+      `SELECT id, entity, entity_id, file_name FROM attachment ORDER BY added_at, id`,
+    );
+    for (const r of rows) {
+      try {
+        const a = await openAttachment(c, String(r.id));
+        const folder = `attachments/${safeName(`${String(r.entity)} ${String(r.entity_id)}`)}`;
+        let path = `${folder}/${safeName(a.fileName)}`;
+        for (let n = 2; used.has(path.toLowerCase()); n++) {
+          path = `${folder}/${n} ${safeName(a.fileName)}`;
+        }
+        used.add(path.toLowerCase());
+        files.push({ path, bytes: a.bytes });
+      } catch (e) {
+        missing.push(
+          `${String(r.file_name)} (${String(r.entity)} ${String(r.entity_id)}): ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+    const company = readDetails(c.db).legalName;
+    const exportedAt = new Date().toISOString();
+    if (!c.readOnly && !this.lockLost) {
+      recordEvent(c.db, 'export', `all data, ${files.length} attachments`);
+      this.touch();
+    }
+    const bytes = exportArchive(c.db, files, missing, {
+      company,
+      exportedAt,
+      schema: Number(c.db.selectValue('PRAGMA user_version')),
+    });
+    return { fileName: `${safeName(company)} export ${exportedAt.slice(0, 10)}.zip`, bytes };
+  }
+
+  /** The company database, decrypted, as a SQLite file; recorded in the audit log. */
+  sqliteCopy(): { fileName: string; bytes: Uint8Array } {
+    const c = this.open_();
+    if (!c.readOnly && !this.lockLost) {
+      recordEvent(c.db, 'export', 'decrypted database copy');
+      this.touch();
+    }
+    const company = readDetails(c.db).legalName;
+    return {
+      fileName: `${safeName(company)} ${new Date().toISOString().slice(0, 10)}.sqlite`,
+      bytes: serializeDatabase(c.sqlite3, c.db),
+    };
   }
 
   async backupNow(): Promise<void> {

@@ -33,6 +33,7 @@ import {
 } from '../ledger/postEntry';
 import {
   createPayee,
+  defaultCategoryFor,
   deletePayee,
   getPayee,
   listPayees,
@@ -842,6 +843,10 @@ export class CompanySession {
 
   payeeNames(): string[] {
     return payeeNames(this.open_().db);
+  }
+
+  payeeDefaultCategory(name: string): string | null {
+    return defaultCategoryFor(this.open_().db, name);
   }
 
   createPayee(input: PayeeInput): string {

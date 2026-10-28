@@ -408,6 +408,8 @@ interface LineDraft {
   memo: string;
 }
 
+const blankLine = (): LineDraft => ({ accountId: '', amount: '', memo: '' });
+
 /** Quick changes to one entry: the income or expense form, void, delete. */
 function EntryEditor(props: {
   row: RegisterRow;
@@ -632,7 +634,8 @@ function CategoryLines(props: {
       </table>
       <button
         className="link"
-        onClick={() => props.onChange([...props.lines, { accountId: '', amount: '', memo: '' }])}
+        type="button"
+        onClick={() => props.onChange([...props.lines, blankLine()])}
       >
         Split: add a line
       </button>
@@ -640,7 +643,12 @@ function CategoryLines(props: {
   );
 }
 
-/** Add an income or expense: the Add Transaction dialog. */
+/**
+ * Add an expense or a deposit: the Add Transaction dialog (EX-1 to EX-3).
+ * Payee, ref or check number, one category or a split over several, and
+ * receipts attached (EX-2). A vendor's default category (AP-1) fills in the
+ * category of an expense when the payee is chosen.
+ */
 function QuickAdd(props: {
   accounts: AccountRow[];
   defaultMoneyAccount: string;
@@ -649,29 +657,53 @@ function QuickAdd(props: {
 }) {
   const [kind, setKind] = useState<'expense' | 'income'>('expense');
   const [date, setDate] = useState(todayIso());
+  const [ref, setRef] = useState('');
   const [payee, setPayee] = useState('');
   const [money, setMoney] = useState(props.defaultMoneyAccount);
-  const [category, setCategory] = useState('');
-  const [amount, setAmount] = useState('');
+  const [lines, setLines] = useState<LineDraft[]>([blankLine()]);
   const [memo, setMemo] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
   const { attempt, busy, error, dialog } = useClosedPeriodOverride();
   const exclude = new Set(money ? [money] : []);
   const categories = props.accounts.filter(
     (a) => a.type === (kind === 'expense' ? 'expense' : 'income'),
   );
   const others = props.accounts.filter((a) => a.type !== 'asset' && a.type !== 'liability');
+  const set = (i: number, c: Partial<LineDraft>) =>
+    setLines(lines.map((l, n) => (n === i ? { ...l, ...c } : l)));
+  const total = lines.reduce((t, l) => t + cents(l.amount), 0);
+  const split = lines.length > 1;
+
+  const choosePayee = (name: string) => {
+    setPayee(name);
+    if (kind !== 'expense') return;
+    void db.payeeDefaultCategory(name).then((category) => {
+      // Only into an empty category, never over one already chosen
+      if (!category) return;
+      setLines((current) =>
+        current.length === 1 && !current[0]!.accountId
+          ? [{ ...current[0]!, accountId: category }]
+          : current,
+      );
+    });
+  };
 
   const add = () =>
     attempt(async (passphrase) => {
-      await db.addRegisterEntry(
+      const id = await db.addRegisterEntry(
         {
           kind,
           moneyAccountId: money,
-          lines: [{ accountId: category, amount: cents(amount), memo: null }],
+          lines: lines.map((l) => ({
+            accountId: l.accountId,
+            amount: cents(l.amount),
+            memo: l.memo.trim() || null,
+          })),
         },
-        { date, name: payee, memo },
+        { date, ref, name: payee, memo },
         passphrase,
       );
+      for (const f of files) await db.addAttachment('journal_entry', String(id), f);
       props.onAdded();
     });
 
@@ -692,7 +724,7 @@ function QuickAdd(props: {
             aria-pressed={k === kind}
             onClick={() => {
               setKind(k);
-              setCategory('');
+              setLines(lines.map((l) => ({ ...l, accountId: '' })));
             }}
           >
             {k === 'expense' ? 'Expense' : 'Income'}
@@ -704,11 +736,15 @@ function QuickAdd(props: {
           Date
           <input type="date" value={date} required onChange={(e) => setDate(e.target.value)} />
         </label>
+        <label className="short">
+          {kind === 'expense' ? 'Ref / check no.' : 'Ref'}
+          <input value={ref} onChange={(e) => setRef(e.target.value)} />
+        </label>
         <label>
           Payee
           <PayeeField
             value={payee}
-            onChange={setPayee}
+            onChange={choosePayee}
             placeholder={kind === 'expense' ? 'Paid to' : 'Received from'}
           />
         </label>
@@ -718,25 +754,67 @@ function QuickAdd(props: {
           value={money}
           onChange={setMoney}
         />
-        <AccountSelect
-          label="Category"
-          accounts={categories.length ? categories : others}
-          value={category}
-          exclude={exclude}
-          onChange={setCategory}
-        />
-        <label className="short">
-          Amount
-          <MoneyInput ariaLabel="Amount" value={amount} onChange={setAmount} />
-        </label>
+      </div>
+      {split ? (
+        <>
+          <CategoryLines
+            accounts={categories.length ? categories : others}
+            lines={lines}
+            onChange={setLines}
+            set={set}
+            exclude={money}
+          />
+          <p className="muted small">Total {formatMoney(total)}</p>
+        </>
+      ) : (
+        <div className="fields">
+          <AccountSelect
+            label="Category"
+            accounts={categories.length ? categories : others}
+            value={lines[0]!.accountId}
+            exclude={exclude}
+            onChange={(accountId) => set(0, { accountId })}
+          />
+          <label className="short">
+            Amount
+            <MoneyInput
+              ariaLabel="Amount"
+              value={lines[0]!.amount}
+              onChange={(amount) => set(0, { amount })}
+            />
+          </label>
+          <button
+            type="button"
+            className="link split-link"
+            title="Spread the amount over several categories"
+            onClick={() => setLines([...lines, blankLine()])}
+          >
+            Split
+          </button>
+        </div>
+      )}
+      <div className="fields">
         <label>
           Memo
           <input value={memo} onChange={(e) => setMemo(e.target.value)} />
         </label>
+        <label>
+          {kind === 'expense' ? 'Receipts' : 'Attachments'}
+          <input
+            type="file"
+            multiple
+            accept="image/*,application/pdf"
+            onChange={(e) => setFiles([...(e.target.files ?? [])])}
+          />
+          <span className="hint">Images or PDFs, stored encrypted in the company folder</span>
+        </label>
       </div>
       <ErrorText>{error}</ErrorText>
       <div className="buttons">
-        <button type="submit" disabled={busy || !money || !category || cents(amount) <= 0}>
+        <button
+          type="submit"
+          disabled={busy || !money || lines.some((l) => !l.accountId || cents(l.amount) <= 0)}
+        >
           Add {kind}
         </button>
         <button type="button" className="secondary" disabled={busy} onClick={props.onCancel}>

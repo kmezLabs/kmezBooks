@@ -6,6 +6,7 @@ import { trialBalance } from './balances';
 import {
   blankPayee,
   createPayee,
+  defaultCategoryFor,
   deletePayee,
   getPayee,
   listPayees,
@@ -148,6 +149,17 @@ describe('payees (GL-11)', () => {
     expect(Number(db.selectValue(`SELECT count(*) FROM audit_event WHERE action = 'payee'`))).toBe(
       1,
     );
+  });
+
+  it('gives a vendor’s default category for a typed name, while that account is active (AP-1)', () => {
+    const utilities = accountId(db, 'Utilities');
+    createPayee(db, { ...blankPayee('Power Co'), isVendor: true, defaultAccountId: utilities });
+    createPayee(db, blankPayee('Diner'));
+    expect(defaultCategoryFor(db, ' power  co ')).toBe(utilities);
+    expect(defaultCategoryFor(db, 'Diner')).toBeNull();
+    expect(defaultCategoryFor(db, 'Nobody')).toBeNull();
+    db.exec({ sql: 'UPDATE account SET active = 0 WHERE id = ?', bind: [utilities] });
+    expect(defaultCategoryFor(db, 'Power Co')).toBeNull();
   });
 
   it('deletes only an unused payee', () => {

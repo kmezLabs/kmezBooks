@@ -465,7 +465,12 @@ function SuggestionText({ t, names }: { t: QueueItem; names: Map<string, string>
           {names.get(t.suggestion.categoryId) ?? '?'}
           <span className="muted">
             {' '}
-            · {t.suggestion.source === 'rule' ? `rule: ${t.suggestion.ruleName}` : 'like last time'}
+            ·{' '}
+            {t.suggestion.source === 'rule'
+              ? `rule: ${t.suggestion.ruleName}`
+              : t.suggestion.source === 'vendor'
+                ? `${t.suggestion.payee}'s default`
+                : 'like last time'}
           </span>
         </>
       ) : (

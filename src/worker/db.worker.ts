@@ -86,6 +86,7 @@ const api = {
     session.payees(opts),
   payee: (id: string) => session.payee(id),
   payeeNames: () => session.payeeNames(),
+  payeeDefaultCategory: (name: string) => session.payeeDefaultCategory(name),
   createPayee: (input: PayeeInput) => session.createPayee(input),
   updatePayee: (id: string, input: PayeeInput) => session.updatePayee(id, input),
   mergePayee: (fromId: string, intoId: string) => session.mergePayee(fromId, intoId),

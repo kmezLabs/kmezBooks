@@ -1091,3 +1091,25 @@ table.report-gl tr.peek td {
 .combo-list li.combo-action.active {
   color: var(--accent-fg);
 }
+
+/* ---- sales documents (AR-3, AR-4) ---- */
+
+fieldset.plain {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+table.doc-lines td.qty {
+  width: 5.5rem;
+}
+
+table.doc-lines td:nth-child(4),
+table.doc-lines td:nth-child(5) {
+  width: 8rem;
+}
+
+.badge.muted {
+  opacity: 0.7;
+}

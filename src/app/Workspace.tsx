@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { BankingPage } from '../modules/banking/BankingPage';
 import { ReconcilePage } from '../modules/banking/ReconcilePage';
 import { RulesPage } from '../modules/banking/RulesPage';
+import { ItemsPage } from '../modules/sales/ItemsPage';
+import { SalesDocsPage } from '../modules/sales/SalesDocsPage';
 import { MigrationPage } from '../modules/migration/MigrationPage';
 import type { Module } from '../shared/company';
 import type { SessionStatus } from '../worker/companySession';
@@ -34,6 +36,9 @@ const PAGES = {
   payees: 'Payees',
   reports: 'Reports',
   close: 'Close books',
+  invoices: 'Invoices',
+  estimates: 'Estimates',
+  items: 'Products & services',
   banking: 'Bank transactions',
   rules: 'Bank rules',
   reconcile: 'Reconcile',
@@ -52,6 +57,7 @@ const NAV: { group: string; pages: Page[] }[] = [
     group: 'Books',
     pages: ['register', 'journal', 'recurring', 'accounts', 'payees', 'reports', 'close'],
   },
+  { group: 'Sales', pages: ['invoices', 'estimates', 'items'] },
   { group: 'Banking', pages: ['banking', 'rules', 'reconcile'] },
   { group: 'Modules', pages: ['migration'] },
   { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
@@ -60,6 +66,9 @@ const NAV: { group: string; pages: Page[] }[] = [
 
 /** Pages that belong to a module, shown only while it's on for the company (CO-4). */
 const MODULE_OF: Partial<Record<Page, Module>> = {
+  invoices: 'sales',
+  estimates: 'sales',
+  items: 'sales',
   banking: 'banking',
   rules: 'banking',
   reconcile: 'banking',
@@ -368,6 +377,9 @@ export function Workspace({ status }: { status: SessionStatus }) {
             />
           )}
           {page === 'close' && <CloseBooksPage status={status} />}
+          {page === 'invoices' && <SalesDocsPage key={visit} status={status} kind="invoice" />}
+          {page === 'estimates' && <SalesDocsPage key={visit} status={status} kind="estimate" />}
+          {page === 'items' && <ItemsPage status={status} />}
           {page === 'banking' && <BankingPage status={status} />}
           {page === 'rules' && <RulesPage status={status} />}
           {page === 'reconcile' && <ReconcilePage status={status} />}

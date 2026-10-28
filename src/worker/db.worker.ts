@@ -5,6 +5,9 @@ import * as Comlink from 'comlink';
 import type { EntryQuery } from '../ledger/entries';
 import type { PayeeInput, PayeeKind } from '../ledger/payees';
 import type { RecurringInput } from '../ledger/recurring';
+import type { DocInput, DocKind, DocQuery } from '../modules/sales/documents';
+import type { ItemInput } from '../modules/sales/items';
+import type { PaymentInput } from '../modules/sales/payments';
 import type { EntryChange, EntryInput } from '../ledger/postEntry';
 import type { RegisterQuery, SimpleEntry } from '../ledger/register';
 import type { CategorizeInput, QueueView } from '../modules/banking/review';
@@ -83,6 +86,27 @@ const api = {
   ) => session.postJournalEntry(input, overridePassphrase),
   voidEntry: (id: number, reason: string | null, overridePassphrase?: string) =>
     session.voidEntry(id, reason, overridePassphrase),
+  items: (includeInactive?: boolean) => session.items(includeInactive),
+  createItem: (input: ItemInput) => session.createItem(input),
+  updateItem: (id: string, input: ItemInput) => session.updateItem(id, input),
+  salesDocs: (query: DocQuery) => session.salesDocs(query),
+  salesDoc: (id: string) => session.salesDoc(id),
+  nextDocNumber: (kind: DocKind) => session.nextDocNumber(kind),
+  createSalesDoc: (input: DocInput) => session.createSalesDoc(input),
+  updateSalesDoc: (id: string, input: DocInput) => session.updateSalesDoc(id, input),
+  voidSalesDoc: (id: string) => session.voidSalesDoc(id),
+  deleteSalesDoc: (id: string) => session.deleteSalesDoc(id),
+  markDocSent: (id: string) => session.markDocSent(id),
+  setEstimateStatus: (id: string, status: 'accepted' | 'declined' | 'sent') =>
+    session.setEstimateStatus(id, status),
+  convertEstimate: (id: string, date: string) => session.convertEstimate(id, date),
+  customerBalances: () => session.customerBalances(),
+  payments: (query?: { customerId?: string | null; docId?: string | null }) =>
+    session.payments(query),
+  receivePayment: (input: PaymentInput, overridePassphrase?: string) =>
+    session.receivePayment(input, overridePassphrase),
+  voidPayment: (id: string, reason: string | null, overridePassphrase?: string) =>
+    session.voidPayment(id, reason, overridePassphrase),
   recurringList: () => session.recurringList(),
   recurring: (id: string) => session.recurring(id),
   createRecurring: (input: RecurringInput) => session.createRecurring(input),

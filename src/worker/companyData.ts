@@ -113,7 +113,8 @@ export function initCompany(
       sql: `INSERT INTO app_user (id, company_id, name, role) VALUES (?, ?, ?, 'owner')`,
       bind: [ids.ownerId, ids.companyId, details.ownerName.trim()],
     });
-    for (const m of MODULES) setModule(db, m, true);
+    // Invoices and bills are opted into per company (CO-4); the rest start on
+    for (const m of MODULES) setModule(db, m, m !== 'sales' && m !== 'bills');
     // GL-2: the standard chart, unless the company will be filled by the QuickBooks import
     if (details.standardChart ?? true) seedDefaultChart(db);
     recordEvent(db, 'create_company');

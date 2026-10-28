@@ -32,6 +32,9 @@ export interface EntryInput {
   lines: EntryLineInput[];
 }
 
+/** Entries that record a payment on a document (AR-7, AP-3): changed only through it. */
+const DOCUMENT_PAYMENTS = new Set(['invoice_payment', 'bill_payment']);
+
 export interface PostOptions {
   /** The owner confirmed a change in a closed period (PC-2); logged by the schema. */
   closingOverride?: boolean;
@@ -257,6 +260,12 @@ export function correctEntry(
       'SELECT source_type, source_id FROM journal_entry WHERE id = ?',
       [id],
     )[0]!;
+    // A document's payment keeps its link to the document: void the payment instead
+    if (DOCUMENT_PAYMENTS.has(String(source.source_type))) {
+      throw new LedgerRuleError(
+        'This entry is a payment on an invoice or bill; void the payment there and record it again.',
+      );
+    }
     const links = bankLinks(db, id);
     voidEntry(db, id, 'Corrected', opts);
     const newId = postEntry(

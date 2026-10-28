@@ -14,6 +14,7 @@ export const SOURCES: Record<string, string> = {
   qbo_migration: 'From QuickBooks',
   bank: 'From bank review',
   register: 'Quick entry',
+  recurring: 'Recurring entry',
 };
 
 export function EntryPeek(props: { id: number; onOpen: () => void; lastSavedAt?: string | null }) {

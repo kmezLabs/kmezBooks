@@ -17,16 +17,19 @@ import { CompanyPage } from './pages/CompanyPage';
 import { JournalPage } from './pages/JournalPage';
 import { M1LabPage } from './pages/M1LabPage';
 import { PayeesPage } from './pages/PayeesPage';
+import { RecurringPage, type RecurringDraft } from './pages/RecurringPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ModulesPage } from './pages/ModulesPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { ensureReadWrite, pickFolder, rememberFolder } from './recentFolders';
+import { formatDate } from './ledgerUi';
 import { ErrorText, formatDateTime, formatTime, useAction } from './ui';
 
 const PAGES = {
   register: 'Transactions',
   journal: 'Journal entries',
+  recurring: 'Recurring entries',
   accounts: 'Accounts',
   payees: 'Payees',
   reports: 'Reports',
@@ -45,7 +48,10 @@ const PAGES = {
 type Page = keyof typeof PAGES;
 
 const NAV: { group: string; pages: Page[] }[] = [
-  { group: 'Books', pages: ['register', 'journal', 'accounts', 'payees', 'reports', 'close'] },
+  {
+    group: 'Books',
+    pages: ['register', 'journal', 'recurring', 'accounts', 'payees', 'reports', 'close'],
+  },
   { group: 'Banking', pages: ['banking', 'rules', 'reconcile'] },
   { group: 'Modules', pages: ['migration'] },
   { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
@@ -73,7 +79,15 @@ function SaveState({ status }: { status: SessionStatus }) {
 }
 
 /** Problems the owner has to act on, with the actions that fix them. */
-function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () => void }) {
+function Problems({
+  status,
+  onBackups,
+  onRecurring,
+}: {
+  status: SessionStatus;
+  onBackups: () => void;
+  onRecurring: () => void;
+}) {
   const { busy, error, run } = useAction();
   const err = status.error;
   const cannotSaveHere =
@@ -139,6 +153,7 @@ function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () 
           Changes can't be made here.
         </div>
       )}
+      {status.recurring && <RecurringNotice status={status} onRecurring={onRecurring} />}
       {status.backupOverdue && (
         <div className="banner warn-banner">
           {status.latestBackupAt
@@ -153,10 +168,51 @@ function Problems({ status, onBackups }: { status: SessionStatus; onBackups: () 
   );
 }
 
+/**
+ * What the recurring entries did when the company opened (GL-5): posted
+ * automatically, with this to say so, and any that are waiting and why.
+ */
+function RecurringNotice({
+  status,
+  onRecurring,
+}: {
+  status: SessionStatus;
+  onRecurring: () => void;
+}) {
+  const r = status.recurring!;
+  const byName = new Map<string, string[]>();
+  for (const p of r.posted) byName.set(p.name, [...(byName.get(p.name) ?? []), formatDate(p.date)]);
+  return (
+    <div className={`banner ${r.waiting.length ? 'warn-banner' : 'notice-banner'}`} role="status">
+      {r.posted.length > 0 && (
+        <p>
+          Posted {r.posted.length} recurring {r.posted.length === 1 ? 'entry' : 'entries'}:{' '}
+          {[...byName].map(([name, dates]) => `${name} (${dates.join(', ')})`).join('; ')}.
+        </p>
+      )}
+      {r.waiting.map((w) => (
+        <p key={w.recurringId}>
+          {w.name} for {formatDate(w.date)} is waiting: {w.reason}.
+        </p>
+      ))}
+      <div className="buttons">
+        <button className="link" onClick={onRecurring}>
+          Recurring entries
+        </button>
+        <button className="link" onClick={() => void db.dismissRecurring()}>
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Workspace({ status }: { status: SessionStatus }) {
   // Transactions is the home panel (GL-9)
   const [page, setPage] = useState<Page>('register');
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
+  // A recurring entry being started from a journal entry (GL-5)
+  const [recurringDraft, setRecurringDraft] = useState<RecurringDraft | null>(null);
   // The register narrowed to one payee, from the Payees page (GL-11)
   const [payeeFilter, setPayeeFilter] = useState<{ id: string; name: string } | null>(null);
   // An entry opened from a report or the register, so its Back button returns there
@@ -222,7 +278,11 @@ export function Workspace({ status }: { status: SessionStatus }) {
           ))}
         </nav>
         <main>
-          <Problems status={status} onBackups={() => go('backups')} />
+          <Problems
+            status={status}
+            onBackups={() => go('backups')}
+            onRecurring={() => go('recurring')}
+          />
           {page === 'journal' && (
             <JournalPage
               // Remount when the filter or opened entry changes, so the page starts over
@@ -230,6 +290,14 @@ export function Workspace({ status }: { status: SessionStatus }) {
               status={status}
               accountFilter={accountFilter}
               onClearAccountFilter={() => setAccountFilter(null)}
+              onMakeRecurring={
+                status.readOnly
+                  ? undefined
+                  : (draft) => {
+                      setRecurringDraft(draft);
+                      setPage('recurring');
+                    }
+              }
               initialEntryId={openEntry}
               backLabel={
                 openEntry
@@ -282,6 +350,14 @@ export function Workspace({ status }: { status: SessionStatus }) {
               }}
             />
           </div>
+          {page === 'recurring' && (
+            <RecurringPage
+              key={visit}
+              status={status}
+              draft={recurringDraft}
+              onDraftUsed={() => setRecurringDraft(null)}
+            />
+          )}
           {page === 'payees' && (
             <PayeesPage
               status={status}

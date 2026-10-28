@@ -72,6 +72,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 6. **M6** `BK`: `.qbo` import, duplicate detection, review queue, rules, reconciliation (built; tried on real bank statements; card statements still to try)
 7. **M7** (slim, owner decision 2026-10-28): payees with customer and vendor records (`GL-11`, `AR-1`, `AP-1`), then expenses (`EX`). Invoices, estimates and bills are S until a company needs them (done)
 8. **M8** Offline polish, export, restore drill, owner guide (`docs/OWNER-GUIDE.md`) (built 2026-10-28)
+9. After the MVP, at the owner's request: recurring journal entries (`GL-5`, for depreciation and amortization; built 2026-10-28)
 
 ## Conversation history (how we got here)
 

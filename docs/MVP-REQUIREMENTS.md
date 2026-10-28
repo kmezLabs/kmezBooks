@@ -91,13 +91,14 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | GL-2 | Seed a default US small-business chart of accounts on company creation | M |
 | GL-3 | Every transaction posts balanced debit/credit lines to the ledger; unbalanced postings are rejected | M |
 | GL-4 | Manual journal entries with memo, date and attachments | M |
-| GL-5 | Recurring and reversing journal entries | S |
+| GL-5 | Recurring journal entries (monthly, quarterly or yearly on a day of the month, with an optional end), such as depreciation and amortization. Nothing runs while the app is closed: what came due posts when the company is opened, and a notice says what posted. A due date in a closed period, or one that can't post, waits with the reason, to post with the passphrase or skip. Owner's decision, Oct 28: was S, with reversing entries now GL-12 | M |
 | GL-6 | By default posted entries are never changed or deleted; corrections are voids or adjusting entries (the Edit buttons void and enter the corrected copy in one step), with full audit history. A per-company setting, which needs the passphrase to turn on, allows changing posted entries in place and deleting them. Closed periods, reconciled entries (BK-8) and QuickBooks history (no delete) stay protected, and the audit log keeps every version | M |
 | GL-7 | Inactivate (not delete) accounts that have history | M |
 | GL-9 | Transactions register, the home panel when a company opens: every entry (or every income and expense) in date order, oldest first and opening at the latest; filters at the top (defaults: this year to date, all transactions, oldest first); with one account chosen, that account's payments, deposits and balance after each transaction, and the account is remembered per company; income, expense and net totals and an Add Transaction button (expense or income dialog) at the bottom; edit, void and (where GL-6 allows) delete from the list | M |
 | GL-8 | Cash-basis ledger: only cash movements post. Invoices and bills don't post when created; a payment against one posts on its date, spread pro rata over the document's lines, to the cent, so the parts always add up exactly to the payment. A/R and A/P accounts take no new postings; they exist only for migrated history | M |
 | GL-10 | Re-enter a voided entry: a new entry filled in from it (date, ref, payee, memo, lines), checked and posted like any other; the void stays on record. Added at the owner's request, Oct 28 | M |
 | GL-11 | Payees: one list of the names on transactions, unique ignoring case, each a customer, a vendor, both, or just a name. Name fields suggest payees and a new name adds one. Rename a payee on every transaction, merge two payees into one, make one inactive, and see its transactions in the register. Added at the owner's request, Oct 28 | M |
+| GL-12 | Reversing journal entries (split from GL-5, Oct 28) | S |
 
 ### Period close (PC)
 
@@ -250,6 +251,7 @@ The ledger tables are the only source of truth for the financial statements; inv
 | JournalEntry | id, company, date, ref, name (payee, customer or vendor), source type, source id, memo, status (draft/posted/void) | GL |
 | JournalLine | entry id, account, debit, credit (integer cents), memo, name (when the line names someone else), source document line (optional, for payments) | GL |
 | Payee (customer, vendor) | one list of names (GL-11), flagged customer and/or vendor, with contact details, terms, default category and 1099 flag (imported from QuickBooks in M5); entries and lines link to their payee | GL / AR / AP |
+| RecurringEntry, RecurringRun | a template's schedule, payee, memo and lines; one run per template and date, with the entry it posted (GL-5) | GL |
 | QboImportRun, QboEntry | one row per QuickBooks import (status, summary, tie-out); per migrated entry its QuickBooks transaction type and source file and row | MG |
 | Item | name, rate, income or expense account | AR |
 | Invoice, Estimate, SalesReceipt | header, lines, totals, status | AR |

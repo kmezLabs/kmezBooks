@@ -4,6 +4,7 @@
 import * as Comlink from 'comlink';
 import type { EntryQuery } from '../ledger/entries';
 import type { PayeeInput, PayeeKind } from '../ledger/payees';
+import type { RecurringInput } from '../ledger/recurring';
 import type { EntryChange, EntryInput } from '../ledger/postEntry';
 import type { RegisterQuery, SimpleEntry } from '../ledger/register';
 import type { CategorizeInput, QueueView } from '../modules/banking/review';
@@ -82,6 +83,17 @@ const api = {
   ) => session.postJournalEntry(input, overridePassphrase),
   voidEntry: (id: number, reason: string | null, overridePassphrase?: string) =>
     session.voidEntry(id, reason, overridePassphrase),
+  recurringList: () => session.recurringList(),
+  recurring: (id: string) => session.recurring(id),
+  createRecurring: (input: RecurringInput) => session.createRecurring(input),
+  updateRecurring: (id: string, input: RecurringInput) => session.updateRecurring(id, input),
+  setRecurringActive: (id: string, active: boolean) => session.setRecurringActive(id, active),
+  deleteRecurring: (id: string) => session.deleteRecurring(id),
+  skipRecurring: (id: string) => session.skipRecurring(id),
+  postRecurringNow: (id: string, overridePassphrase?: string) =>
+    session.postRecurringNow(id, overridePassphrase),
+  postDueRecurring: () => session.postDueRecurring(),
+  dismissRecurring: () => session.dismissRecurring(),
   payees: (opts?: { kind?: PayeeKind; search?: string; includeInactive?: boolean }) =>
     session.payees(opts),
   payee: (id: string) => session.payee(id),

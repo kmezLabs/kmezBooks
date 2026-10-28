@@ -32,6 +32,20 @@ import {
   type EntryInput,
 } from '../ledger/postEntry';
 import {
+  createRecurring,
+  deleteRecurring,
+  getRecurring,
+  listRecurring,
+  postDue,
+  postNow,
+  setRecurringActive,
+  skipNext,
+  updateRecurring,
+  type Recurring,
+  type RecurringInput,
+  type RecurringResult,
+} from '../ledger/recurring';
+import {
   createPayee,
   defaultCategoryFor,
   deletePayee,
@@ -163,6 +177,12 @@ import {
 } from './errors';
 import { HEARTBEAT_MS, checkLock, releaseLock, writeLock, type LockInfo } from './lockFile';
 
+/** The local calendar date, as YYYY-MM-DD. */
+function localDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export interface SessionStatus {
   open: boolean;
   companyId: string | null;
@@ -173,6 +193,8 @@ export interface SessionStatus {
   lastSavedAt: string | null;
   latestBackupAt: string | null;
   backupOverdue: boolean;
+  /** Recurring entries posted or waiting when the company was opened (GL-5), until dismissed */
+  recurring: RecurringResult | null;
   error: { name: string; message: string } | null;
 }
 
@@ -238,6 +260,7 @@ export class CompanySession {
   private lastSavedAt: Date | null = null;
   private saving = false;
   private lockLost = false;
+  private recurringNotice: RecurringResult | null = null;
   private error: SessionStatus['error'] = null;
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private heartbeat: ReturnType<typeof setInterval> | undefined;
@@ -271,6 +294,7 @@ export class CompanySession {
       lastSavedAt: this.lastSavedAt?.toISOString() ?? null,
       latestBackupAt: this.latestBackup?.toISOString() ?? null,
       backupOverdue: c && !c.readOnly ? backupOverdue(this.latestBackup, this.now()) : false,
+      recurring: c ? this.recurringNotice : null,
       error: this.error,
     };
   }
@@ -352,6 +376,8 @@ export class CompanySession {
       },
     });
     await this.attach(company, opts.device, sessionId);
+    // Nothing runs while the app is closed: what came due since posts now (GL-5)
+    if (!company.readOnly) this.postDueRecurring();
     return { kind: 'opened', status: this.status(), upgradedFrom, timings };
   }
 
@@ -984,6 +1010,73 @@ export class CompanySession {
     };
   }
 
+  // ---- recurring entries (GL-5) ----
+
+  recurringList(): Recurring[] {
+    return listRecurring(this.open_().db);
+  }
+
+  recurring(id: string): Recurring {
+    return getRecurring(this.open_().db, id);
+  }
+
+  createRecurring(input: RecurringInput): string {
+    const id = createRecurring(this.writable().db, input);
+    this.touch();
+    return id;
+  }
+
+  updateRecurring(id: string, input: RecurringInput): void {
+    updateRecurring(this.writable().db, id, input);
+    this.touch();
+  }
+
+  setRecurringActive(id: string, active: boolean): void {
+    setRecurringActive(this.writable().db, id, active);
+    this.touch();
+  }
+
+  deleteRecurring(id: string): void {
+    deleteRecurring(this.writable().db, id);
+    this.touch();
+  }
+
+  skipRecurring(id: string): void {
+    skipNext(this.writable().db, id);
+    this.touch();
+  }
+
+  /** Post a template's next date now; one in a closed period needs the passphrase (PC-2). */
+  async postRecurringNow(id: string, overridePassphrase?: string): Promise<number> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const entryId = postNow(db, id, { closingOverride });
+    this.touch();
+    emitLedgerEvent('posted', this.source(entryId));
+    return entryId;
+  }
+
+  /**
+   * Post every recurring date that has come, as when the company opens; for an
+   * app left open across the 1st. What happened shows until dismissed.
+   */
+  postDueRecurring(): RecurringResult {
+    const db = this.writable().db;
+    const today = localDate(this.now());
+    const result = postDue(db, today);
+    if (result.posted.length || result.waiting.length) {
+      this.recurringNotice = result;
+      for (const p of result.posted) emitLedgerEvent('posted', this.source(p.entryId));
+      this.touch();
+    }
+    return result;
+  }
+
+  dismissRecurring(): void {
+    this.recurringNotice = null;
+    this.emit();
+  }
+
   /** Add an income or expense from the register's quick form (GL-9). */
   async addRegisterEntry(
     simple: SimpleEntry,
@@ -1296,6 +1389,7 @@ export class CompanySession {
     this.bankPending = null;
     this.lockLost = false;
     this.error = null;
+    this.recurringNotice = null;
     this.emit();
   }
 }

@@ -1072,3 +1072,9 @@ table.report-gl.two-line tr.peek td {
 table.report-gl tr.peek td {
   white-space: normal;
 }
+
+/* ---- recurring entries posted on open (GL-5) ---- */
+
+.notice-banner {
+  background: var(--notice-bg);
+}

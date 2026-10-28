@@ -3,20 +3,22 @@
 
 import { Fragment, useEffect, useState } from 'react';
 import type { AccountRow } from '../../shared/accounts';
-import { formatMoney, parseMoney } from '../../shared/money';
+import { formatMoney } from '../../shared/money';
 import type { EntrySummary } from '../../ledger/entries';
 import type { EntryView as EntryData, SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
+import { nextDate } from '../../shared/schedule';
 import { EntryPeek, SOURCES } from '../EntryPeek';
 import {
-  AccountSelect,
-  MoneyInput,
-  PayeeField,
-  cents,
-  formatDate,
-  todayIso,
-  useClosedPeriodOverride,
-} from '../ledgerUi';
+  LineEditor,
+  blankLine,
+  lineTotals,
+  linesFrom,
+  linesToCents,
+  type LineDraft,
+} from '../LineEditor';
+import { PayeeField, formatDate, todayIso, useClosedPeriodOverride } from '../ledgerUi';
+import type { RecurringDraft } from './RecurringPage';
 import { Dialog, ErrorText, TextField, formatBytes, formatDateTime, useAction } from '../ui';
 
 type View =
@@ -36,6 +38,8 @@ export function JournalPage(props: {
   onBackToReport?: () => void;
   /** The Back button's label when opened from elsewhere */
   backLabel?: string;
+  /** Start a recurring entry from a posted one (GL-5) */
+  onMakeRecurring?: (draft: RecurringDraft) => void;
 }) {
   const [view, setView] = useState<View>(
     props.initialEntryId ? { kind: 'entry', id: props.initialEntryId } : { kind: 'list' },
@@ -67,6 +71,7 @@ export function JournalPage(props: {
         id={view.id}
         onEdit={(entry) => setView({ kind: 'edit', entry })}
         onReenter={(entry) => setView({ kind: 'reenter', entry })}
+        onMakeRecurring={props.onMakeRecurring}
         onDeleted={props.onBackToReport ?? (() => setView({ kind: 'list' }))}
         onBack={props.onBackToReport ?? (() => setView({ kind: 'list' }))}
         backLabel={
@@ -246,25 +251,6 @@ function EntryList(props: {
   );
 }
 
-interface LineDraft {
-  key: number;
-  accountId: string;
-  debit: string;
-  credit: string;
-  memo: string;
-  /** A line's own payee (MG-3), kept from the entry it was filled from */
-  name?: string | null;
-}
-
-let nextKey = 1;
-const blankLine = (): LineDraft => ({
-  key: nextKey++,
-  accountId: '',
-  debit: '',
-  credit: '',
-  memo: '',
-});
-
 /**
  * A new entry, or a change to a posted one (GL-6: in place, or void and
  * re-enter), or a new entry filled in from a voided one (GL-10).
@@ -284,16 +270,7 @@ function NewEntry(props: {
   const [name, setName] = useState(from?.name ?? '');
   const [memo, setMemo] = useState(from?.memo ?? '');
   const [lines, setLines] = useState<LineDraft[]>(
-    from
-      ? from.lines.map((l) => ({
-          ...blankLine(),
-          accountId: l.accountId,
-          debit: l.debit ? formatMoney(l.debit) : '',
-          credit: l.credit ? formatMoney(l.credit) : '',
-          memo: l.memo ?? '',
-          name: l.name,
-        }))
-      : [blankLine(), blankLine()],
+    from ? linesFrom(from.lines) : [blankLine(), blankLine()],
   );
   const [files, setFiles] = useState<File[]>([]);
   const { attempt, busy, error, setError, dialog } = useClosedPeriodOverride();
@@ -303,24 +280,7 @@ function NewEntry(props: {
     void db.postedEdits().then(setPostedEdits);
   }, []);
 
-  const used = lines.filter((l) => l.accountId || l.debit.trim() || l.credit.trim());
-  const debits = used.reduce((s, l) => s + cents(l.debit), 0);
-  const credits = used.reduce((s, l) => s + cents(l.credit), 0);
-  const difference = debits - credits;
-  const badAmount = lines.some(
-    (l) => parseMoney(l.debit) === null || parseMoney(l.credit) === null,
-  );
-
-  const setLine = (key: number, changes: Partial<LineDraft>) =>
-    setLines(lines.map((l) => (l.key === key ? { ...l, ...changes } : l)));
-
-  const addLine = () => {
-    const line = blankLine();
-    // Offer the amount that balances the entry
-    if (difference > 0) line.credit = formatMoney(difference);
-    if (difference < 0) line.debit = formatMoney(-difference);
-    setLines([...lines, line]);
-  };
+  const { used, badAmount, balanced } = lineTotals(lines);
 
   const post = () => {
     if (badAmount) {
@@ -333,13 +293,7 @@ function NewEntry(props: {
         ref,
         name,
         memo,
-        lines: used.map((l) => ({
-          accountId: l.accountId,
-          debit: cents(l.debit),
-          credit: cents(l.credit),
-          memo: l.memo,
-          name: l.name ?? null,
-        })),
+        lines: linesToCents(used),
       };
       const id = e0
         ? await db.saveEntryChange(e0.id, entry, overridePassphrase)
@@ -414,85 +368,7 @@ function NewEntry(props: {
           </label>
           <TextField label="Memo" value={memo} onChange={setMemo} width="long" />
         </div>
-        <table className="lines">
-          <thead>
-            <tr>
-              <th>Account</th>
-              <th className="num">Debit</th>
-              <th className="num">Credit</th>
-              <th>Line memo</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((l, i) => (
-              <tr key={l.key}>
-                <td>
-                  <AccountSelect
-                    accounts={accounts}
-                    value={l.accountId}
-                    onChange={(accountId) => setLine(l.key, { accountId })}
-                  />
-                </td>
-                <td>
-                  <MoneyInput
-                    ariaLabel={`Line ${i + 1} debit`}
-                    value={l.debit}
-                    onChange={(debit) =>
-                      setLine(l.key, debit.trim() ? { debit, credit: '' } : { debit })
-                    }
-                  />
-                </td>
-                <td>
-                  <MoneyInput
-                    ariaLabel={`Line ${i + 1} credit`}
-                    value={l.credit}
-                    onChange={(credit) =>
-                      setLine(l.key, credit.trim() ? { credit, debit: '' } : { credit })
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    aria-label={`Line ${i + 1} memo`}
-                    value={l.memo}
-                    onChange={(e) => setLine(l.key, { memo: e.target.value })}
-                  />
-                </td>
-                <td>
-                  {lines.length > 2 && (
-                    <button
-                      type="button"
-                      className="link muted"
-                      aria-label={`Remove line ${i + 1}`}
-                      onClick={() => setLines(lines.filter((x) => x.key !== l.key))}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td>
-                <button type="button" className="link" onClick={addLine}>
-                  + Add line
-                </button>
-              </td>
-              <td className="num">{formatMoney(debits)}</td>
-              <td className="num">{formatMoney(credits)}</td>
-              <td colSpan={2} className={difference === 0 ? 'muted' : 'error-text'}>
-                {difference === 0
-                  ? debits > 0
-                    ? 'Balanced'
-                    : ''
-                  : `Out of balance by ${formatMoney(Math.abs(difference))}`}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+        <LineEditor accounts={accounts} lines={lines} onChange={setLines} />
         <div className="fields">
           <label>
             Attachments
@@ -504,10 +380,7 @@ function NewEntry(props: {
         </div>
         <ErrorText>{error}</ErrorText>
         <div className="buttons">
-          <button
-            type="submit"
-            disabled={busy || difference !== 0 || debits === 0 || used.length < 2}
-          >
+          <button type="submit" disabled={busy || !balanced}>
             {busy ? 'Saving…' : e0 ? 'Save' : 'Post entry'}
           </button>
           <button
@@ -523,6 +396,27 @@ function NewEntry(props: {
       {dialog}
     </section>
   );
+}
+
+/** A recurring entry like this one: monthly on its day, from the next month (GL-5). */
+function recurringFrom(entry: EntryData): RecurringDraft {
+  const day = Number(entry.date.slice(8));
+  return {
+    name: entry.memo ?? entry.name ?? 'Recurring entry',
+    frequency: 'monthly',
+    dayOfMonth: day,
+    startDate: nextDate(entry.date, 'monthly', day),
+    endDate: null,
+    ref: entry.ref,
+    payee: entry.name,
+    memo: entry.memo,
+    lines: entry.lines.map((l) => ({
+      accountId: l.accountId,
+      debit: l.debit,
+      credit: l.credit,
+      memo: l.memo,
+    })),
+  };
 }
 
 async function openFile(id: string) {
@@ -544,6 +438,7 @@ function EntryView(props: {
   onBack: () => void;
   onEdit: (entry: EntryData) => void;
   onReenter: (entry: EntryData) => void;
+  onMakeRecurring?: (draft: RecurringDraft) => void;
   onDeleted: () => void;
   backLabel: string;
 }) {
@@ -686,6 +581,16 @@ function EntryView(props: {
           <button className="secondary" disabled={busy} onClick={() => setVoiding(true)}>
             Void entry
           </button>
+          {props.onMakeRecurring && (
+            <button
+              className="secondary"
+              disabled={busy}
+              title="Post this entry again every month (or quarter, or year), e.g. depreciation"
+              onClick={() => props.onMakeRecurring!(recurringFrom(entry))}
+            >
+              Make recurring
+            </button>
+          )}
           {postedEdits && (
             <button
               className="secondary"

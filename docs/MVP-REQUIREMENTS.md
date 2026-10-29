@@ -131,10 +131,10 @@ Owner's decision, Oct 28: none of the four companies uses invoices, estimates or
 | ID | Requirement | Pri |
 | --- | --- | --- |
 | AP-1 | Vendor records: name, contact, address, terms, default expense account, 1099 flag (flag only) | M |
-| AP-2 | Enter bills with line items by account, due date from terms, attachments | S |
-| AP-3 | Pay one or many bills, recording check, ACH or card, fully or partially; each payment posts its expenses pro rata over the bill's lines (GL-8) and can't exceed what is still owed | S |
-| AP-4 | Bill statuses: open, partially paid, paid, overdue, void | S |
-| AP-5 | List of bills due, sorted by due date | S |
+| AP-2 | Enter bills with line items by account, due date from terms, attachments. Built Oct 28 (M9 slice 4): the vendor's terms and default category fill in; receipts and PDFs attached | S |
+| AP-3 | Pay one or many bills, recording check, ACH or card, fully or partially; each payment posts its expenses pro rata over the bill's lines (GL-8) and can't exceed what is still owed. Built Oct 28 (M9 slice 4): one payment per vendor and check, from a bank or credit card account | S |
+| AP-4 | Bill statuses: open, partially paid, paid, overdue, void. Built Oct 28 (M9 slice 4) | S |
+| AP-5 | List of bills due, sorted by due date. Built Oct 28 (M9 slice 4): Bills due, with what is overdue and due within a week | S |
 
 ### Expenses (EX)
 

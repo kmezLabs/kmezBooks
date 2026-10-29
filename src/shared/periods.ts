@@ -110,3 +110,8 @@ export function dayBefore(date: string): string {
   const prev = fromIndex(toIndex(y, m) - 1);
   return iso(prev.y, prev.m, daysInMonth(prev.y, prev.m));
 }
+
+/** The day `days` after `date` (due dates from terms, AR-4, AP-2). */
+export function addDays(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}

@@ -323,6 +323,9 @@ export function mergePayee(db: Database, fromId: string, intoId: string): void {
       `UPDATE customer_payment SET customer_id = ? WHERE customer_id = ?`,
       `UPDATE sales_doc SET customer_id = ? WHERE customer_id = ?`,
       `UPDATE recurring_invoice SET customer_id = ? WHERE customer_id = ?`,
+      // Bills by id too (AP-3): payments first, as for invoices
+      `UPDATE bill_payment SET vendor_id = ? WHERE vendor_id = ?`,
+      `UPDATE bill SET vendor_id = ? WHERE vendor_id = ?`,
     ]) {
       db.exec({ sql, bind: [intoId, fromId] });
     }

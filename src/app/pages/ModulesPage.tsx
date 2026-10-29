@@ -15,8 +15,9 @@ const LABELS: Record<Module, { name: string; about: string; note: string | null 
   },
   bills: {
     name: 'Vendors and bills',
-    about: 'Bills and bill payments',
-    note: 'not built yet: added when a company needs bills; vendors are on the Payees page',
+    about:
+      'Bills, bills due and bill payments (Purchases in the sidebar). Payments count as expenses when they are paid (cash basis)',
+    note: null,
   },
   expenses: {
     name: 'Expenses',

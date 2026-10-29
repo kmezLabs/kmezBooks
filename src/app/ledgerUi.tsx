@@ -221,3 +221,17 @@ function OverrideDialog(props: {
     </Dialog>
   );
 }
+
+/** Open an attachment: shown in a new tab if the browser can show it, else downloaded. */
+export async function openAttachmentFile(id: string) {
+  const { fileName, mimeType, bytes } = await db.openAttachment(id);
+  const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  const a = document.createElement('a');
+  a.href = url;
+  // Show what the browser can show (PDFs, images); download the rest
+  if (!/^(application\/pdf|image\/|text\/plain)/.test(mimeType)) a.download = fileName;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

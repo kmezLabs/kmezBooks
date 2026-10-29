@@ -66,6 +66,26 @@ import {
   type PaymentInput,
 } from '../modules/sales/payments';
 import {
+  billsDue,
+  createBill,
+  deleteBill,
+  getBill,
+  listBills,
+  updateBill,
+  voidBill,
+  type Bill,
+  type BillInput,
+  type BillQuery,
+  type BillsDue,
+} from '../modules/bills/bills';
+import {
+  listBillPayments,
+  payBills,
+  voidBillPayment,
+  type BillPayment,
+  type BillPaymentInput,
+} from '../modules/bills/billPayments';
+import {
   createRecurring,
   deleteRecurring,
   getRecurring,
@@ -941,16 +961,20 @@ export class CompanySession {
   // ---- attachments (GL-4) ----
 
   async addAttachment(
-    entity: 'journal_entry',
+    entity: 'journal_entry' | 'bill',
     entityId: string,
     file: File,
   ): Promise<AttachmentRow> {
     const c = this.writable();
-    const exists = c.db.selectValue(
-      `SELECT count(*) FROM journal_entry WHERE id = ? AND status <> 'draft'`,
-      [Number(entityId)],
-    );
-    if (exists !== 1) throw new LedgerRuleError('That entry does not exist.');
+    const exists =
+      entity === 'bill'
+        ? c.db.selectValue(`SELECT count(*) FROM bill WHERE id = ?`, [entityId])
+        : c.db.selectValue(
+            `SELECT count(*) FROM journal_entry WHERE id = ? AND status <> 'draft'`,
+            [Number(entityId)],
+          );
+    if (exists !== 1)
+      throw new LedgerRuleError(`That ${entity === 'bill' ? 'bill' : 'entry'} does not exist.`);
     const backupDir = await this.backupDir().catch(() => null);
     const row = await addAttachment(c, backupDir, entity, entityId, file);
     this.touch();
@@ -1221,6 +1245,75 @@ export class CompanySession {
     const db = this.writable().db;
     const closingOverride = await this.override(overridePassphrase);
     const entryId = voidPayment(db, id, reason, { closingOverride });
+    this.touch();
+    emitLedgerEvent('voided', this.source(entryId));
+  }
+
+  // ---- bills and bill payments (AP-2 to AP-5) ----
+
+  bills(query: BillQuery = {}): Bill[] {
+    return listBills(this.open_().db, query, localDate(this.now()));
+  }
+
+  bill(id: string): Bill {
+    return getBill(this.open_().db, id, localDate(this.now()));
+  }
+
+  /** A bill's attached files (AP-2), as an entry's. */
+  billFiles(id: string): AttachmentRow[] {
+    return listAttachments(this.open_().db, 'bill', id);
+  }
+
+  billsDue(): BillsDue {
+    return billsDue(this.open_().db, localDate(this.now()));
+  }
+
+  createBill(input: BillInput): string {
+    const id = createBill(this.writable().db, input);
+    this.touch();
+    return id;
+  }
+
+  updateBill(id: string, input: BillInput): void {
+    updateBill(this.writable().db, id, input, localDate(this.now()));
+    this.touch();
+  }
+
+  voidBill(id: string): void {
+    voidBill(this.writable().db, id);
+    this.touch();
+  }
+
+  deleteBill(id: string): void {
+    deleteBill(this.writable().db, id);
+    this.touch();
+  }
+
+  billPayments(query: { vendorId?: string | null; billId?: string | null } = {}): BillPayment[] {
+    return listBillPayments(this.open_().db, query);
+  }
+
+  /** Pay bills; a date in a closed period needs the passphrase (PC-2). */
+  async payBills(
+    input: BillPaymentInput,
+    overridePassphrase?: string,
+  ): Promise<{ paymentId: string; entryId: number }> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const result = payBills(db, input, { closingOverride });
+    this.touch();
+    emitLedgerEvent('posted', this.source(result.entryId));
+    return result;
+  }
+
+  async voidBillPayment(
+    id: string,
+    reason: string | null,
+    overridePassphrase?: string,
+  ): Promise<void> {
+    const db = this.writable().db;
+    const closingOverride = await this.override(overridePassphrase);
+    const entryId = voidBillPayment(db, id, reason, { closingOverride });
     this.touch();
     emitLedgerEvent('voided', this.source(entryId));
   }

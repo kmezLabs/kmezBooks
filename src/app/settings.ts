@@ -50,7 +50,7 @@ const registerAccountKey = (companyId: string, kind?: string) =>
 
 /**
  * The account the Transactions register was last filtered to, for this
- * company (GL-9); with a kind, the account the bank or card register shows (GL-12).
+ * company (GL-9); with 'single', the account the Accounts register shows (GL-13).
  */
 export function registerAccount(companyId: string, kind?: string): string | null {
   return read(registerAccountKey(companyId, kind)) || null;

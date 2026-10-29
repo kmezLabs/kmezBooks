@@ -12,7 +12,7 @@ import type { PaymentInput } from '../modules/sales/payments';
 import type { BillInput, BillQuery } from '../modules/bills/bills';
 import type { BillPaymentInput } from '../modules/bills/billPayments';
 import type { EntryChange, EntryInput } from '../ledger/postEntry';
-import type { RegisterKind, RegisterQuery, SimpleEntry } from '../ledger/register';
+import type { RegisterQuery, SimpleEntry } from '../ledger/register';
 import type { CategorizeInput, QueueView } from '../modules/banking/review';
 import type { RuleInput } from '../modules/banking/rules';
 import type { AccountChoices } from '../modules/migration/importer';
@@ -159,7 +159,7 @@ const api = {
   mergePayee: (fromId: string, intoId: string) => session.mergePayee(fromId, intoId),
   deletePayee: (id: string) => session.deletePayee(id),
   register: (query?: RegisterQuery) => session.register(query),
-  moneyAccounts: (kind: RegisterKind) => session.moneyAccounts(kind),
+  registerAccounts: () => session.registerAccounts(),
   postedEdits: () => session.postedEdits(),
   setPostedEdits: (on: boolean, passphrase?: string) => session.setPostedEdits(on, passphrase),
   addRegisterEntry: (

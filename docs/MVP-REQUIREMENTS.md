@@ -98,9 +98,9 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | GL-8 | Cash-basis ledger: only cash movements post. Invoices and bills don't post when created; a payment against one posts on its date, spread pro rata over the document's lines, to the cent, so the parts always add up exactly to the payment. A/R and A/P accounts take no new postings; they exist only for migrated history | M |
 | GL-10 | Re-enter a voided entry: a new entry filled in from it (date, ref, payee, memo, lines), checked and posted like any other; the void stays on record. Added at the owner's request, Oct 28 | M |
 | GL-11 | Payees: one list of the names on transactions, unique ignoring case, each a customer, a vendor, both, or just a name. Name fields suggest payees and a new name adds one. Rename a payee on every transaction, merge two payees into one, make one inactive, and see its transactions in the register. Added at the owner's request, Oct 28 | M |
-| GL-12 | Bank and credit card registers (owner, Oct 29): one bank, cash or card account at a time, picked from a drop-down, with its balance and reconciled balance beside it; QuickBooks-style columns with a reconciled mark (R reconciled, C cleared in the reconciliation in progress) and the balance after each transaction. Built Oct 29 | S |
-| GL-13 | Transfers between bank, cash and card accounts (owner, Oct 29), such as paying the card from checking or moving money to savings, from Add Transaction or the registers' Transfer button; not income or an expense. Built Oct 29 | S |
 | GL-12 | Reversing journal entries (split from GL-5, Oct 28) | S |
+| GL-13 | Accounts register (owner, Oct 29; first built as separate bank and credit card registers, made one page the same day): any one account at a time, picked from a drop-down grouped by type, with its balance beside it; QuickBooks-style columns and the balance after each transaction; for bank, card and other balance sheet accounts also a reconciled mark (R reconciled, C cleared in the reconciliation in progress) and the reconciled balance. Built Oct 29 | S |
+| GL-14 | Transfers between bank, cash and card accounts (owner, Oct 29), such as paying the card from checking or moving money to savings, from Add Transaction or the Accounts register's Transfer button; not income or an expense. Built Oct 29 | S |
 
 ### Period close (PC)
 

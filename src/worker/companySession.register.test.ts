@@ -77,7 +77,7 @@ describe('session: transactions register (GL-9) and changing posted entries (GL-
   });
 });
 
-describe('session: bank and card registers (GL-12) and transfers (GL-13)', () => {
+describe('session: the Accounts register (GL-13) and transfers (GL-14)', () => {
   it('pays the card from checking as one transfer, shown in both registers', async () => {
     const session = new CompanySession({ iterations: 1_000, heartbeatMs: 0, saveDelayMs: 10_000 });
     await session.create(asDir(new FakeDir()), ACME, 'the passphrase', 'PC');
@@ -107,8 +107,11 @@ describe('session: bank and card registers (GL-12) and transfers (GL-13)', () =>
       ledgerEvents.removeEventListener('posted', listen);
     }
     expect(seen).toEqual(['register', 'register']);
-    expect(session.moneyAccounts('card')).toMatchObject([{ name: 'Credit Card', balance: 0 }]);
-    expect(session.moneyAccounts('bank').find((a) => a.name === 'Checking')?.balance).toBe(-60_00);
+    const balance = (name: string) =>
+      session.registerAccounts().find((a) => a.name === name)?.balance;
+    expect([balance('Credit Card'), balance('Checking'), balance('Meals')]).toEqual([
+      0, -60_00, 60_00,
+    ]);
     const card = session.register({
       scope: 'all',
       accountId: id('Credit Card'),

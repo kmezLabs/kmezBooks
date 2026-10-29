@@ -3,20 +3,19 @@
 // and Add Transaction at the bottom. With one account chosen it reads like a
 // bank register, with the balance after each transaction. Quick changes from
 // the list: edit, void and, where the company allows it, delete (GL-6).
-// With a kind it is the Bank or Credit card register (GL-12): one account at a
-// time, picked from a drop-down with its balance, a reconciled column, and
-// transfers between accounts (GL-13).
+// As the Accounts register (GL-13) it shows one account at a time, any
+// account, picked from a drop-down with its balance; banks and cards add a
+// reconciled column. Transfers move money between accounts (GL-14).
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type {
-  MoneyAccount,
-  RegisterKind,
+  RegisterAccount,
   RegisterQuery,
   RegisterResult,
   RegisterRow,
   SimpleEntry,
 } from '../../ledger/register';
-import type { AccountRow } from '../../shared/accounts';
+import { ACCOUNT_TYPES, TYPE_LABELS, isDebitNormal, type AccountRow } from '../../shared/accounts';
 import { formatMoney, type Cents } from '../../shared/money';
 import { RANGE_PRESETS, rangeFor, type RangePreset } from '../../shared/periods';
 import { db } from '../../shared/workerClient';
@@ -57,25 +56,26 @@ function accountView(a: AccountRow | undefined): AccountView | null {
   return { out: 'Decrease', in: 'Increase', sign: a.type === 'expense' ? 1 : -1 };
 }
 
-const KIND_TITLES: Record<RegisterKind, string> = {
-  bank: 'Bank register',
-  card: 'Credit card register',
-};
+/** Bank, cash, card and other balance sheet accounts: transfers, reconciliation */
+const isMoney = (a: { type: AccountRow['type'] }) => a.type === 'asset' || a.type === 'liability';
+
+/** A balance as the account reads: debit-normal as is, the rest (what a card owes, income) turned positive */
+const shown = (a: { type: AccountRow['type'] }, c: Cents) => (isDebitNormal(a.type) ? c : -c);
 
 export function RegisterPage(props: {
   status: SessionStatus;
-  /** The Bank or Credit card register (GL-12); the Transactions page without */
-  kind?: RegisterKind;
+  /** The Accounts register: always one account, any account (GL-13) */
+  single?: boolean;
   onOpenEntry: (id: number) => void;
   /** Only this payee's transactions, chosen on the Payees page (GL-11) */
   payee?: { id: string; name: string } | null;
   onClearPayee?: () => void;
 }) {
   const companyId = props.status.companyId ?? '';
-  const kind = props.kind;
+  const single = !!props.single;
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
-  // The register's accounts, with balances (GL-12)
-  const [choices, setChoices] = useState<MoneyAccount[] | null>(null);
+  // The Accounts register's choices, with balances (GL-13)
+  const [choices, setChoices] = useState<RegisterAccount[] | null>(null);
   const [fyStartMonth, setFyStartMonth] = useState(1);
   const [postedEdits, setPostedEdits] = useState(false);
   // Opens on this year to date (owner's choice, Oct 28); calendar year until
@@ -85,7 +85,7 @@ export function RegisterPage(props: {
   const [query, setQuery] = useState<RegisterQuery>(() => ({
     scope: 'all',
     order: 'asc',
-    accountId: registerAccount(companyId, kind),
+    accountId: registerAccount(companyId, single ? 'single' : undefined),
     ...rangeFor(DEFAULT_PERIOD, todayIso(), 1),
   }));
   const [limit, setLimit] = useState(PAGE);
@@ -115,22 +115,25 @@ export function RegisterPage(props: {
       }
     });
     void db.postedEdits().then(setPostedEdits);
-    if (kind) {
-      void db.moneyAccounts(kind).then((list) => {
+    if (single) {
+      void db.registerAccounts().then((list) => {
         setChoices(list);
-        // Always one of this register's accounts: the remembered one, else the first
+        // Always one account: the remembered one, else the first bank, else the first
         setQuery((q) =>
           q.accountId && list.some((a) => a.id === q.accountId)
             ? q
-            : { ...q, accountId: list[0]?.id ?? null },
+            : {
+                ...q,
+                accountId: (list.find((a) => a.detailType === 'bank') ?? list[0])?.id ?? null,
+              },
         );
       });
     }
-  }, [props.status.companyId, props.status.lastSavedAt, kind, version]);
+  }, [props.status.companyId, props.status.lastSavedAt, single, version]);
 
   useEffect(() => {
-    // A bank or card register waits for its account
-    if (props.kind && !query.accountId) return;
+    // The Accounts register waits for its account
+    if (props.single && !query.accountId) return;
     let current = true;
     const t = setTimeout(() => {
       void db
@@ -146,7 +149,7 @@ export function RegisterPage(props: {
       current = false;
       clearTimeout(t);
     };
-  }, [query, limit, props.status.lastSavedAt, version, props.payee?.id, props.kind]);
+  }, [query, limit, props.status.lastSavedAt, version, props.payee?.id, props.single]);
 
   useLayoutEffect(() => {
     const target = scroll.current;
@@ -187,9 +190,11 @@ export function RegisterPage(props: {
   const view = accountView(chosen);
   const picked = choices?.find((a) => a.id === query.accountId);
   const chooseAccount = (id: string | null) => {
-    setRegisterAccount(companyId, id, kind);
+    setRegisterAccount(companyId, id, single ? 'single' : undefined);
     setQ({ accountId: id });
   };
+  // Reconciliation marks belong to bank, card and other balance sheet accounts
+  const marks = !!chosen && isMoney(chosen);
   // A bank sends a transfer from itself; a card receives one from the first bank
   const firstBank = accounts.find((a) => a.active && a.detailType === 'bank')?.id ?? '';
   const net = result ? result.totals.income - result.totals.expense : 0;
@@ -203,42 +208,43 @@ export function RegisterPage(props: {
     </div>
   );
 
-  if (kind && choices && choices.length === 0) {
-    return (
-      <section className="register">
-        <h2>{KIND_TITLES[kind]}</h2>
-        <p className="muted">
-          No {kind === 'bank' ? 'bank' : 'credit card'} accounts yet; add one on Accounts.
-        </p>
-      </section>
-    );
-  }
+  const balanceLabel = picked?.detailType === 'credit_card' ? 'Owed' : 'Balance';
 
   return (
     <section className="register">
-      {kind && (
+      {single && (
         <>
-          <h2>{KIND_TITLES[kind]}</h2>
+          <h2>Accounts register</h2>
           <div className="fields account-picker">
             <label>
               Account
               <select value={query.accountId ?? ''} onChange={(e) => chooseAccount(e.target.value)}>
-                {choices?.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} · {formatMoney(kind === 'card' ? -a.balance : a.balance)}
-                  </option>
-                ))}
+                {ACCOUNT_TYPES.map((type) => {
+                  const ofType = (choices ?? []).filter((a) => a.type === type);
+                  return (
+                    ofType.length > 0 && (
+                      <optgroup key={type} label={TYPE_LABELS[type]}>
+                        {ofType.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name} · {formatMoney(shown(a, a.balance))}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )
+                  );
+                })}
               </select>
             </label>
             {picked && (
               <p className="account-summary">
-                {kind === 'card' ? 'Owed' : 'Balance'}{' '}
-                <strong>{formatMoney(kind === 'card' ? -picked.balance : picked.balance)}</strong>
-                <span className="muted small">
-                  {picked.reconciled
-                    ? `Reconciled to ${formatDate(picked.reconciled.date)}: ${formatMoney(kind === 'card' ? -picked.reconciled.balance : picked.reconciled.balance)}`
-                    : 'Not reconciled yet'}
-                </span>
+                {balanceLabel} <strong>{formatMoney(shown(picked, picked.balance))}</strong>
+                {isMoney(picked) && (
+                  <span className="muted small">
+                    {picked.reconciled
+                      ? `Reconciled to ${formatDate(picked.reconciled.date)}: ${formatMoney(shown(picked, picked.reconciled.balance))}`
+                      : 'Not reconciled yet'}
+                  </span>
+                )}
               </p>
             )}
           </div>
@@ -278,7 +284,7 @@ export function RegisterPage(props: {
             }}
           />
         </label>
-        {!kind && (
+        {!single && (
           <AccountSelect
             label="Account"
             accounts={accounts}
@@ -295,7 +301,7 @@ export function RegisterPage(props: {
             onChange={(e) => setQ({ search: e.target.value })}
           />
         </label>
-        {!kind && (
+        {!single && (
           <label className="medium">
             Show
             <select
@@ -339,7 +345,7 @@ export function RegisterPage(props: {
         </label>
       </div>
 
-      {result && (!kind || query.accountId) && (
+      {result && (!single || query.accountId) && (
         <>
           {query.order === 'asc' && moreButton}
           {result.rows.length === 0 ? (
@@ -351,7 +357,7 @@ export function RegisterPage(props: {
                   <th>Date</th>
                   <th>Ref</th>
                   <th>Payee</th>
-                  {kind ? (
+                  {single ? (
                     <th>Account</th>
                   ) : (
                     <>
@@ -363,12 +369,14 @@ export function RegisterPage(props: {
                     <>
                       <th className="num">{view.out}</th>
                       <th className="num">{view.in}</th>
-                      <th
-                        className="mark"
-                        title="R: reconciled. C: cleared in the reconciliation in progress"
-                      >
-                        ✓
-                      </th>
+                      {marks && (
+                        <th
+                          className="mark"
+                          title="R: reconciled. C: cleared in the reconciliation in progress"
+                        >
+                          ✓
+                        </th>
+                      )}
                       <th className="num">Balance</th>
                     </>
                   ) : (
@@ -385,7 +393,8 @@ export function RegisterPage(props: {
                     key={r.id}
                     row={r}
                     view={view}
-                    compact={!!kind}
+                    compact={single}
+                    marks={marks}
                     open={open === r.id}
                     onToggle={() => setOpen(open === r.id ? null : r.id)}
                     accounts={accounts}
@@ -401,22 +410,15 @@ export function RegisterPage(props: {
           {query.order === 'desc' && moreButton}
           <div className="register-foot">
             <p className="register-totals">
-              {kind && picked ? (
+              {single && picked ? (
                 <>
                   <span>
-                    {kind === 'card' ? 'Owed' : 'Balance'}{' '}
-                    <strong>
-                      {formatMoney(kind === 'card' ? -picked.balance : picked.balance)}
-                    </strong>
+                    {balanceLabel} <strong>{formatMoney(shown(picked, picked.balance))}</strong>
                   </span>
-                  {picked.reconciled && (
+                  {isMoney(picked) && picked.reconciled && (
                     <span>
                       Reconciled to {formatDate(picked.reconciled.date)}{' '}
-                      <strong>
-                        {formatMoney(
-                          kind === 'card' ? -picked.reconciled.balance : picked.reconciled.balance,
-                        )}
-                      </strong>
+                      <strong>{formatMoney(shown(picked, picked.reconciled.balance))}</strong>
                     </span>
                   )}
                 </>
@@ -444,9 +446,11 @@ export function RegisterPage(props: {
             {!readOnly && (
               <span className="buttons">
                 <button onClick={() => setAdding('expense')}>Add Transaction</button>
-                <button className="secondary" onClick={() => setAdding('transfer')}>
-                  Transfer
-                </button>
+                {(!chosen || isMoney(chosen)) && (
+                  <button className="secondary" onClick={() => setAdding('transfer')}>
+                    Transfer
+                  </button>
+                )}
               </span>
             )}
           </div>
@@ -460,14 +464,12 @@ export function RegisterPage(props: {
           <QuickAdd
             accounts={accounts}
             initialKind={adding}
-            defaultMoneyAccount={
-              chosen && (chosen.type === 'asset' || chosen.type === 'liability') ? chosen.id : ''
-            }
+            defaultMoneyAccount={chosen && isMoney(chosen) ? chosen.id : ''}
             // Paying a card: from the first bank to the card
             defaultTransfer={
               chosen?.detailType === 'credit_card'
                 ? { from: firstBank, to: chosen.id }
-                : chosen && (chosen.type === 'asset' || chosen.type === 'liability')
+                : chosen && isMoney(chosen)
                   ? { from: chosen.id, to: '' }
                   : { from: '', to: '' }
             }
@@ -487,8 +489,10 @@ export function RegisterPage(props: {
 function RegisterLine(props: {
   row: RegisterRow;
   view: AccountView | null;
-  /** The bank or card register: one Account column, the other side */
+  /** The Accounts register: one Account column, the other side */
   compact: boolean;
+  /** A reconciled column: the account is a bank, card or other balance sheet account */
+  marks: boolean;
   open: boolean;
   onToggle: () => void;
   accounts: AccountRow[];
@@ -533,18 +537,20 @@ function RegisterLine(props: {
             {/* Money out lowers the balance as it reads: a credit for a bank, a charge for a card */}
             <td className="num">{money(moved * v.sign < 0 ? Math.abs(moved) : null)}</td>
             <td className="num">{money(moved * v.sign > 0 ? Math.abs(moved) : null)}</td>
-            <td
-              className="mark"
-              title={
-                r.reconciled === 'R'
-                  ? 'Reconciled'
-                  : r.reconciled === 'C'
-                    ? 'Cleared in the reconciliation in progress'
-                    : undefined
-              }
-            >
-              {r.reconciled ?? ''}
-            </td>
+            {props.marks && (
+              <td
+                className="mark"
+                title={
+                  r.reconciled === 'R'
+                    ? 'Reconciled'
+                    : r.reconciled === 'C'
+                      ? 'Cleared in the reconciliation in progress'
+                      : undefined
+                }
+              >
+                {r.reconciled ?? ''}
+              </td>
+            )}
             <td className="num">{r.balance === null ? '' : formatMoney(r.balance * v.sign)}</td>
           </>
         ) : (
@@ -556,7 +562,7 @@ function RegisterLine(props: {
       </tr>
       {props.open && (
         <tr className="editor">
-          <td colSpan={(v ? 9 : 7) - (props.compact ? 1 : 0)}>
+          <td colSpan={(v ? 8 : 7) + (props.marks ? 1 : 0) - (props.compact ? 1 : 0)}>
             <EntryEditor {...props} />
           </td>
         </tr>
@@ -731,8 +737,6 @@ function EntryEditor(props: {
   );
 }
 
-const isMoney = (a: AccountRow) => a.type === 'asset' || a.type === 'liability';
-
 function MoneyAccountSelect(props: {
   kind: SimpleEntry['kind'];
   accounts: AccountRow[];
@@ -751,7 +755,7 @@ function MoneyAccountSelect(props: {
   );
 }
 
-/** Where a transfer goes, and how much (GL-13). */
+/** Where a transfer goes, and how much (GL-14). */
 function TransferTo(props: {
   accounts: AccountRow[];
   from: string;
@@ -858,7 +862,7 @@ function QuickAdd(props: {
   accounts: AccountRow[];
   initialKind?: 'expense' | 'transfer';
   defaultMoneyAccount: string;
-  /** A transfer's accounts to start with (GL-13) */
+  /** A transfer's accounts to start with (GL-14) */
   defaultTransfer?: { from: string; to: string };
   onAdded: () => void;
   onCancel: () => void;

@@ -88,7 +88,7 @@ Like an invoice, a bill only records what you owe; nothing goes into the books u
 
 ## Bank and card registers
 
-**Bank register** and **Credit card register** (under Books) show one account at a time, like a checkbook. The tiles at the top list your bank and cash accounts (or your cards) with their balances and the last reconciliation; click one to see its register. A card shows what you owe. The ✓ column shows **R** for reconciled transactions and **C** for those checked off in a reconciliation you haven't finished.
+**Bank register** and **Credit card register** (under Books) show one account at a time, like a checkbook. Pick the account from the drop-down at the top; beside it are its balance and the last reconciliation. A card shows what you owe. The ✓ column shows **R** for reconciled transactions and **C** for those checked off in a reconciliation you haven't finished.
 
 **Transfer** moves money between your own accounts: checking to savings, or paying the card from checking (in the Credit card register it starts from your first bank to the card). A transfer isn't income or an expense. **Add Transaction** also has a Transfer tab, on the Transactions page too.
 

@@ -10,7 +10,7 @@ import { db } from '../../shared/workerClient';
 import type { SessionStatus } from '../../worker/companySession';
 import type { BankAccount } from './bankAccounts';
 import {
-  AccountTabs,
+  AccountPicker,
   count,
   flowCells,
   flowLabels,
@@ -62,7 +62,7 @@ export function ReconcilePage({ status }: { status: SessionStatus }) {
         <p>There are no bank or card accounts to reconcile.</p>
       ) : (
         <>
-          <AccountTabs
+          <AccountPicker
             accounts={accounts}
             value={accountId}
             onChange={(id) => {

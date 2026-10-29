@@ -1,5 +1,5 @@
-// Pieces shared by the banking screens: the account tabs, and amounts shown
-// the way a bank or card statement shows them.
+// Pieces shared by the banking screens: the account picker, and amounts
+// shown the way a bank or card statement shows them.
 
 import type { AccountType } from '../../shared/accounts';
 import { formatMoney, type Cents } from '../../shared/money';
@@ -31,27 +31,29 @@ export const statementBalance = (type: AccountType, ledger: Cents): Cents =>
 
 export const ledgerBalance = statementBalance;
 
-export function AccountTabs(props: {
+/** The bank or card account a banking screen works on, as a drop-down (owner, Oct 29). */
+export function AccountPicker(props: {
   accounts: BankAccount[];
   value: string | null;
   onChange: (id: string) => void;
+  /** Say how many transactions wait for review in each */
   showWaiting?: boolean;
 }) {
+  const chosen = props.accounts.find((a) => a.id === props.value);
   return (
-    <div className="tabs bank-tabs" role="tablist">
-      {props.accounts.map((a) => (
-        <button
-          key={a.id}
-          role="tab"
-          aria-selected={a.id === props.value}
-          className={a.id === props.value ? 'tab active' : 'tab'}
-          onClick={() => props.onChange(a.id)}
-          title={a.feedLabel ?? undefined}
-        >
-          {a.name}
-          {props.showWaiting && a.waiting > 0 && <span className="badge small">{a.waiting}</span>}
-        </button>
-      ))}
+    <div className="fields account-picker">
+      <label>
+        Account
+        <select value={props.value ?? ''} onChange={(e) => props.onChange(e.target.value)}>
+          {props.accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+              {props.showWaiting && a.waiting > 0 ? ` (${a.waiting} to review)` : ''}
+            </option>
+          ))}
+        </select>
+        {chosen?.feedLabel && <span className="hint">{chosen.feedLabel}</span>}
+      </label>
     </div>
   );
 }

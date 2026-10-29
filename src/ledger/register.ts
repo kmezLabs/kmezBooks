@@ -1,6 +1,8 @@
 // The transactions register (GL-9): every income and expense, or every entry,
 // in date order with filters and totals, and the plain "paid from / deposited
-// to, category, amount" shape the quick add and quick edit forms work in.
+// to, category, amount" shape the quick add and quick edit forms work in. One
+// account's register (GL-12) adds its running balance and what was reconciled;
+// a transfer (GL-13) is the same shape between two money accounts.
 
 import type { AccountType } from '../shared/accounts';
 import type { Cents } from '../shared/money';
@@ -32,10 +34,14 @@ export interface RegisterQuery {
   balanceAccountId?: string | null;
 }
 
-/** An entry as money out of (expense) or into (income) one account, split over categories. */
+/**
+ * An entry as money out of (expense) or into (income) one account, split over
+ * categories; or a transfer (GL-13) from one money account to another, the
+ * one line being the account it went to.
+ */
 export interface SimpleEntry {
-  kind: 'expense' | 'income';
-  /** Paid from, or deposited to */
+  kind: 'expense' | 'income' | 'transfer';
+  /** Paid from, deposited to, or transferred from */
   moneyAccountId: string;
   lines: { accountId: string; amount: Cents; memo: string | null }[];
 }
@@ -61,6 +67,13 @@ export interface RegisterRow {
   accountAmount: Cents | null;
   /** The balance account's debit-minus-credit balance after this entry; null for void ones */
   balance: Cents | null;
+  /**
+   * With a balance account: its line cleared in a finished reconciliation (R)
+   * or in the one open now (C), as QuickBooks marks them (GL-12)
+   */
+  reconciled: 'R' | 'C' | null;
+  /** With a balance account: the entry's other accounts, its category or where the money went */
+  otherSide: string;
 }
 
 export interface RegisterResult {
@@ -97,6 +110,20 @@ export function simpleShape(lines: Line[]): SimpleEntry | null {
   } else if (credits.length === 1 && debits.length > 1) money = credits[0];
   else if (debits.length === 1 && credits.length > 1) money = debits[0];
   if (!money) return null;
+  // One money account to another: a transfer, from the credit to the debit
+  const transfer =
+    debits.length === 1 &&
+    credits.length === 1 &&
+    MONEY_TYPES.includes(debits[0]!.type) &&
+    MONEY_TYPES.includes(credits[0]!.type);
+  if (transfer) {
+    const to = debits[0]!;
+    return {
+      kind: 'transfer',
+      moneyAccountId: credits[0]!.accountId,
+      lines: [{ accountId: to.accountId, amount: to.debit, memo: to.memo }],
+    };
+  }
   const kind = money.credit > 0 ? 'expense' : 'income';
   return {
     kind,
@@ -114,6 +141,23 @@ export function simpleShape(lines: Line[]): SimpleEntry | null {
 /** The entry lines for a quick form: the money line, then the categories. */
 export function simpleToEntry(s: SimpleEntry, head: Omit<EntryChange, 'lines'>): EntryChange {
   const lines = s.lines.filter((l) => l.accountId || l.amount);
+  if (s.kind === 'transfer') {
+    const to = lines[0];
+    if (!s.moneyAccountId) throw new LedgerRuleError('Choose the account the money came from.');
+    if (lines.length !== 1 || !to?.accountId)
+      throw new LedgerRuleError('Choose the account the money went to.');
+    if (to.accountId === s.moneyAccountId)
+      throw new LedgerRuleError('A transfer goes between two different accounts.');
+    if (!Number.isSafeInteger(to.amount) || to.amount <= 0)
+      throw new LedgerRuleError('Enter an amount above zero.');
+    return {
+      ...head,
+      lines: [
+        { accountId: s.moneyAccountId, debit: 0, credit: to.amount },
+        { accountId: to.accountId, debit: to.amount, credit: 0, memo: to.memo },
+      ],
+    };
+  }
   if (!s.moneyAccountId)
     throw new LedgerRuleError(
       `Choose the account it was ${s.kind === 'expense' ? 'paid from' : 'deposited to'}.`,
@@ -281,11 +325,31 @@ export function register(db: Database, q: RegisterQuery = {}): RegisterResult {
             .reduce((t, l) => t + l.debit - l.credit, 0)
         : null,
       balance: null,
+      reconciled: null,
+      otherSide: q.balanceAccountId
+        ? join(ls.filter((l) => l.accountId !== q.balanceAccountId))
+        : '',
     };
   });
   if (q.balanceAccountId) {
     const balances = runningBalances(db, q.balanceAccountId, rows);
     for (const r of rows) r.balance = balances.get(r.id) ?? null;
+    // Finished beats open, should an entry have lines in both
+    if (ids.length) {
+      const marks = new Map<number, 'R' | 'C'>();
+      for (const [entryId, status] of db.selectArrays(
+        `SELECT l.entry_id, max(CASE WHEN c.status = 'done' THEN 2 ELSE 1 END)
+         FROM journal_line l
+         JOIN reconciled_line rl ON rl.line_id = l.id
+         JOIN reconciliation c ON c.id = rl.reconciliation_id
+         WHERE l.account_id = ? AND l.entry_id IN (${ids.map(() => '?').join(', ')})
+         GROUP BY l.entry_id`,
+        [q.balanceAccountId, ...ids],
+      )) {
+        marks.set(Number(entryId), Number(status) === 2 ? 'R' : 'C');
+      }
+      for (const r of rows) r.reconciled = marks.get(r.id) ?? null;
+    }
   }
   // SQLite refuses an empty bind list on a statement without parameters
   const bind = w.bind.length ? w.bind : undefined;
@@ -302,4 +366,57 @@ export function register(db: Database, q: RegisterQuery = {}): RegisterResult {
     count,
     totals: { income: Number(totals.income), expense: Number(totals.expense) },
   };
+}
+
+/** Which accounts each register shows (GL-12): banks with cash on hand, or cards. */
+export const REGISTER_KINDS = {
+  bank: ['bank', 'cash_on_hand'],
+  card: ['credit_card'],
+} as const;
+export type RegisterKind = keyof typeof REGISTER_KINDS;
+
+export interface MoneyAccount {
+  id: string;
+  name: string;
+  detailType: string;
+  active: boolean;
+  /** Debit minus credit over posted entries; a card owes when it's negative */
+  balance: Cents;
+  /** The last finished reconciliation: its statement date and ending balance */
+  reconciled: { date: string; balance: Cents } | null;
+}
+
+/**
+ * The accounts a register switches between, by name: active ones, and
+ * inactive ones that still hold a balance.
+ */
+export function moneyAccounts(db: Database, kind: RegisterKind): MoneyAccount[] {
+  const types: readonly string[] = REGISTER_KINDS[kind];
+  const names = accountFullNames(db);
+  return db
+    .selectObjects(
+      `SELECT a.id, a.detail_type, a.active,
+              (SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
+               JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
+               WHERE l.account_id = a.id) AS balance,
+              (SELECT statement_date FROM reconciliation r WHERE r.account_id = a.id AND r.status = 'done'
+               ORDER BY statement_date DESC LIMIT 1) AS reconciled_date,
+              (SELECT ending_balance FROM reconciliation r WHERE r.account_id = a.id AND r.status = 'done'
+               ORDER BY statement_date DESC LIMIT 1) AS reconciled_balance
+       FROM account a WHERE a.detail_type IN (${types.map(() => '?').join(', ')})`,
+      [...types],
+    )
+    .map((r) => ({
+      id: String(r.id),
+      name: names.get(String(r.id)) ?? '?',
+      detailType: String(r.detail_type),
+      active: r.active === 1,
+      balance: Number(r.balance),
+      reconciled:
+        r.reconciled_date === null
+          ? null
+          : { date: String(r.reconciled_date), balance: Number(r.reconciled_balance) },
+    }))
+    .filter((a) => a.active || a.balance !== 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { postEntry } from '../../src/ledger/postEntry';
-import { register, simpleToEntry } from '../../src/ledger/register';
+import { moneyAccounts, register, simpleToEntry } from '../../src/ledger/register';
+import { setAccountActive } from '../../src/ledger/accounts';
+import {
+  finishReconciliation,
+  reconcileState,
+  setCleared,
+  startReconciliation,
+} from '../../src/modules/banking/reconcile';
 import type { Database } from '../../src/worker/sqlite';
 import { accountId, newLedgerDb, post } from './ledgerTestDb';
 
@@ -134,8 +141,12 @@ describe('transactions register (GL-9)', () => {
         { amount: 20_00, memo: null },
       ],
     });
-    // A transfer: money leaves Checking
-    expect(byName(null)).toMatchObject({ kind: 'expense', moneyAccountId: checking });
+    // A transfer (GL-13): from Checking to Savings
+    expect(byName(null)).toEqual({
+      kind: 'transfer',
+      moneyAccountId: checking,
+      lines: [{ accountId: accountId(db, 'Savings'), amount: 1_000_00, memo: null }],
+    });
     // Two lines on each side has no simple shape
     const complex = postEntry(db, {
       date: '2026-01-10',
@@ -183,5 +194,86 @@ describe('transactions register (GL-9)', () => {
     expect(bad(checking, '', 1)).toThrow('Choose a category for each line');
     expect(bad(checking, checking, 1)).toThrow('can’t be the account');
     expect(bad(checking, utilities, 0)).toThrow('above zero');
+  });
+});
+
+describe('bank and card registers (GL-12)', () => {
+  it('marks entries reconciled (R) or cleared in the open reconciliation (C)', () => {
+    // Checking: +5,000 on Jan 3, -45 on Jan 5, -1,000 on Jan 7
+    const done = startReconciliation(db, checking, '2026-01-04', 5_000_00);
+    const line = (date: string) =>
+      reconcileState(db, checking).items.find((i) => i.date === date)!.lineId;
+    setCleared(db, done, [line('2026-01-03')], true);
+    finishReconciliation(db, done);
+    const open = startReconciliation(db, checking, '2026-01-31', 3_955_00);
+    setCleared(db, open, [line('2026-01-05')], true);
+
+    const rows = register(db, {
+      scope: 'all',
+      accountId: checking,
+      balanceAccountId: checking,
+      order: 'asc',
+    }).rows;
+    expect(rows.map((r) => [r.date, r.reconciled, r.otherSide])).toEqual([
+      ['2026-01-03', 'R', 'Services'],
+      ['2026-01-05', 'C', 'Utilities'],
+      ['2026-01-07', null, 'Savings'],
+    ]);
+    // Without a register account there is nothing to mark
+    expect(register(db, { scope: 'all' }).rows.every((r) => r.reconciled === null)).toBe(true);
+  });
+
+  it('lists banks (with cash) and cards apart, with balances and the last reconciliation', () => {
+    const done = startReconciliation(db, checking, '2026-01-04', 5_000_00);
+    setCleared(db, done, [reconcileState(db, checking).items[0]!.lineId], true);
+    finishReconciliation(db, done);
+    const banks = moneyAccounts(db, 'bank');
+    expect(banks.map((a) => [a.name, a.balance])).toEqual([
+      ['Checking', 3_955_00],
+      ['Petty Cash', 0],
+      ['Savings', 1_000_00],
+    ]);
+    expect(banks[0]!.reconciled).toEqual({ date: '2026-01-04', balance: 5_000_00 });
+    expect(banks[2]!.reconciled).toBeNull();
+    expect(moneyAccounts(db, 'card').map((a) => [a.name, a.balance])).toEqual([
+      ['Credit Card', -100_00],
+    ]);
+    // An inactive account shows only while it still holds money
+    setAccountActive(db, accountId(db, 'Petty Cash'), false);
+    expect(moneyAccounts(db, 'bank').map((a) => a.name)).toEqual(['Checking', 'Savings']);
+  });
+});
+
+describe('transfers (GL-13)', () => {
+  it('posts from one account to another, and refuses the same account or no amount', () => {
+    const card = accountId(db, 'Credit Card');
+    const entry = simpleToEntry(
+      {
+        kind: 'transfer',
+        moneyAccountId: checking,
+        lines: [{ accountId: card, amount: 100_00, memo: null }],
+      },
+      { date: '2026-02-01', memo: 'Card payment' },
+    );
+    expect(entry.lines).toEqual([
+      { accountId: checking, debit: 0, credit: 100_00 },
+      { accountId: card, debit: 100_00, credit: 0, memo: null },
+    ]);
+    const id = postEntry(db, { ...entry, sourceType: 'register' });
+    const row = register(db, { scope: 'all', accountId: card, balanceAccountId: card }).rows.find(
+      (r) => r.id === id,
+    )!;
+    expect(row).toMatchObject({ otherSide: 'Checking', accountAmount: 100_00, balance: 0 });
+    expect(row.simple).toMatchObject({ kind: 'transfer', moneyAccountId: checking });
+
+    const bad = (from: string, to: string, amount: number) => () =>
+      simpleToEntry(
+        { kind: 'transfer', moneyAccountId: from, lines: [{ accountId: to, amount, memo: null }] },
+        { date: '2026-02-01' },
+      );
+    expect(bad('', card, 1)).toThrow('came from');
+    expect(bad(checking, '', 1)).toThrow('went to');
+    expect(bad(checking, checking, 1)).toThrow('two different accounts');
+    expect(bad(checking, card, 0)).toThrow('above zero');
   });
 });

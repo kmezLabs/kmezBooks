@@ -36,6 +36,8 @@ import { ErrorText, formatDateTime, formatTime, useAction } from './ui';
 
 const PAGES = {
   register: 'Transactions',
+  bankRegister: 'Bank register',
+  cardRegister: 'Credit card register',
   journal: 'Journal entries',
   recurring: 'Recurring entries',
   accounts: 'Accounts',
@@ -63,7 +65,17 @@ type Page = keyof typeof PAGES;
 const NAV: { group: string; pages: Page[] }[] = [
   {
     group: 'Books',
-    pages: ['register', 'journal', 'recurring', 'accounts', 'payees', 'reports', 'close'],
+    pages: [
+      'register',
+      'bankRegister',
+      'cardRegister',
+      'journal',
+      'recurring',
+      'accounts',
+      'payees',
+      'reports',
+      'close',
+    ],
   },
   { group: 'Sales', pages: ['invoices', 'estimates', 'recurringInvoices', 'items'] },
   { group: 'Purchases', pages: ['bills'] },
@@ -395,6 +407,18 @@ export function Workspace({ status }: { status: SessionStatus }) {
               }}
             />
           </div>
+          {(page === 'bankRegister' || page === 'cardRegister') && (
+            <RegisterPage
+              key={`${page}:${visit}`}
+              status={status}
+              kind={page === 'bankRegister' ? 'bank' : 'card'}
+              onOpenEntry={(id) => {
+                setOpenEntry(id);
+                setEntryFrom(page);
+                setPage('journal');
+              }}
+            />
+          )}
           {page === 'recurring' && (
             <RecurringPage
               key={visit}

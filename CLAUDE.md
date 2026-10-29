@@ -74,6 +74,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 8. **M8** Offline polish, export, restore drill, owner guide (`docs/OWNER-GUIDE.md`) (built 2026-10-28)
 9. After the MVP, at the owner's request: recurring journal entries (`GL-5`, for depreciation and amortization; built 2026-10-28)
 10. **M9** Invoices and bills, cash basis, per-company modules that start off (planned 2026-10-28): slice 1 products & services, estimates, invoices, customer payments, slice 2 the invoice PDF and sending it, slice 3 recurring invoices, slice 4 bills and bill payments (built)
+11. At the owner's request: bank and credit card registers with a reconciled column (`GL-12`), and transfers between accounts (`GL-13`) (built 2026-10-29)
 
 ## Conversation history (how we got here)
 

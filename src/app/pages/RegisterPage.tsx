@@ -3,9 +3,14 @@
 // and Add Transaction at the bottom. With one account chosen it reads like a
 // bank register, with the balance after each transaction. Quick changes from
 // the list: edit, void and, where the company allows it, delete (GL-6).
+// With a kind it is the Bank or Credit card register (GL-12): one account at a
+// time, picked from tiles with each balance, a reconciled column, and
+// transfers between accounts (GL-13).
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type {
+  MoneyAccount,
+  RegisterKind,
   RegisterQuery,
   RegisterResult,
   RegisterRow,
@@ -36,7 +41,9 @@ const DEFAULT_PERIOD: Exclude<RangePreset, 'custom'> = 'this_year_to_date';
 
 /** With one account chosen: how its money in and out are named, and how its balance reads. */
 interface AccountView {
+  /** The column for what lowers the balance as it reads */
   out: string;
+  /** The column for what raises it */
   in: string;
   /** A card or loan shows what's owed as a positive balance */
   sign: 1 | -1;
@@ -44,20 +51,31 @@ interface AccountView {
 
 function accountView(a: AccountRow | undefined): AccountView | null {
   if (!a) return null;
-  if (a.type === 'liability') return { out: 'Charge', in: 'Payment', sign: -1 };
+  // What a card owes goes down with a payment and up with a charge
+  if (a.type === 'liability') return { out: 'Payment', in: 'Charge', sign: -1 };
   if (a.type === 'asset') return { out: 'Payment', in: 'Deposit', sign: 1 };
   return { out: 'Decrease', in: 'Increase', sign: a.type === 'expense' ? 1 : -1 };
 }
 
+const KIND_TITLES: Record<RegisterKind, string> = {
+  bank: 'Bank register',
+  card: 'Credit card register',
+};
+
 export function RegisterPage(props: {
   status: SessionStatus;
+  /** The Bank or Credit card register (GL-12); the Transactions page without */
+  kind?: RegisterKind;
   onOpenEntry: (id: number) => void;
   /** Only this payee's transactions, chosen on the Payees page (GL-11) */
   payee?: { id: string; name: string } | null;
   onClearPayee?: () => void;
 }) {
   const companyId = props.status.companyId ?? '';
+  const kind = props.kind;
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  // The register's accounts, with balances (GL-12)
+  const [tiles, setTiles] = useState<MoneyAccount[] | null>(null);
   const [fyStartMonth, setFyStartMonth] = useState(1);
   const [postedEdits, setPostedEdits] = useState(false);
   // Opens on this year to date (owner's choice, Oct 28); calendar year until
@@ -67,13 +85,13 @@ export function RegisterPage(props: {
   const [query, setQuery] = useState<RegisterQuery>(() => ({
     scope: 'all',
     order: 'asc',
-    accountId: registerAccount(companyId),
+    accountId: registerAccount(companyId, kind),
     ...rangeFor(DEFAULT_PERIOD, todayIso(), 1),
   }));
   const [limit, setLimit] = useState(PAGE);
   const [result, setResult] = useState<RegisterResult | null>(null);
   const [open, setOpen] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<'expense' | 'transfer' | null>(null);
   const [version, setVersion] = useState(0);
   // Where to put the view after the next result: at the latest transaction,
   // or where it was after loading earlier ones
@@ -97,9 +115,22 @@ export function RegisterPage(props: {
       }
     });
     void db.postedEdits().then(setPostedEdits);
-  }, [props.status.companyId, props.status.lastSavedAt]);
+    if (kind) {
+      void db.moneyAccounts(kind).then((list) => {
+        setTiles(list);
+        // Always one of this register's accounts: the remembered one, else the first
+        setQuery((q) =>
+          q.accountId && list.some((a) => a.id === q.accountId)
+            ? q
+            : { ...q, accountId: list[0]?.id ?? null },
+        );
+      });
+    }
+  }, [props.status.companyId, props.status.lastSavedAt, kind, version]);
 
   useEffect(() => {
+    // A bank or card register waits for its account
+    if (props.kind && !query.accountId) return;
     let current = true;
     const t = setTimeout(() => {
       void db
@@ -115,7 +146,7 @@ export function RegisterPage(props: {
       current = false;
       clearTimeout(t);
     };
-  }, [query, limit, props.status.lastSavedAt, version, props.payee?.id]);
+  }, [query, limit, props.status.lastSavedAt, version, props.payee?.id, props.kind]);
 
   useLayoutEffect(() => {
     const target = scroll.current;
@@ -154,6 +185,13 @@ export function RegisterPage(props: {
 
   const chosen = accounts.find((a) => a.id === query.accountId);
   const view = accountView(chosen);
+  const tile = tiles?.find((a) => a.id === query.accountId);
+  const chooseAccount = (id: string | null) => {
+    setRegisterAccount(companyId, id, kind);
+    setQ({ accountId: id });
+  };
+  // A bank sends a transfer from itself; a card receives one from the first bank
+  const firstBank = accounts.find((a) => a.active && a.detailType === 'bank')?.id ?? '';
   const net = result ? result.totals.income - result.totals.expense : 0;
   const remaining = result ? result.count - result.rows.length : 0;
   const moreButton = remaining > 0 && (
@@ -165,8 +203,43 @@ export function RegisterPage(props: {
     </div>
   );
 
+  if (kind && tiles && tiles.length === 0) {
+    return (
+      <section className="register">
+        <h2>{KIND_TITLES[kind]}</h2>
+        <p className="muted">
+          No {kind === 'bank' ? 'bank' : 'credit card'} accounts yet; add one on Accounts.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="register">
+      {kind && (
+        <>
+          <h2>{KIND_TITLES[kind]}</h2>
+          <div className="account-tiles" role="group" aria-label="Accounts">
+            {tiles?.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                className={`account-tile${a.id === query.accountId ? ' active' : ''}`}
+                aria-pressed={a.id === query.accountId}
+                onClick={() => chooseAccount(a.id)}
+              >
+                <span className="tile-name">{a.name}</span>
+                <strong>{formatMoney(kind === 'card' ? -a.balance : a.balance)}</strong>
+                <span className="muted small">
+                  {a.reconciled
+                    ? `Reconciled to ${formatDate(a.reconciled.date)}: ${formatMoney(kind === 'card' ? -a.reconciled.balance : a.reconciled.balance)}`
+                    : 'Not reconciled yet'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <div className="fields register-filters">
         <label className="short">
           Period
@@ -201,16 +274,15 @@ export function RegisterPage(props: {
             }}
           />
         </label>
-        <AccountSelect
-          label="Account"
-          accounts={accounts}
-          value={query.accountId ?? ''}
-          onChange={(id) => {
-            setRegisterAccount(companyId, id || null);
-            setQ({ accountId: id || null });
-          }}
-          emptyLabel="Any account"
-        />
+        {!kind && (
+          <AccountSelect
+            label="Account"
+            accounts={accounts}
+            value={query.accountId ?? ''}
+            onChange={(id) => chooseAccount(id || null)}
+            emptyLabel="Any account"
+          />
+        )}
         <label>
           Search
           <input
@@ -219,16 +291,18 @@ export function RegisterPage(props: {
             onChange={(e) => setQ({ search: e.target.value })}
           />
         </label>
-        <label className="medium">
-          Show
-          <select
-            value={query.scope}
-            onChange={(e) => setQ({ scope: e.target.value as 'pl' | 'all' })}
-          >
-            <option value="all">All transactions</option>
-            <option value="pl">Income and expenses</option>
-          </select>
-        </label>
+        {!kind && (
+          <label className="medium">
+            Show
+            <select
+              value={query.scope}
+              onChange={(e) => setQ({ scope: e.target.value as 'pl' | 'all' })}
+            >
+              <option value="all">All transactions</option>
+              <option value="pl">Income and expenses</option>
+            </select>
+          </label>
+        )}
         <label className="short">
           Order
           <select
@@ -261,7 +335,7 @@ export function RegisterPage(props: {
         </label>
       </div>
 
-      {result && (
+      {result && (!kind || query.accountId) && (
         <>
           {query.order === 'asc' && moreButton}
           {result.rows.length === 0 ? (
@@ -273,12 +347,24 @@ export function RegisterPage(props: {
                   <th>Date</th>
                   <th>Ref</th>
                   <th>Payee</th>
-                  <th>Category</th>
-                  <th>Account</th>
+                  {kind ? (
+                    <th>Account</th>
+                  ) : (
+                    <>
+                      <th>Category</th>
+                      <th>Account</th>
+                    </>
+                  )}
                   {view ? (
                     <>
                       <th className="num">{view.out}</th>
                       <th className="num">{view.in}</th>
+                      <th
+                        className="mark"
+                        title="R: reconciled. C: cleared in the reconciliation in progress"
+                      >
+                        ✓
+                      </th>
                       <th className="num">Balance</th>
                     </>
                   ) : (
@@ -295,6 +381,7 @@ export function RegisterPage(props: {
                     key={r.id}
                     row={r}
                     view={view}
+                    compact={!!kind}
                     open={open === r.id}
                     onToggle={() => setOpen(open === r.id ? null : r.id)}
                     accounts={accounts}
@@ -310,38 +397,80 @@ export function RegisterPage(props: {
           {query.order === 'desc' && moreButton}
           <div className="register-foot">
             <p className="register-totals">
-              <span>
-                Income <strong>{formatMoney(result.totals.income)}</strong>
-              </span>
-              <span>
-                Expenses <strong>{formatMoney(result.totals.expense)}</strong>
-              </span>
-              <span>
-                Net{' '}
-                <strong className={net < 0 ? 'error-text' : undefined}>{formatMoney(net)}</strong>
-              </span>
+              {kind && tile ? (
+                <>
+                  <span>
+                    {kind === 'card' ? 'Owed' : 'Balance'}{' '}
+                    <strong>{formatMoney(kind === 'card' ? -tile.balance : tile.balance)}</strong>
+                  </span>
+                  {tile.reconciled && (
+                    <span>
+                      Reconciled to {formatDate(tile.reconciled.date)}{' '}
+                      <strong>
+                        {formatMoney(
+                          kind === 'card' ? -tile.reconciled.balance : tile.reconciled.balance,
+                        )}
+                      </strong>
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span>
+                    Income <strong>{formatMoney(result.totals.income)}</strong>
+                  </span>
+                  <span>
+                    Expenses <strong>{formatMoney(result.totals.expense)}</strong>
+                  </span>
+                  <span>
+                    Net{' '}
+                    <strong className={net < 0 ? 'error-text' : undefined}>
+                      {formatMoney(net)}
+                    </strong>
+                  </span>
+                </>
+              )}
               <span className="muted">
                 {result.count.toLocaleString('en-US')}{' '}
                 {result.count === 1 ? 'transaction' : 'transactions'}
               </span>
             </p>
-            {!readOnly && <button onClick={() => setAdding(true)}>Add Transaction</button>}
+            {!readOnly && (
+              <span className="buttons">
+                <button onClick={() => setAdding('expense')}>Add Transaction</button>
+                <button className="secondary" onClick={() => setAdding('transfer')}>
+                  Transfer
+                </button>
+              </span>
+            )}
           </div>
         </>
       )}
       {adding && (
-        <Dialog title="Add transaction" onClose={() => setAdding(false)}>
+        <Dialog
+          title={adding === 'transfer' ? 'Transfer' : 'Add transaction'}
+          onClose={() => setAdding(null)}
+        >
           <QuickAdd
             accounts={accounts}
+            initialKind={adding}
             defaultMoneyAccount={
               chosen && (chosen.type === 'asset' || chosen.type === 'liability') ? chosen.id : ''
             }
+            // Paying a card: from the first bank to the card
+            defaultTransfer={
+              chosen?.detailType === 'credit_card'
+                ? { from: firstBank, to: chosen.id }
+                : chosen && (chosen.type === 'asset' || chosen.type === 'liability')
+                  ? { from: chosen.id, to: '' }
+                  : { from: '', to: '' }
+            }
             onAdded={() => {
-              setAdding(false);
+              setAdding(null);
               scroll.current = 'latest';
               changed();
             }}
-            onCancel={() => setAdding(false)}
+            onCancel={() => setAdding(null)}
           />
         </Dialog>
       )}
@@ -352,6 +481,8 @@ export function RegisterPage(props: {
 function RegisterLine(props: {
   row: RegisterRow;
   view: AccountView | null;
+  /** The bank or card register: one Account column, the other side */
+  compact: boolean;
   open: boolean;
   onToggle: () => void;
   accounts: AccountRow[];
@@ -383,13 +514,31 @@ function RegisterLine(props: {
             </span>
           )}
         </td>
-        <td>{r.categories}</td>
-        <td>{r.accounts}</td>
+        {props.compact ? (
+          <td>{r.otherSide}</td>
+        ) : (
+          <>
+            <td>{r.categories}</td>
+            <td>{r.accounts}</td>
+          </>
+        )}
         {v ? (
           <>
             {/* Money out lowers the balance as it reads: a credit for a bank, a charge for a card */}
             <td className="num">{money(moved * v.sign < 0 ? Math.abs(moved) : null)}</td>
             <td className="num">{money(moved * v.sign > 0 ? Math.abs(moved) : null)}</td>
+            <td
+              className="mark"
+              title={
+                r.reconciled === 'R'
+                  ? 'Reconciled'
+                  : r.reconciled === 'C'
+                    ? 'Cleared in the reconciliation in progress'
+                    : undefined
+              }
+            >
+              {r.reconciled ?? ''}
+            </td>
             <td className="num">{r.balance === null ? '' : formatMoney(r.balance * v.sign)}</td>
           </>
         ) : (
@@ -401,7 +550,7 @@ function RegisterLine(props: {
       </tr>
       {props.open && (
         <tr className="editor">
-          <td colSpan={v ? 8 : 7}>
+          <td colSpan={(v ? 9 : 7) - (props.compact ? 1 : 0)}>
             <EntryEditor {...props} />
           </td>
         </tr>
@@ -518,14 +667,25 @@ function EntryEditor(props: {
               onChange={setMoney}
             />
           </div>
-          <CategoryLines
-            accounts={props.accounts}
-            lines={lines}
-            onChange={setLines}
-            set={set}
-            exclude={money}
-          />
-          <p className="muted small">Total {formatMoney(total)}</p>
+          {s.kind === 'transfer' ? (
+            <TransferTo
+              accounts={props.accounts}
+              from={money}
+              line={lines[0] ?? blankLine()}
+              onChange={(c) => set(0, c)}
+            />
+          ) : (
+            <>
+              <CategoryLines
+                accounts={props.accounts}
+                lines={lines}
+                onChange={setLines}
+                set={set}
+                exclude={money}
+              />
+              <p className="muted small">Total {formatMoney(total)}</p>
+            </>
+          )}
         </>
       ) : (
         editable && (
@@ -565,20 +725,51 @@ function EntryEditor(props: {
   );
 }
 
+const isMoney = (a: AccountRow) => a.type === 'asset' || a.type === 'liability';
+
 function MoneyAccountSelect(props: {
-  kind: 'expense' | 'income';
+  kind: SimpleEntry['kind'];
   accounts: AccountRow[];
   value: string;
   onChange: (id: string) => void;
 }) {
-  const money = props.accounts.filter((a) => a.type === 'asset' || a.type === 'liability');
   return (
     <AccountSelect
-      label={props.kind === 'expense' ? 'Paid from' : 'Deposited to'}
-      accounts={money}
+      label={
+        props.kind === 'expense' ? 'Paid from' : props.kind === 'income' ? 'Deposited to' : 'From'
+      }
+      accounts={props.accounts.filter(isMoney)}
       value={props.value}
       onChange={props.onChange}
     />
+  );
+}
+
+/** Where a transfer goes, and how much (GL-13). */
+function TransferTo(props: {
+  accounts: AccountRow[];
+  from: string;
+  line: LineDraft;
+  onChange: (c: Partial<LineDraft>) => void;
+}) {
+  return (
+    <div className="fields">
+      <AccountSelect
+        label="To"
+        accounts={props.accounts.filter(isMoney)}
+        value={props.line.accountId}
+        exclude={new Set(props.from ? [props.from] : [])}
+        onChange={(accountId) => props.onChange({ accountId })}
+      />
+      <label className="short">
+        Amount
+        <MoneyInput
+          ariaLabel="Amount"
+          value={props.line.amount}
+          onChange={(amount) => props.onChange({ amount })}
+        />
+      </label>
+    </div>
   );
 }
 
@@ -659,16 +850,24 @@ function CategoryLines(props: {
  */
 function QuickAdd(props: {
   accounts: AccountRow[];
+  initialKind?: 'expense' | 'transfer';
   defaultMoneyAccount: string;
+  /** A transfer's accounts to start with (GL-13) */
+  defaultTransfer?: { from: string; to: string };
   onAdded: () => void;
   onCancel: () => void;
 }) {
-  const [kind, setKind] = useState<'expense' | 'income'>('expense');
+  const [kind, setKind] = useState<SimpleEntry['kind']>(props.initialKind ?? 'expense');
   const [date, setDate] = useState(todayIso());
   const [ref, setRef] = useState('');
   const [payee, setPayee] = useState('');
-  const [money, setMoney] = useState(props.defaultMoneyAccount);
-  const [lines, setLines] = useState<LineDraft[]>([blankLine()]);
+  const transfer = props.defaultTransfer ?? { from: '', to: '' };
+  const [money, setMoney] = useState(
+    kind === 'transfer' ? transfer.from : props.defaultMoneyAccount,
+  );
+  const [lines, setLines] = useState<LineDraft[]>([
+    kind === 'transfer' ? { ...blankLine(), accountId: transfer.to } : blankLine(),
+  ]);
   const [memo, setMemo] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const { attempt, busy, error, dialog } = useClosedPeriodOverride();
@@ -724,7 +923,7 @@ function QuickAdd(props: {
       }}
     >
       <div className="segmented" role="group" aria-label="Kind">
-        {(['expense', 'income'] as const).map((k) => (
+        {(['expense', 'income', 'transfer'] as const).map((k) => (
           <button
             key={k}
             type="button"
@@ -732,10 +931,15 @@ function QuickAdd(props: {
             aria-pressed={k === kind}
             onClick={() => {
               setKind(k);
-              setLines(lines.map((l) => ({ ...l, accountId: '' })));
+              if (k === 'transfer') {
+                setMoney(transfer.from || money);
+                setLines([{ ...(lines[0] ?? blankLine()), accountId: transfer.to }]);
+              } else {
+                setLines(lines.map((l) => ({ ...l, accountId: '' })));
+              }
             }}
           >
-            {k === 'expense' ? 'Expense' : 'Income'}
+            {k === 'expense' ? 'Expense' : k === 'income' ? 'Income' : 'Transfer'}
           </button>
         ))}
       </div>
@@ -748,14 +952,16 @@ function QuickAdd(props: {
           {kind === 'expense' ? 'Ref / check no.' : 'Ref'}
           <input value={ref} onChange={(e) => setRef(e.target.value)} />
         </label>
-        <label>
-          Payee
-          <PayeeField
-            value={payee}
-            onChange={choosePayee}
-            placeholder={kind === 'expense' ? 'Paid to' : 'Received from'}
-          />
-        </label>
+        {kind !== 'transfer' && (
+          <label>
+            Payee
+            <PayeeField
+              value={payee}
+              onChange={choosePayee}
+              placeholder={kind === 'expense' ? 'Paid to' : 'Received from'}
+            />
+          </label>
+        )}
         <MoneyAccountSelect
           kind={kind}
           accounts={props.accounts}
@@ -763,7 +969,14 @@ function QuickAdd(props: {
           onChange={setMoney}
         />
       </div>
-      {split ? (
+      {kind === 'transfer' ? (
+        <TransferTo
+          accounts={props.accounts}
+          from={money}
+          line={lines[0]!}
+          onChange={(c) => set(0, c)}
+        />
+      ) : split ? (
         <>
           <CategoryLines
             accounts={categories.length ? categories : others}
@@ -825,6 +1038,11 @@ function QuickAdd(props: {
         >
           Add {kind}
         </button>
+        {kind === 'transfer' && (
+          <span className="muted small">
+            Moves money between your accounts; it isn't income or an expense.
+          </span>
+        )}
         <button type="button" className="secondary" disabled={busy} onClick={props.onCancel}>
           Cancel
         </button>

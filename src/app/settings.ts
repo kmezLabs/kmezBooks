@@ -43,13 +43,19 @@ export function setLockAfterMinutes(minutes: number) {
   write(INACTIVITY_KEY, String(minutes));
 }
 
-const registerAccountKey = (companyId: string) => `easybooks.registerAccount.${companyId}`;
+const registerAccountKey = (companyId: string, kind?: string) =>
+  kind
+    ? `easybooks.registerAccount.${kind}.${companyId}`
+    : `easybooks.registerAccount.${companyId}`;
 
-/** The account the Transactions register was last filtered to, for this company (GL-9). */
-export function registerAccount(companyId: string): string | null {
-  return read(registerAccountKey(companyId)) || null;
+/**
+ * The account the Transactions register was last filtered to, for this
+ * company (GL-9); with a kind, the account the bank or card register shows (GL-12).
+ */
+export function registerAccount(companyId: string, kind?: string): string | null {
+  return read(registerAccountKey(companyId, kind)) || null;
 }
 
-export function setRegisterAccount(companyId: string, accountId: string | null) {
-  write(registerAccountKey(companyId), accountId ?? '');
+export function setRegisterAccount(companyId: string, accountId: string | null, kind?: string) {
+  write(registerAccountKey(companyId, kind), accountId ?? '');
 }

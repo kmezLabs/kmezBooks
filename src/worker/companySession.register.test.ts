@@ -76,3 +76,50 @@ describe('session: transactions register (GL-9) and changing posted entries (GL-
     }
   });
 });
+
+describe('session: bank and card registers (GL-12) and transfers (GL-13)', () => {
+  it('pays the card from checking as one transfer, shown in both registers', async () => {
+    const session = new CompanySession({ iterations: 1_000, heartbeatMs: 0, saveDelayMs: 10_000 });
+    await session.create(asDir(new FakeDir()), ACME, 'the passphrase', 'PC');
+    const id = (name: string) => session.accounts().find((a) => a.name === name)!.id;
+    const seen: string[] = [];
+    const listen = (e: Event) => seen.push((e as CustomEvent<LedgerEventDetail>).detail.sourceType);
+    ledgerEvents.addEventListener('posted', listen);
+    let transfer: number;
+    try {
+      await session.addRegisterEntry(
+        {
+          kind: 'expense',
+          moneyAccountId: id('Credit Card'),
+          lines: [{ accountId: id('Meals'), amount: 60_00, memo: null }],
+        },
+        { date: '2026-01-05', name: 'Diner' },
+      );
+      transfer = await session.addRegisterEntry(
+        {
+          kind: 'transfer',
+          moneyAccountId: id('Checking'),
+          lines: [{ accountId: id('Credit Card'), amount: 60_00, memo: null }],
+        },
+        { date: '2026-01-20', memo: 'Card payment' },
+      );
+    } finally {
+      ledgerEvents.removeEventListener('posted', listen);
+    }
+    expect(seen).toEqual(['register', 'register']);
+    expect(session.moneyAccounts('card')).toMatchObject([{ name: 'Credit Card', balance: 0 }]);
+    expect(session.moneyAccounts('bank').find((a) => a.name === 'Checking')?.balance).toBe(-60_00);
+    const card = session.register({
+      scope: 'all',
+      accountId: id('Credit Card'),
+      balanceAccountId: id('Credit Card'),
+      order: 'asc',
+    });
+    expect(card.rows.map((r) => [r.otherSide, r.accountAmount, r.balance])).toEqual([
+      ['Meals', -60_00, -60_00],
+      ['Checking', 60_00, 0],
+    ]);
+    // Not income or an expense
+    expect(session.register().rows.some((r) => r.id === transfer)).toBe(false);
+  });
+});

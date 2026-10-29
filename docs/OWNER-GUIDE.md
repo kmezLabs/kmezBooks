@@ -86,6 +86,12 @@ Like an invoice, a bill only records what you owe; nothing goes into the books u
 
 **Pay bills** pays one vendor's bills with one check or transfer, fully or in part, from a bank or credit card account. The expenses count on the day you pay (cash basis), split over each bill's accounts, and bank review then offers the payment as the match for the line on your statement.
 
+## Bank and card registers
+
+**Bank register** and **Credit card register** (under Books) show one account at a time, like a checkbook. The tiles at the top list your bank and cash accounts (or your cards) with their balances and the last reconciliation; click one to see its register. A card shows what you owe. The ✓ column shows **R** for reconciled transactions and **C** for those checked off in a reconciliation you haven't finished.
+
+**Transfer** moves money between your own accounts: checking to savings, or paying the card from checking (in the Credit card register it starts from your first bank to the card). A transfer isn't income or an expense. **Add Transaction** also has a Transfer tab, on the Transactions page too.
+
 ## Recurring entries
 
 Depreciation, amortization and other entries that repeat are set up once, on **Recurring entries**. The quickest way is to open last month's entry in **Journal entries** and click **Make recurring**.

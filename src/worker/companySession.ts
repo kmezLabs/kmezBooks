@@ -80,6 +80,20 @@ import {
   type RecurringResult,
 } from '../ledger/recurring';
 import {
+  createDue,
+  createNow,
+  createRecurringInvoice,
+  deleteRecurringInvoice,
+  getRecurringInvoice,
+  listRecurringInvoices,
+  setRecurringInvoiceActive,
+  skipNextInvoice,
+  updateRecurringInvoice,
+  type RecurringInvoice,
+  type RecurringInvoiceInput,
+  type RecurringInvoiceResult,
+} from '../modules/sales/recurringInvoices';
+import {
   createPayee,
   defaultCategoryFor,
   deletePayee,
@@ -232,6 +246,8 @@ export interface SessionStatus {
   backupOverdue: boolean;
   /** Recurring entries posted or waiting when the company was opened (GL-5), until dismissed */
   recurring: RecurringResult | null;
+  /** Recurring invoices made or waiting when the company was opened (AR-9), until dismissed */
+  recurringInvoices: RecurringInvoiceResult | null;
   error: { name: string; message: string } | null;
 }
 
@@ -298,6 +314,7 @@ export class CompanySession {
   private saving = false;
   private lockLost = false;
   private recurringNotice: RecurringResult | null = null;
+  private invoiceNotice: RecurringInvoiceResult | null = null;
   private error: SessionStatus['error'] = null;
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private heartbeat: ReturnType<typeof setInterval> | undefined;
@@ -332,6 +349,7 @@ export class CompanySession {
       latestBackupAt: this.latestBackup?.toISOString() ?? null,
       backupOverdue: c && !c.readOnly ? backupOverdue(this.latestBackup, this.now()) : false,
       recurring: c ? this.recurringNotice : null,
+      recurringInvoices: c ? this.invoiceNotice : null,
       error: this.error,
     };
   }
@@ -414,7 +432,10 @@ export class CompanySession {
     });
     await this.attach(company, opts.device, sessionId);
     // Nothing runs while the app is closed: what came due since posts now (GL-5)
-    if (!company.readOnly) this.postDueRecurring();
+    if (!company.readOnly) {
+      this.postDueRecurring();
+      this.createDueInvoices();
+    }
     return { kind: 'opened', status: this.status(), upgradedFrom, timings };
   }
 
@@ -1268,7 +1289,66 @@ export class CompanySession {
 
   dismissRecurring(): void {
     this.recurringNotice = null;
+    this.invoiceNotice = null;
     this.emit();
+  }
+
+  // ---- recurring invoices (AR-9) ----
+
+  recurringInvoices(): RecurringInvoice[] {
+    return listRecurringInvoices(this.open_().db);
+  }
+
+  recurringInvoice(id: string): RecurringInvoice {
+    return getRecurringInvoice(this.open_().db, id);
+  }
+
+  createRecurringInvoice(input: RecurringInvoiceInput): string {
+    const id = createRecurringInvoice(this.writable().db, input);
+    this.touch();
+    return id;
+  }
+
+  updateRecurringInvoice(id: string, input: RecurringInvoiceInput): void {
+    updateRecurringInvoice(this.writable().db, id, input);
+    this.touch();
+  }
+
+  setRecurringInvoiceActive(id: string, active: boolean): void {
+    setRecurringInvoiceActive(this.writable().db, id, active);
+    this.touch();
+  }
+
+  deleteRecurringInvoice(id: string): void {
+    deleteRecurringInvoice(this.writable().db, id);
+    this.touch();
+  }
+
+  skipRecurringInvoice(id: string): void {
+    skipNextInvoice(this.writable().db, id);
+    this.touch();
+  }
+
+  /** Make a template's next invoice now, before its date. Returns the invoice. */
+  createRecurringInvoiceNow(id: string): string {
+    const docId = createNow(this.writable().db, id);
+    this.touch();
+    return docId;
+  }
+
+  /**
+   * Make every recurring invoice that has come due, as when the company opens.
+   * Only while the sales module is on: a company that turned it off sees none.
+   */
+  createDueInvoices(): RecurringInvoiceResult {
+    const db = this.writable().db;
+    if (!readModules(db).sales) return { created: [], waiting: [] };
+    const result = createDue(db, localDate(this.now()));
+    if (result.created.length || result.waiting.length) {
+      this.invoiceNotice = result;
+      this.touch();
+    }
+    return result;
   }
 
   /** Add an income or expense from the register's quick form (GL-9). */
@@ -1584,6 +1664,7 @@ export class CompanySession {
     this.lockLost = false;
     this.error = null;
     this.recurringNotice = null;
+    this.invoiceNotice = null;
     // The backup folder belongs to this company; the next one sets its own
     this.customBackupDir = null;
     this.emit();

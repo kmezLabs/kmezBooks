@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ledgerEvents, type LedgerEventDetail } from '../ledger/events';
+import { blankPayee } from '../ledger/payees';
 import { CompanySession } from './companySession';
 import { FakeDir, asDir } from './testing/fakeDir';
 import { ACME } from './testing/fixtures';
@@ -92,5 +93,82 @@ describe('session: recurring entries post when the company opens (GL-5)', () => 
     });
     await session.postRecurringNow(tid, 'pw');
     expect(session.postDueRecurring().posted.map((p) => p.date)).toEqual(['2026-03-01']);
+  });
+});
+
+async function companyWithTuition(salesOn = true) {
+  const dir = new FakeDir();
+  let t = new Date(2026, 0, 15, 9, 0, 0);
+  const session = new CompanySession({
+    iterations: 1_000,
+    heartbeatMs: 0,
+    saveDelayMs: 10_000,
+    now: () => t,
+  });
+  await session.create(asDir(dir), ACME, 'pw', 'PC');
+  session.setModule('sales', true);
+  const customer = session.createPayee({
+    ...blankPayee('Smith Family'),
+    isCustomer: true,
+  });
+  session.createRecurringInvoice({
+    name: 'Tuition',
+    customerId: customer,
+    frequency: 'monthly',
+    dayOfMonth: 1,
+    startDate: '2026-02-01',
+    endDate: null,
+    termsDays: 15,
+    memo: null,
+    lines: [
+      {
+        itemId: null,
+        description: 'Full day',
+        quantity: null,
+        rate: null,
+        amount: 950_00,
+        incomeAccountId: session.accounts().find((a) => a.name === 'Services')!.id,
+      },
+    ],
+  });
+  if (!salesOn) session.setModule('sales', false);
+  await session.close();
+  return { dir, session, advanceTo: (d: Date) => (t = d) };
+}
+
+describe('session: recurring invoices are made when the company opens (AR-9)', () => {
+  it('makes what came due while closed as drafts, says so until dismissed, and saves', async () => {
+    const { dir, session, advanceTo } = await companyWithTuition();
+    advanceTo(new Date(2026, 2, 10, 9, 0, 0)); // March 10: Feb and Mar are due
+    await session.open(asDir(dir), 'pw', { device: 'PC' });
+    const status = session.status();
+    expect(status.recurringInvoices?.created.map((c) => [c.number, c.date])).toEqual([
+      ['1001', '2026-02-01'],
+      ['1002', '2026-03-01'],
+    ]);
+    expect(status.dirty).toBe(true);
+    expect(session.salesDocs({ kind: 'invoice' }).map((d) => d.status)).toEqual(['draft', 'draft']);
+    session.dismissRecurring();
+    expect(session.status().recurringInvoices).toBeNull();
+    await session.close();
+
+    await session.open(asDir(dir), 'pw', { device: 'PC' });
+    expect(session.status().recurringInvoices).toBeNull();
+    expect(session.salesDocs({ kind: 'invoice' })).toHaveLength(2);
+  });
+
+  it('makes nothing read-only, or while the sales module is off', async () => {
+    const a = await companyWithTuition();
+    a.advanceTo(new Date(2026, 2, 10, 9, 0, 0));
+    await a.session.open(asDir(a.dir), 'pw', { device: 'PC', mode: 'readOnly' });
+    expect(a.session.status().recurringInvoices).toBeNull();
+    expect(a.session.salesDocs({ kind: 'invoice' })).toEqual([]);
+
+    const b = await companyWithTuition(false);
+    b.advanceTo(new Date(2026, 2, 10, 9, 0, 0));
+    await b.session.open(asDir(b.dir), 'pw', { device: 'PC' });
+    expect(b.session.status().recurringInvoices).toBeNull();
+    expect(b.session.salesDocs({ kind: 'invoice' })).toEqual([]);
+    expect(b.session.recurringInvoices()[0]!.nextDate).toBe('2026-02-01');
   });
 });

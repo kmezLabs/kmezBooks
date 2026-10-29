@@ -5,6 +5,7 @@ import * as Comlink from 'comlink';
 import type { EntryQuery } from '../ledger/entries';
 import type { PayeeInput, PayeeKind } from '../ledger/payees';
 import type { RecurringInput } from '../ledger/recurring';
+import type { RecurringInvoiceInput } from '../modules/sales/recurringInvoices';
 import type { DocInput, DocKind, DocQuery } from '../modules/sales/documents';
 import type { ItemInput } from '../modules/sales/items';
 import type { PaymentInput } from '../modules/sales/payments';
@@ -121,6 +122,17 @@ const api = {
     session.postRecurringNow(id, overridePassphrase),
   postDueRecurring: () => session.postDueRecurring(),
   dismissRecurring: () => session.dismissRecurring(),
+  recurringInvoices: () => session.recurringInvoices(),
+  recurringInvoice: (id: string) => session.recurringInvoice(id),
+  createRecurringInvoice: (input: RecurringInvoiceInput) => session.createRecurringInvoice(input),
+  updateRecurringInvoice: (id: string, input: RecurringInvoiceInput) =>
+    session.updateRecurringInvoice(id, input),
+  setRecurringInvoiceActive: (id: string, active: boolean) =>
+    session.setRecurringInvoiceActive(id, active),
+  deleteRecurringInvoice: (id: string) => session.deleteRecurringInvoice(id),
+  skipRecurringInvoice: (id: string) => session.skipRecurringInvoice(id),
+  createRecurringInvoiceNow: (id: string) => session.createRecurringInvoiceNow(id),
+  createDueInvoices: () => session.createDueInvoices(),
   payees: (opts?: { kind?: PayeeKind; search?: string; includeInactive?: boolean }) =>
     session.payees(opts),
   payee: (id: string) => session.payee(id),

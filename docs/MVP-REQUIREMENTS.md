@@ -124,7 +124,7 @@ Owner's decision, Oct 28: none of the four companies uses invoices, estimates or
 | AR-6 | Sales receipts for paid-on-the-spot sales. Not planned (owner, Oct 28): Add Transaction on the Transactions page records a sale paid on the spot | S |
 | AR-7 | Record full or partial payments against one or more invoices; deposit to a bank or Undeposited Funds; each payment posts its income pro rata over the invoice's lines (GL-8). In the MVP a payment can't exceed what is still owed (customer credits are a future Receivables extra). Built Oct 28 (M9 slice 1) with deposits straight to a bank account (owner's choice); Undeposited Funds is not used | S |
 | AR-8 | Invoice template with each company's logo and details. Built Oct 28 (M9 slice 2): logo, contact details and a footer, on the Company page | S |
-| AR-9 | Recurring invoices (created when the company is next opened, since nothing runs while the app is closed) | S |
+| AR-9 | Recurring invoices (created when the company is next opened, since nothing runs while the app is closed). Built Oct 28 (M9 slice 3): made as drafts to check and send, with a notice; Make recurring from an invoice | S |
 
 ### Vendors and bills (AP)
 

@@ -17,7 +17,13 @@ import {
   linesToCents,
   type LineDraft,
 } from '../LineEditor';
-import { PayeeField, formatDate, todayIso, useClosedPeriodOverride } from '../ledgerUi';
+import {
+  PayeeField,
+  formatDate,
+  openAttachmentFile,
+  todayIso,
+  useClosedPeriodOverride,
+} from '../ledgerUi';
 import type { RecurringDraft } from './RecurringPage';
 import { Dialog, ErrorText, TextField, formatBytes, formatDateTime, useAction } from '../ui';
 
@@ -419,19 +425,6 @@ function recurringFrom(entry: EntryData): RecurringDraft {
   };
 }
 
-async function openFile(id: string) {
-  const { fileName, mimeType, bytes } = await db.openAttachment(id);
-  const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
-  const a = document.createElement('a');
-  a.href = url;
-  // Show what the browser can show (PDFs, images); download the rest
-  if (!/^(application\/pdf|image\/|text\/plain)/.test(mimeType)) a.download = fileName;
-  a.target = '_blank';
-  a.rel = 'noopener';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
 function EntryView(props: {
   status: SessionStatus;
   id: number;
@@ -533,7 +526,7 @@ function EntryView(props: {
       <ul className="files">
         {entry.files.map((f) => (
           <li key={f.id}>
-            <button className="link" onClick={() => run(() => openFile(f.id))}>
+            <button className="link" onClick={() => run(() => openAttachmentFile(f.id))}>
               {f.fileName}
             </button>{' '}
             <span className="muted">{formatBytes(f.size)}</span>{' '}

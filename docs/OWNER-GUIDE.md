@@ -78,6 +78,14 @@ To send an invoice or estimate, open it and click **Send…**. The customer's em
 
 For an invoice that repeats, such as monthly tuition, open an invoice and click **Make recurring**, or use **Recurring invoices**. Each time you open the company, EasyBooks makes the invoices that have come due as drafts and tells you in a bar at the top; check them and send them from **Invoices**. **Skip next** leaves out a month; **Create now** makes the next one early.
 
+## Bills (optional)
+
+A company that gets bills to pay later can turn on **Vendors and bills** on the **Modules** page. **Bills** then appears under Purchases, showing the bills due, oldest first.
+
+Like an invoice, a bill only records what you owe; nothing goes into the books until you pay it. Enter the vendor, the dates and the lines by account, and attach the vendor's PDF or a photo. A vendor's terms and default category (on the Payees page) fill in for you.
+
+**Pay bills** pays one vendor's bills with one check or transfer, fully or in part, from a bank or credit card account. The expenses count on the day you pay (cash basis), split over each bill's accounts, and bank review then offers the payment as the match for the line on your statement.
+
 ## Recurring entries
 
 Depreciation, amortization and other entries that repeat are set up once, on **Recurring entries**. The quickest way is to open last month's entry in **Journal entries** and click **Make recurring**.

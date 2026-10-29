@@ -15,6 +15,8 @@ export const SOURCES: Record<string, string> = {
   bank: 'From bank review',
   register: 'Quick entry',
   recurring: 'Recurring entry',
+  invoice_payment: 'Invoice payment',
+  bill_payment: 'Bill payment',
 };
 
 export function EntryPeek(props: { id: number; onOpen: () => void; lastSavedAt?: string | null }) {

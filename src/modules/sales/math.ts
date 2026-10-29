@@ -13,10 +13,7 @@ export function lineAmount(quantity: number, rate: Cents): Cents {
   return Number(away ? q + (p < 0n ? -1n : 1n) : q);
 }
 
-/** The day `days` after `date`. */
-export function addDays(date: string, days: number): string {
-  return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
-}
+export { addDays } from '../../shared/periods';
 
 /** What a document is now, as of `today`. */
 export function stateOf(

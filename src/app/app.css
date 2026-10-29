@@ -1110,6 +1110,10 @@ table.doc-lines td:nth-child(5) {
   width: 8rem;
 }
 
+table.bill-lines td:nth-child(3) {
+  width: 9rem;
+}
+
 .badge.muted {
   opacity: 0.7;
 }

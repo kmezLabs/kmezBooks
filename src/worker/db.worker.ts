@@ -9,6 +9,8 @@ import type { RecurringInvoiceInput } from '../modules/sales/recurringInvoices';
 import type { DocInput, DocKind, DocQuery } from '../modules/sales/documents';
 import type { ItemInput } from '../modules/sales/items';
 import type { PaymentInput } from '../modules/sales/payments';
+import type { BillInput, BillQuery } from '../modules/bills/bills';
+import type { BillPaymentInput } from '../modules/bills/billPayments';
 import type { EntryChange, EntryInput } from '../ledger/postEntry';
 import type { RegisterQuery, SimpleEntry } from '../ledger/register';
 import type { CategorizeInput, QueueView } from '../modules/banking/review';
@@ -111,6 +113,20 @@ const api = {
     session.receivePayment(input, overridePassphrase),
   voidPayment: (id: string, reason: string | null, overridePassphrase?: string) =>
     session.voidPayment(id, reason, overridePassphrase),
+  bills: (query?: BillQuery) => session.bills(query),
+  bill: (id: string) => session.bill(id),
+  billFiles: (id: string) => session.billFiles(id),
+  billsDue: () => session.billsDue(),
+  createBill: (input: BillInput) => session.createBill(input),
+  updateBill: (id: string, input: BillInput) => session.updateBill(id, input),
+  voidBill: (id: string) => session.voidBill(id),
+  deleteBill: (id: string) => session.deleteBill(id),
+  billPayments: (query?: { vendorId?: string | null; billId?: string | null }) =>
+    session.billPayments(query),
+  payBills: (input: BillPaymentInput, overridePassphrase?: string) =>
+    session.payBills(input, overridePassphrase),
+  voidBillPayment: (id: string, reason: string | null, overridePassphrase?: string) =>
+    session.voidBillPayment(id, reason, overridePassphrase),
   recurringList: () => session.recurringList(),
   recurring: (id: string) => session.recurring(id),
   createRecurring: (input: RecurringInput) => session.createRecurring(input),
@@ -164,7 +180,7 @@ const api = {
   setClosingDate: (date: string | null) => session.setClosingDate(date),
   trialBalance: (asOf: string) => session.trialBalance(asOf),
   report: (req: ReportRequest) => session.report(req),
-  addAttachment: (entity: 'journal_entry', entityId: string, file: File) =>
+  addAttachment: (entity: 'journal_entry' | 'bill', entityId: string, file: File) =>
     session.addAttachment(entity, entityId, file),
   openAttachment: (id: string) => session.openAttachment(id),
   removeAttachment: (id: string) => session.removeAttachment(id),

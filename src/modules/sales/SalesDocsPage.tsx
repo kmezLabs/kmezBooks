@@ -11,17 +11,25 @@ import {
   todayIso,
   useClosedPeriodOverride,
 } from '../../app/ledgerUi';
-import { Combo } from '../../app/Combo';
 import { download } from '../../app/export/exportReport';
 import { Dialog, ErrorText, TextField, useAction } from '../../app/ui';
 import type { AccountRow } from '../../shared/accounts';
 import { formatMoney, parseMoney, type Cents } from '../../shared/money';
 import { db } from '../../shared/workerClient';
 import type { SessionStatus } from '../../worker/companySession';
-import type { CustomerBalance, Doc, DocKind, DocLineInput, DocState } from './documents';
+import type { CustomerBalance, Doc, DocKind, DocState } from './documents';
 import type { Item } from './items';
-import { addDays, formatQuantity, lineAmount, parseQuantity } from './math';
+import { addDays } from './math';
 import type { Payment } from './payments';
+import {
+  DocLinesTable,
+  LINES_ERROR,
+  blankRow,
+  defaultIncomeAccount,
+  linesFromRows,
+  rowsFrom,
+  type LineRow,
+} from './DocLines';
 import { CustomerSelect, StateBadge } from './salesUi';
 
 type Filter = 'all' | 'open' | 'overdue' | 'paid' | 'accepted' | 'declined' | 'void';
@@ -50,7 +58,16 @@ function matches(d: Doc, f: Filter): boolean {
 
 const noun = (kind: DocKind) => (kind === 'invoice' ? 'invoice' : 'estimate');
 
-export function SalesDocsPage({ status, kind }: { status: SessionStatus; kind: DocKind }) {
+export function SalesDocsPage({
+  status,
+  kind,
+  onMakeRecurring,
+}: {
+  status: SessionStatus;
+  kind: DocKind;
+  /** Start a recurring invoice from this one (AR-9) */
+  onMakeRecurring?: (d: Doc) => void;
+}) {
   const [view, setView] = useState<{ id: string | null; copyOf?: Doc } | null>(null);
   const [docs, setDocs] = useState<Doc[] | null>(null);
   const [balances, setBalances] = useState<CustomerBalance[]>([]);
@@ -95,6 +112,7 @@ export function SalesDocsPage({ status, kind }: { status: SessionStatus; kind: D
           }}
           onDuplicate={(d) => setView({ id: null, copyOf: d })}
           onReceivePayment={(d) => setReceiving({ customerId: d.customerId, docId: d.id })}
+          onMakeRecurring={onMakeRecurring}
           onChanged={changed}
         />
         {payDialog}
@@ -236,38 +254,6 @@ export function SalesDocsPage({ status, kind }: { status: SessionStatus; kind: D
 
 // ---- the document form ----
 
-interface LineRow {
-  key: number;
-  itemId: string | null;
-  description: string;
-  quantity: string;
-  rate: string;
-  amount: string;
-  accountId: string;
-}
-
-let nextKey = 1;
-const blankRow = (accountId = ''): LineRow => ({
-  key: nextKey++,
-  itemId: null,
-  description: '',
-  quantity: '',
-  rate: '',
-  amount: '',
-  accountId,
-});
-
-const rowsFrom = (lines: DocLineInput[]): LineRow[] =>
-  lines.map((l) => ({
-    key: nextKey++,
-    itemId: l.itemId,
-    description: l.description ?? '',
-    quantity: l.quantity === null ? '' : formatQuantity(l.quantity),
-    rate: l.rate === null ? '' : formatMoney(l.rate),
-    amount: formatMoney(l.amount),
-    accountId: l.incomeAccountId,
-  }));
-
 function DocForm(props: {
   kind: DocKind;
   id: string | null;
@@ -277,6 +263,7 @@ function DocForm(props: {
   onDone: (id: string | null) => void;
   onDuplicate: (d: Doc) => void;
   onReceivePayment: (d: Doc) => void;
+  onMakeRecurring?: (d: Doc) => void;
   onChanged: () => void;
 }) {
   const [doc, setDoc] = useState<Doc | null>(null);
@@ -318,12 +305,7 @@ function DocForm(props: {
     if (props.kind === 'invoice') void db.payments({ docId: props.id }).then(setPayments);
   }, [props.id, props.kind, props.version]);
 
-  const income = accounts.filter((a) => a.type === 'income');
-  const defaultAccount =
-    income.find((a) => a.name === 'Services')?.id ??
-    income.find((a) => a.name === 'Sales')?.id ??
-    income[0]?.id ??
-    '';
+  const defaultAccount = defaultIncomeAccount(accounts);
   // A new document starts with one empty line once the accounts are known
   if (!props.id && !props.copyOf && rows.length === 0 && defaultAccount) {
     setRows([blankRow(defaultAccount)]);
@@ -334,71 +316,14 @@ function DocForm(props: {
       ? addDays(date, termsDays)
       : date;
 
-  const setRow = (key: number, c: Partial<LineRow>) =>
-    setRows(
-      rows.map((r) => {
-        if (r.key !== key) return r;
-        const next = { ...r, ...c };
-        // Quantity × rate fills the amount; an amount typed directly stays
-        if (('quantity' in c || 'rate' in c) && next.quantity.trim() && next.rate.trim()) {
-          const q = parseQuantity(next.quantity);
-          const rate = parseMoney(next.rate);
-          if (q !== null && rate !== null) next.amount = formatMoney(lineAmount(q, rate));
-        }
-        return next;
-      }),
-    );
-  const chooseItem = (key: number, itemId: string) => {
-    const it = items.find((i) => i.id === itemId);
-    const row = rows.find((r) => r.key === key)!;
-    if (!it) return setRow(key, { itemId: null });
-    const quantity = row.quantity.trim() || '1';
-    const q = parseQuantity(quantity);
-    setRows(
-      rows.map((r) =>
-        r.key === key
-          ? {
-              ...r,
-              itemId: it.id,
-              description: it.description ?? it.name,
-              accountId: it.incomeAccountId,
-              quantity,
-              rate: it.rate === null ? r.rate : formatMoney(it.rate),
-              amount:
-                it.rate !== null && q !== null ? formatMoney(lineAmount(q, it.rate)) : r.amount,
-            }
-          : r,
-      ),
-    );
-  };
-
-  const total = rows.reduce((s, r) => s + (parseMoney(r.amount) ?? 0), 0);
   const locked = !!doc?.hasPayments;
   const editable = !props.readOnly && doc?.status !== 'void';
 
   const save = () => {
-    const lines: DocLineInput[] = [];
-    for (const r of rows) {
-      if (!r.amount.trim() && !r.itemId && !r.description.trim()) continue;
-      const amount = parseMoney(r.amount);
-      const quantity = r.quantity.trim() ? parseQuantity(r.quantity) : null;
-      const rate = r.rate.trim() ? parseMoney(r.rate) : null;
-      if (
-        amount === null ||
-        (r.quantity.trim() && quantity === null) ||
-        (r.rate.trim() && rate === null)
-      ) {
-        setError('Each line needs an amount (and quantity and rate as numbers, if given).');
-        return;
-      }
-      lines.push({
-        itemId: r.itemId,
-        description: r.description,
-        quantity,
-        rate,
-        amount,
-        incomeAccountId: r.accountId,
-      });
+    const lines = linesFromRows(rows);
+    if (!lines) {
+      setError(LINES_ERROR);
+      return;
     }
     const input = {
       kind: props.kind,
@@ -493,129 +418,13 @@ function DocForm(props: {
               </label>
             )}
           </div>
-          <table className="lines doc-lines">
-            <thead>
-              <tr>
-                <th>Product or service</th>
-                <th>Description</th>
-                <th className="num">Qty</th>
-                <th className="num">Rate</th>
-                <th className="num">Amount</th>
-                <th>Income account</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.key}>
-                  <td>
-                    <Combo
-                      options={items.map((it) => ({
-                        value: it.id,
-                        label: it.name,
-                        keys: [it.name],
-                      }))}
-                      value={r.itemId ?? ''}
-                      onChange={(id) => chooseItem(r.key, id)}
-                      emptyLabel="—"
-                      ariaLabel={`Line ${i + 1} product or service`}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      aria-label={`Line ${i + 1} description`}
-                      value={r.description}
-                      disabled={locked}
-                      onChange={(e) => setRow(r.key, { description: e.target.value })}
-                    />
-                  </td>
-                  <td className="qty">
-                    <input
-                      className="money"
-                      aria-label={`Line ${i + 1} quantity`}
-                      value={r.quantity}
-                      disabled={locked}
-                      onChange={(e) => setRow(r.key, { quantity: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <MoneyInput
-                      ariaLabel={`Line ${i + 1} rate`}
-                      value={r.rate}
-                      onChange={(rate) => setRow(r.key, { rate })}
-                    />
-                  </td>
-                  <td>
-                    <MoneyInput
-                      ariaLabel={`Line ${i + 1} amount`}
-                      value={r.amount}
-                      onChange={(amount) => setRow(r.key, { amount })}
-                    />
-                  </td>
-                  <td>
-                    <AccountSelect
-                      accounts={income}
-                      value={r.accountId}
-                      onChange={(accountId) => setRow(r.key, { accountId })}
-                    />
-                  </td>
-                  <td>
-                    {rows.length > 1 && !locked && (
-                      <button
-                        type="button"
-                        className="link muted"
-                        aria-label={`Remove line ${i + 1}`}
-                        onClick={() => setRows(rows.filter((x) => x.key !== r.key))}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={4}>
-                  {!locked && (
-                    <>
-                      <button
-                        type="button"
-                        className="link"
-                        onClick={() => setRows([...rows, blankRow(defaultAccount)])}
-                      >
-                        + Add line
-                      </button>{' '}
-                      <button
-                        type="button"
-                        className="link"
-                        title="A negative line, e.g. -50.00, reducing the total"
-                        onClick={() =>
-                          setRows([
-                            ...rows,
-                            {
-                              ...blankRow(
-                                income.find((a) => a.name === 'Discounts Given')?.id ??
-                                  defaultAccount,
-                              ),
-                              description: 'Discount',
-                              amount: '-',
-                            },
-                          ])
-                        }
-                      >
-                        + Add discount
-                      </button>
-                    </>
-                  )}
-                </td>
-                <td className="num">
-                  <strong>{formatMoney(total)}</strong>
-                </td>
-                <td colSpan={2} />
-              </tr>
-            </tfoot>
-          </table>
+          <DocLinesTable
+            rows={rows}
+            onChange={setRows}
+            accounts={accounts}
+            items={items}
+            locked={locked}
+          />
           <TextField
             label={props.kind === 'invoice' ? 'Message to the customer' : 'Message'}
             value={memo}
@@ -641,6 +450,7 @@ function DocForm(props: {
               onDone={props.onDone}
               onDuplicate={props.onDuplicate}
               onReceivePayment={props.onReceivePayment}
+              onMakeRecurring={props.onMakeRecurring}
               onChanged={props.onChanged}
             />
           )}
@@ -721,6 +531,7 @@ function DocActions(props: {
   onDone: (id: string | null) => void;
   onDuplicate: (d: Doc) => void;
   onReceivePayment: (d: Doc) => void;
+  onMakeRecurring?: (d: Doc) => void;
   onChanged: () => void;
 }) {
   const d = props.doc;
@@ -819,6 +630,16 @@ function DocActions(props: {
       <button type="button" className="secondary" onClick={() => props.onDuplicate(d)}>
         Duplicate
       </button>
+      {d.kind === 'invoice' && props.onMakeRecurring && (
+        <button
+          type="button"
+          className="secondary"
+          title="Make an invoice like this one every month (or quarter, or year)"
+          onClick={() => props.onMakeRecurring!(d)}
+        >
+          Make recurring
+        </button>
+      )}
       {!d.hasPayments && (
         <button
           type="button"

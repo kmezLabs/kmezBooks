@@ -6,7 +6,7 @@
 // template waiting with the reason, for the owner to post or skip.
 
 import type { Cents } from '../shared/money';
-import { FREQUENCIES, firstDate, nextDate, type Frequency } from '../shared/schedule';
+import { FREQUENCIES, firstDate, nextDate, upcomingDate, type Frequency } from '../shared/schedule';
 import { ClosedPeriodError, LedgerRuleError, fromRule } from '../worker/errors';
 import type { Database } from '../worker/sqlite';
 import { isIsoDate, postEntry, validateEntry, type PostOptions } from './postEntry';
@@ -163,11 +163,7 @@ function scheduledNext(db: Database, id: string | null, input: RecurringInput): 
   const current = id
     ? (db.selectValue('SELECT next_date FROM recurring_entry WHERE id = ?', [id]) as string | null)
     : null;
-  let next = firstDate(input.startDate, input.dayOfMonth);
-  while ((last && next <= last) || (current && next < current)) {
-    next = nextDate(next, input.frequency, input.dayOfMonth);
-  }
-  return input.endDate && next > input.endDate ? null : next;
+  return upcomingDate(input, last, current);
 }
 
 const fields = (input: RecurringInput) => [

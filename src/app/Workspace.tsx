@@ -6,6 +6,11 @@ import { BankingPage } from '../modules/banking/BankingPage';
 import { ReconcilePage } from '../modules/banking/ReconcilePage';
 import { RulesPage } from '../modules/banking/RulesPage';
 import { ItemsPage } from '../modules/sales/ItemsPage';
+import {
+  RecurringInvoicesPage,
+  draftFromInvoice,
+  type RecurringInvoiceDraft,
+} from '../modules/sales/RecurringInvoicesPage';
 import { SalesDocsPage } from '../modules/sales/SalesDocsPage';
 import { MigrationPage } from '../modules/migration/MigrationPage';
 import type { Module } from '../shared/company';
@@ -38,6 +43,7 @@ const PAGES = {
   close: 'Close books',
   invoices: 'Invoices',
   estimates: 'Estimates',
+  recurringInvoices: 'Recurring invoices',
   items: 'Products & services',
   banking: 'Bank transactions',
   rules: 'Bank rules',
@@ -57,7 +63,7 @@ const NAV: { group: string; pages: Page[] }[] = [
     group: 'Books',
     pages: ['register', 'journal', 'recurring', 'accounts', 'payees', 'reports', 'close'],
   },
-  { group: 'Sales', pages: ['invoices', 'estimates', 'items'] },
+  { group: 'Sales', pages: ['invoices', 'estimates', 'recurringInvoices', 'items'] },
   { group: 'Banking', pages: ['banking', 'rules', 'reconcile'] },
   { group: 'Modules', pages: ['migration'] },
   { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
@@ -68,6 +74,7 @@ const NAV: { group: string; pages: Page[] }[] = [
 const MODULE_OF: Partial<Record<Page, Module>> = {
   invoices: 'sales',
   estimates: 'sales',
+  recurringInvoices: 'sales',
   items: 'sales',
   banking: 'banking',
   rules: 'banking',
@@ -91,11 +98,11 @@ function SaveState({ status }: { status: SessionStatus }) {
 function Problems({
   status,
   onBackups,
-  onRecurring,
+  onPage,
 }: {
   status: SessionStatus;
   onBackups: () => void;
-  onRecurring: () => void;
+  onPage: (p: Page) => void;
 }) {
   const { busy, error, run } = useAction();
   const err = status.error;
@@ -162,7 +169,9 @@ function Problems({
           Changes can't be made here.
         </div>
       )}
-      {status.recurring && <RecurringNotice status={status} onRecurring={onRecurring} />}
+      {(status.recurring || status.recurringInvoices) && (
+        <RecurringNotice status={status} onPage={onPage} />
+      )}
       {status.backupOverdue && (
         <div className="banner warn-banner">
           {status.latestBackupAt
@@ -177,26 +186,28 @@ function Problems({
   );
 }
 
+/** "Rent (Feb 1, Mar 1); Insurance (Mar 1)": dates grouped by name. */
+function byName(done: { name: string; date: string }[]): string {
+  const map = new Map<string, string[]>();
+  for (const d of done) map.set(d.name, [...(map.get(d.name) ?? []), formatDate(d.date)]);
+  return [...map].map(([name, dates]) => `${name} (${dates.join(', ')})`).join('; ');
+}
+
 /**
- * What the recurring entries did when the company opened (GL-5): posted
- * automatically, with this to say so, and any that are waiting and why.
+ * What the recurring entries (GL-5) and recurring invoices (AR-9) did when
+ * the company opened: posted or made automatically, with this to say so, and
+ * any that are waiting and why.
  */
-function RecurringNotice({
-  status,
-  onRecurring,
-}: {
-  status: SessionStatus;
-  onRecurring: () => void;
-}) {
-  const r = status.recurring!;
-  const byName = new Map<string, string[]>();
-  for (const p of r.posted) byName.set(p.name, [...(byName.get(p.name) ?? []), formatDate(p.date)]);
+function RecurringNotice({ status, onPage }: { status: SessionStatus; onPage: (p: Page) => void }) {
+  const r = status.recurring ?? { posted: [], waiting: [] };
+  const inv = status.recurringInvoices ?? { created: [], waiting: [] };
+  const waiting = r.waiting.length + inv.waiting.length > 0;
   return (
-    <div className={`banner ${r.waiting.length ? 'warn-banner' : 'notice-banner'}`} role="status">
+    <div className={`banner ${waiting ? 'warn-banner' : 'notice-banner'}`} role="status">
       {r.posted.length > 0 && (
         <p>
           Posted {r.posted.length} recurring {r.posted.length === 1 ? 'entry' : 'entries'}:{' '}
-          {[...byName].map(([name, dates]) => `${name} (${dates.join(', ')})`).join('; ')}.
+          {byName(r.posted)}.
         </p>
       )}
       {r.waiting.map((w) => (
@@ -204,10 +215,33 @@ function RecurringNotice({
           {w.name} for {formatDate(w.date)} is waiting: {w.reason}.
         </p>
       ))}
+      {inv.created.length > 0 && (
+        <p>
+          Made {inv.created.length} {inv.created.length === 1 ? 'invoice' : 'invoices'}, as drafts
+          to check and send: {byName(inv.created)}.
+        </p>
+      )}
+      {inv.waiting.map((w) => (
+        <p key={w.recurringId}>
+          The {w.name} invoice for {formatDate(w.date)} is waiting: {w.reason}.
+        </p>
+      ))}
       <div className="buttons">
-        <button className="link" onClick={onRecurring}>
-          Recurring entries
-        </button>
+        {(r.posted.length > 0 || r.waiting.length > 0) && (
+          <button className="link" onClick={() => onPage('recurring')}>
+            Recurring entries
+          </button>
+        )}
+        {inv.created.length > 0 && (
+          <button className="link" onClick={() => onPage('invoices')}>
+            Invoices
+          </button>
+        )}
+        {inv.waiting.length > 0 && (
+          <button className="link" onClick={() => onPage('recurringInvoices')}>
+            Recurring invoices
+          </button>
+        )}
         <button className="link" onClick={() => void db.dismissRecurring()}>
           Dismiss
         </button>
@@ -222,6 +256,8 @@ export function Workspace({ status }: { status: SessionStatus }) {
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
   // A recurring entry being started from a journal entry (GL-5)
   const [recurringDraft, setRecurringDraft] = useState<RecurringDraft | null>(null);
+  // A recurring invoice being started from an invoice (AR-9)
+  const [invoiceDraft, setInvoiceDraft] = useState<RecurringInvoiceDraft | null>(null);
   // The register narrowed to one payee, from the Payees page (GL-11)
   const [payeeFilter, setPayeeFilter] = useState<{ id: string; name: string } | null>(null);
   // An entry opened from a report or the register, so its Back button returns there
@@ -287,11 +323,7 @@ export function Workspace({ status }: { status: SessionStatus }) {
           ))}
         </nav>
         <main>
-          <Problems
-            status={status}
-            onBackups={() => go('backups')}
-            onRecurring={() => go('recurring')}
-          />
+          <Problems status={status} onBackups={() => go('backups')} onPage={go} />
           {page === 'journal' && (
             <JournalPage
               // Remount when the filter or opened entry changes, so the page starts over
@@ -377,8 +409,27 @@ export function Workspace({ status }: { status: SessionStatus }) {
             />
           )}
           {page === 'close' && <CloseBooksPage status={status} />}
-          {page === 'invoices' && <SalesDocsPage key={visit} status={status} kind="invoice" />}
+          {page === 'invoices' && (
+            <SalesDocsPage
+              key={visit}
+              status={status}
+              kind="invoice"
+              onMakeRecurring={(d) => {
+                setInvoiceDraft(draftFromInvoice(d));
+                setPage('recurringInvoices');
+              }}
+            />
+          )}
           {page === 'estimates' && <SalesDocsPage key={visit} status={status} kind="estimate" />}
+          {page === 'recurringInvoices' && (
+            <RecurringInvoicesPage
+              key={visit}
+              status={status}
+              draft={invoiceDraft}
+              onDraftUsed={() => setInvoiceDraft(null)}
+              onOpenInvoices={() => go('invoices')}
+            />
+          )}
           {page === 'items' && <ItemsPage status={status} />}
           {page === 'banking' && <BankingPage status={status} />}
           {page === 'rules' && <RulesPage status={status} />}

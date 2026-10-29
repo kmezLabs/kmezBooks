@@ -49,3 +49,26 @@ export function describeSchedule(frequency: Frequency, day: number, startDate: s
   }
   return `${FREQUENCIES[frequency]} on ${onThe}`;
 }
+
+export interface Schedule {
+  frequency: Frequency;
+  dayOfMonth: number;
+  startDate: string;
+  endDate: string | null;
+}
+
+/**
+ * A schedule's next date: its first date, or after the last one done, never
+ * before `current` (so skipped dates stay skipped). Null once past the end.
+ */
+export function upcomingDate(
+  s: Schedule,
+  last: string | null,
+  current: string | null,
+): string | null {
+  let next = firstDate(s.startDate, s.dayOfMonth);
+  while ((last && next <= last) || (current && next < current)) {
+    next = nextDate(next, s.frequency, s.dayOfMonth);
+  }
+  return s.endDate && next > s.endDate ? null : next;
+}

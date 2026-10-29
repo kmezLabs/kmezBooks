@@ -76,6 +76,8 @@ An invoice only records what a customer owes. Nothing goes into the books until 
 
 To send an invoice or estimate, open it and click **Send…**. The customer's email, a subject and a message are filled in. **Share…** (where Chrome offers it) hands the PDF to your mail app. **Download and email** saves the PDF and opens your mail app; attach the PDF there. Either marks it sent. Your logo, contact details and a footer (how to pay, say) go on the **Company** page.
 
+For an invoice that repeats, such as monthly tuition, open an invoice and click **Make recurring**, or use **Recurring invoices**. Each time you open the company, EasyBooks makes the invoices that have come due as drafts and tells you in a bar at the top; check them and send them from **Invoices**. **Skip next** leaves out a month; **Create now** makes the next one early.
+
 ## Recurring entries
 
 Depreciation, amortization and other entries that repeat are set up once, on **Recurring entries**. The quickest way is to open last month's entry in **Journal entries** and click **Make recurring**.

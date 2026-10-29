@@ -322,6 +322,7 @@ export function mergePayee(db: Database, fromId: string, intoId: string): void {
     for (const sql of [
       `UPDATE customer_payment SET customer_id = ? WHERE customer_id = ?`,
       `UPDATE sales_doc SET customer_id = ? WHERE customer_id = ?`,
+      `UPDATE recurring_invoice SET customer_id = ? WHERE customer_id = ?`,
     ]) {
       db.exec({ sql, bind: [intoId, fromId] });
     }

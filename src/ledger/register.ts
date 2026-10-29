@@ -1,10 +1,10 @@
 // The transactions register (GL-9): every income and expense, or every entry,
 // in date order with filters and totals, and the plain "paid from / deposited
 // to, category, amount" shape the quick add and quick edit forms work in. One
-// account's register (GL-12) adds its running balance and what was reconciled;
-// a transfer (GL-13) is the same shape between two money accounts.
+// account's register (GL-13) adds its running balance and what was reconciled;
+// a transfer (GL-14) is the same shape between two money accounts.
 
-import type { AccountType } from '../shared/accounts';
+import { ACCOUNT_TYPES, type AccountType } from '../shared/accounts';
 import type { Cents } from '../shared/money';
 import { LedgerRuleError } from '../worker/errors';
 import type { Database } from '../worker/sqlite';
@@ -36,7 +36,7 @@ export interface RegisterQuery {
 
 /**
  * An entry as money out of (expense) or into (income) one account, split over
- * categories; or a transfer (GL-13) from one money account to another, the
+ * categories; or a transfer (GL-14) from one money account to another, the
  * one line being the account it went to.
  */
 export interface SimpleEntry {
@@ -69,7 +69,7 @@ export interface RegisterRow {
   balance: Cents | null;
   /**
    * With a balance account: its line cleared in a finished reconciliation (R)
-   * or in the one open now (C), as QuickBooks marks them (GL-12)
+   * or in the one open now (C), as QuickBooks marks them (GL-13)
    */
   reconciled: 'R' | 'C' | null;
   /** With a balance account: the entry's other accounts, its category or where the money went */
@@ -368,34 +368,29 @@ export function register(db: Database, q: RegisterQuery = {}): RegisterResult {
   };
 }
 
-/** Which accounts each register shows (GL-12): banks with cash on hand, or cards. */
-export const REGISTER_KINDS = {
-  bank: ['bank', 'cash_on_hand'],
-  card: ['credit_card'],
-} as const;
-export type RegisterKind = keyof typeof REGISTER_KINDS;
-
-export interface MoneyAccount {
+export interface RegisterAccount {
   id: string;
+  /** "Parent:Child", as the account lists show it */
   name: string;
+  type: AccountType;
   detailType: string;
   active: boolean;
-  /** Debit minus credit over posted entries; a card owes when it's negative */
+  /** Debit minus credit over posted entries */
   balance: Cents;
   /** The last finished reconciliation: its statement date and ending balance */
   reconciled: { date: string; balance: Cents } | null;
 }
 
 /**
- * The accounts a register switches between, by name: active ones, and
- * inactive ones that still hold a balance.
+ * The accounts the Accounts register picks from (GL-13): every account that
+ * is active or still holds a balance, by type as the chart lists them, then
+ * by name, each with its balance and its last finished reconciliation.
  */
-export function moneyAccounts(db: Database, kind: RegisterKind): MoneyAccount[] {
-  const types: readonly string[] = REGISTER_KINDS[kind];
+export function registerAccounts(db: Database): RegisterAccount[] {
   const names = accountFullNames(db);
   return db
     .selectObjects(
-      `SELECT a.id, a.detail_type, a.active,
+      `SELECT a.id, a.type, a.detail_type, a.active,
               (SELECT coalesce(sum(l.debit - l.credit), 0) FROM journal_line l
                JOIN journal_entry e ON e.id = l.entry_id AND e.status = 'posted'
                WHERE l.account_id = a.id) AS balance,
@@ -403,12 +398,12 @@ export function moneyAccounts(db: Database, kind: RegisterKind): MoneyAccount[] 
                ORDER BY statement_date DESC LIMIT 1) AS reconciled_date,
               (SELECT ending_balance FROM reconciliation r WHERE r.account_id = a.id AND r.status = 'done'
                ORDER BY statement_date DESC LIMIT 1) AS reconciled_balance
-       FROM account a WHERE a.detail_type IN (${types.map(() => '?').join(', ')})`,
-      [...types],
+       FROM account a`,
     )
     .map((r) => ({
       id: String(r.id),
       name: names.get(String(r.id)) ?? '?',
+      type: r.type as AccountType,
       detailType: String(r.detail_type),
       active: r.active === 1,
       balance: Number(r.balance),
@@ -418,5 +413,9 @@ export function moneyAccounts(db: Database, kind: RegisterKind): MoneyAccount[] 
           : { date: String(r.reconciled_date), balance: Number(r.reconciled_balance) },
     }))
     .filter((a) => a.active || a.balance !== 0)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        ACCOUNT_TYPES.indexOf(a.type) - ACCOUNT_TYPES.indexOf(b.type) ||
+        a.name.localeCompare(b.name),
+    );
 }

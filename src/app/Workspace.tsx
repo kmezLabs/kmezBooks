@@ -36,8 +36,7 @@ import { ErrorText, formatDateTime, formatTime, useAction } from './ui';
 
 const PAGES = {
   register: 'Transactions',
-  bankRegister: 'Bank register',
-  cardRegister: 'Credit card register',
+  accountsRegister: 'Accounts register',
   journal: 'Journal entries',
   recurring: 'Recurring entries',
   accounts: 'Accounts',
@@ -67,8 +66,7 @@ const NAV: { group: string; pages: Page[] }[] = [
     group: 'Books',
     pages: [
       'register',
-      'bankRegister',
-      'cardRegister',
+      'accountsRegister',
       'journal',
       'recurring',
       'accounts',
@@ -407,11 +405,11 @@ export function Workspace({ status }: { status: SessionStatus }) {
               }}
             />
           </div>
-          {(page === 'bankRegister' || page === 'cardRegister') && (
+          {page === 'accountsRegister' && (
             <RegisterPage
-              key={`${page}:${visit}`}
+              key={visit}
               status={status}
-              kind={page === 'bankRegister' ? 'bank' : 'card'}
+              single
               onOpenEntry={(id) => {
                 setOpenEntry(id);
                 setEntryFrom(page);

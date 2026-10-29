@@ -129,9 +129,8 @@ import {
 import {
   register,
   simpleToEntry,
-  moneyAccounts,
-  type MoneyAccount,
-  type RegisterKind,
+  registerAccounts,
+  type RegisterAccount,
   type RegisterQuery,
   type RegisterResult,
   type SimpleEntry,
@@ -1447,12 +1446,12 @@ export class CompanySession {
     return result;
   }
 
-  /** The bank or card accounts a register switches between, with balances (GL-12). */
-  moneyAccounts(kind: RegisterKind): MoneyAccount[] {
-    return moneyAccounts(this.open_().db, kind);
+  /** The accounts the Accounts register picks from, with balances (GL-13). */
+  registerAccounts(): RegisterAccount[] {
+    return registerAccounts(this.open_().db);
   }
 
-  /** Add an income, expense or transfer from the register's quick form (GL-9, GL-13). */
+  /** Add an income, expense or transfer from the register's quick form (GL-9, GL-14). */
   async addRegisterEntry(
     simple: SimpleEntry,
     head: Omit<EntryChange, 'lines'>,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { postEntry } from '../../src/ledger/postEntry';
-import { moneyAccounts, register, simpleToEntry } from '../../src/ledger/register';
+import { register, registerAccounts, simpleToEntry } from '../../src/ledger/register';
 import { setAccountActive } from '../../src/ledger/accounts';
 import {
   finishReconciliation,
@@ -141,7 +141,7 @@ describe('transactions register (GL-9)', () => {
         { amount: 20_00, memo: null },
       ],
     });
-    // A transfer (GL-13): from Checking to Savings
+    // A transfer (GL-14): from Checking to Savings
     expect(byName(null)).toEqual({
       kind: 'transfer',
       moneyAccountId: checking,
@@ -197,7 +197,7 @@ describe('transactions register (GL-9)', () => {
   });
 });
 
-describe('bank and card registers (GL-12)', () => {
+describe('the Accounts register (GL-13)', () => {
   it('marks entries reconciled (R) or cleared in the open reconciliation (C)', () => {
     // Checking: +5,000 on Jan 3, -45 on Jan 5, -1,000 on Jan 7
     const done = startReconciliation(db, checking, '2026-01-04', 5_000_00);
@@ -223,28 +223,34 @@ describe('bank and card registers (GL-12)', () => {
     expect(register(db, { scope: 'all' }).rows.every((r) => r.reconciled === null)).toBe(true);
   });
 
-  it('lists banks (with cash) and cards apart, with balances and the last reconciliation', () => {
+  it('lists every account by type, with balances and the last reconciliation', () => {
     const done = startReconciliation(db, checking, '2026-01-04', 5_000_00);
     setCleared(db, done, [reconcileState(db, checking).items[0]!.lineId], true);
     finishReconciliation(db, done);
-    const banks = moneyAccounts(db, 'bank');
-    expect(banks.map((a) => [a.name, a.balance])).toEqual([
-      ['Checking', 3_955_00],
-      ['Petty Cash', 0],
-      ['Savings', 1_000_00],
+    const all = registerAccounts(db);
+    const of = (name: string) => all.find((a) => a.name === name)!;
+    // Assets first, as the chart lists them, then by name; expenses last
+    expect(all[0]!.type).toBe('asset');
+    expect(all.at(-1)!.type).toBe('expense');
+    expect(all.map((a) => a.name).indexOf('Checking')).toBeLessThan(
+      all.map((a) => a.name).indexOf('Savings'),
+    );
+    expect([of('Checking').balance, of('Savings').balance, of('Credit Card').balance]).toEqual([
+      3_955_00, 1_000_00, -100_00,
     ]);
-    expect(banks[0]!.reconciled).toEqual({ date: '2026-01-04', balance: 5_000_00 });
-    expect(banks[2]!.reconciled).toBeNull();
-    expect(moneyAccounts(db, 'card').map((a) => [a.name, a.balance])).toEqual([
-      ['Credit Card', -100_00],
-    ]);
-    // An inactive account shows only while it still holds money
+    expect([of('Services').balance, of('Utilities').balance]).toEqual([-5_000_00, 45_00]);
+    expect(of('Checking').reconciled).toEqual({ date: '2026-01-04', balance: 5_000_00 });
+    expect(of('Savings').reconciled).toBeNull();
+    // An inactive account shows only while it still holds a balance
     setAccountActive(db, accountId(db, 'Petty Cash'), false);
-    expect(moneyAccounts(db, 'bank').map((a) => a.name)).toEqual(['Checking', 'Savings']);
+    setAccountActive(db, accountId(db, 'Savings'), false);
+    const names = registerAccounts(db).map((a) => a.name);
+    expect(names.includes('Petty Cash')).toBe(false);
+    expect(names.includes('Savings')).toBe(true);
   });
 });
 
-describe('transfers (GL-13)', () => {
+describe('transfers (GL-14)', () => {
   it('posts from one account to another, and refuses the same account or no amount', () => {
     const card = accountId(db, 'Credit Card');
     const entry = simpleToEntry(

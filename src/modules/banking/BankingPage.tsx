@@ -1,4 +1,4 @@
-// Bank transactions (BK-1, BK-3 to BK-6, BK-9): import statements, then review
+// Bank import (BK-1, BK-3 to BK-6, BK-9): import statements, then review
 // each transaction: add it to the books with a category or split, match it to
 // an entry already there, record a transfer, or exclude it.
 
@@ -17,7 +17,7 @@ import { formatMoney } from '../../shared/money';
 import { db } from '../../shared/workerClient';
 import type { SessionStatus } from '../../worker/companySession';
 import type { BankAccount } from './bankAccounts';
-import { AccountTabs, count, flowCells, flowLabels, statementBalance } from './bankUi';
+import { AccountPicker, count, flowCells, flowLabels, statementBalance } from './bankUi';
 import type { QueueItem, QueueView } from './review';
 import type { FileProblem, ImportRow, StatementImportResult, StatementPreview } from './statements';
 
@@ -106,7 +106,7 @@ export function BankingPage({ status }: { status: SessionStatus }) {
 
   return (
     <section className="banking">
-      <h2>Bank transactions</h2>
+      <h2>Bank import</h2>
       <p className="muted">
         Download statements from your bank or card website as <strong>.qbo</strong> (QuickBooks Web
         Connect) files and import them here. Each transaction waits for review until you add it to
@@ -140,7 +140,7 @@ export function BankingPage({ status }: { status: SessionStatus }) {
         </p>
       ) : (
         <>
-          <AccountTabs
+          <AccountPicker
             accounts={accounts}
             value={accountId}
             onChange={(id) => {

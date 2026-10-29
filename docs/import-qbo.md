@@ -53,7 +53,7 @@ The import only goes into a company with no transactions yet, so a company you'v
 
 - **Check a few reports** against QuickBooks: Profit and Loss and Balance Sheet for a year or two.
 - **Bank and card statements:**
-  - Import your `.qbo` statements on **Bank transactions**.
+  - Import your `.qbo` statements on **Bank import**.
   - Transactions QuickBooks already has show as **already in the books**. **Match … already in the books** matches them in one go.
   - Only newer transactions need reviewing.
 - **Recurring entries:** open the latest depreciation (or amortization) entry in **Journal entries** and click **Make recurring**. It starts the month after that entry, so nothing posts twice.

@@ -4,7 +4,7 @@
 // bank register, with the balance after each transaction. Quick changes from
 // the list: edit, void and, where the company allows it, delete (GL-6).
 // With a kind it is the Bank or Credit card register (GL-12): one account at a
-// time, picked from tiles with each balance, a reconciled column, and
+// time, picked from a drop-down with its balance, a reconciled column, and
 // transfers between accounts (GL-13).
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -75,7 +75,7 @@ export function RegisterPage(props: {
   const kind = props.kind;
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   // The register's accounts, with balances (GL-12)
-  const [tiles, setTiles] = useState<MoneyAccount[] | null>(null);
+  const [choices, setChoices] = useState<MoneyAccount[] | null>(null);
   const [fyStartMonth, setFyStartMonth] = useState(1);
   const [postedEdits, setPostedEdits] = useState(false);
   // Opens on this year to date (owner's choice, Oct 28); calendar year until
@@ -117,7 +117,7 @@ export function RegisterPage(props: {
     void db.postedEdits().then(setPostedEdits);
     if (kind) {
       void db.moneyAccounts(kind).then((list) => {
-        setTiles(list);
+        setChoices(list);
         // Always one of this register's accounts: the remembered one, else the first
         setQuery((q) =>
           q.accountId && list.some((a) => a.id === q.accountId)
@@ -185,7 +185,7 @@ export function RegisterPage(props: {
 
   const chosen = accounts.find((a) => a.id === query.accountId);
   const view = accountView(chosen);
-  const tile = tiles?.find((a) => a.id === query.accountId);
+  const picked = choices?.find((a) => a.id === query.accountId);
   const chooseAccount = (id: string | null) => {
     setRegisterAccount(companyId, id, kind);
     setQ({ accountId: id });
@@ -203,7 +203,7 @@ export function RegisterPage(props: {
     </div>
   );
 
-  if (kind && tiles && tiles.length === 0) {
+  if (kind && choices && choices.length === 0) {
     return (
       <section className="register">
         <h2>{KIND_TITLES[kind]}</h2>
@@ -219,24 +219,28 @@ export function RegisterPage(props: {
       {kind && (
         <>
           <h2>{KIND_TITLES[kind]}</h2>
-          <div className="account-tiles" role="group" aria-label="Accounts">
-            {tiles?.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                className={`account-tile${a.id === query.accountId ? ' active' : ''}`}
-                aria-pressed={a.id === query.accountId}
-                onClick={() => chooseAccount(a.id)}
-              >
-                <span className="tile-name">{a.name}</span>
-                <strong>{formatMoney(kind === 'card' ? -a.balance : a.balance)}</strong>
+          <div className="fields account-picker">
+            <label>
+              Account
+              <select value={query.accountId ?? ''} onChange={(e) => chooseAccount(e.target.value)}>
+                {choices?.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} · {formatMoney(kind === 'card' ? -a.balance : a.balance)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {picked && (
+              <p className="account-summary">
+                {kind === 'card' ? 'Owed' : 'Balance'}{' '}
+                <strong>{formatMoney(kind === 'card' ? -picked.balance : picked.balance)}</strong>
                 <span className="muted small">
-                  {a.reconciled
-                    ? `Reconciled to ${formatDate(a.reconciled.date)}: ${formatMoney(kind === 'card' ? -a.reconciled.balance : a.reconciled.balance)}`
+                  {picked.reconciled
+                    ? `Reconciled to ${formatDate(picked.reconciled.date)}: ${formatMoney(kind === 'card' ? -picked.reconciled.balance : picked.reconciled.balance)}`
                     : 'Not reconciled yet'}
                 </span>
-              </button>
-            ))}
+              </p>
+            )}
           </div>
         </>
       )}
@@ -397,18 +401,20 @@ export function RegisterPage(props: {
           {query.order === 'desc' && moreButton}
           <div className="register-foot">
             <p className="register-totals">
-              {kind && tile ? (
+              {kind && picked ? (
                 <>
                   <span>
                     {kind === 'card' ? 'Owed' : 'Balance'}{' '}
-                    <strong>{formatMoney(kind === 'card' ? -tile.balance : tile.balance)}</strong>
+                    <strong>
+                      {formatMoney(kind === 'card' ? -picked.balance : picked.balance)}
+                    </strong>
                   </span>
-                  {tile.reconciled && (
+                  {picked.reconciled && (
                     <span>
-                      Reconciled to {formatDate(tile.reconciled.date)}{' '}
+                      Reconciled to {formatDate(picked.reconciled.date)}{' '}
                       <strong>
                         {formatMoney(
-                          kind === 'card' ? -tile.reconciled.balance : tile.reconciled.balance,
+                          kind === 'card' ? -picked.reconciled.balance : picked.reconciled.balance,
                         )}
                       </strong>
                     </span>

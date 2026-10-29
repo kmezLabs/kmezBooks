@@ -649,7 +649,7 @@ table.report-gl td:first-child {
   .sidebar,
   .banner,
   .report-controls,
-  .bank-tabs,
+  .account-picker,
   section.reconcile > h2,
   .report-foot + *,
   button {
@@ -702,11 +702,6 @@ table.mapping td {
 }
 
 /* ---- banking (M6) ---- */
-
-.bank-tabs {
-  padding: 0;
-  margin-bottom: 8px;
-}
 
 .nowrap {
   white-space: nowrap;
@@ -1130,30 +1125,25 @@ img.logo-preview {
 
 /* ---- bank and card registers (GL-12) ---- */
 
-.account-tiles {
+.account-picker {
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+
+.account-picker > label {
+  flex: 0 1 24rem;
+}
+
+.account-picker select {
+  min-width: 16rem;
+}
+
+.account-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 8px 0 16px;
-}
-
-.account-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 12rem;
-  padding: 8px 12px;
-  text-align: left;
-  background: var(--panel, #fff);
-  color: inherit;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-}
-
-.account-tile.active {
-  border-color: var(--accent, #1f4e79);
-  box-shadow: inset 0 0 0 1px var(--accent, #1f4e79);
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0 0 6px;
 }
 
 table.register-list th.mark,

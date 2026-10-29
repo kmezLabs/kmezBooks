@@ -49,7 +49,7 @@ const PAGES = {
   recurringInvoices: 'Recurring invoices',
   items: 'Products & services',
   bills: 'Bills',
-  banking: 'Bank transactions',
+  banking: 'Bank import',
   rules: 'Bank rules',
   reconcile: 'Reconcile',
   migration: 'QuickBooks import',

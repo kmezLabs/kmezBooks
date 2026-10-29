@@ -339,8 +339,8 @@ function NewEntry(props: {
       {props.copyOf?.sourceType === 'bank' && (
         <p className="warning">
           This entry came from bank review, and voiding it sent its bank transaction back there.
-          Adding it again in Bank transactions keeps it linked to the bank; if you post it here,
-          match the bank transaction to this entry so it isn&rsquo;t entered twice.
+          Adding it again in Bank import keeps it linked to the bank; if you post it here, match the
+          bank transaction to this entry so it isn&rsquo;t entered twice.
         </p>
       )}
       {e0 && (

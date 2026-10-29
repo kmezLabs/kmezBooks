@@ -39,6 +39,9 @@ export default defineConfig({
   optimizeDeps: { exclude: ['@sqlite.org/sqlite-wasm'] },
   worker: { format: 'es' },
   server: { port: 5173, strictPort: true },
+  // The owner's app is served from here (the installed PWA and its recent
+  // folders belong to this exact address), so it never drifts to another port
+  preview: { port: 4180, strictPort: true },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'db/tests/**/*.test.ts'],

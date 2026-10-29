@@ -6,8 +6,8 @@ How to keep your books safe: where they live, how backups work, and what your pa
 
 For now EasyBooks runs from this computer:
 
-1. In the project folder, run `npx vite preview` and leave it running.
-2. Open Chrome at **http://localhost:4173**.
+1. In the project folder, run `npx vite preview` and leave it running. It always uses port 4180; if another program has that port, it stops with an error instead of moving to another one.
+2. Open Chrome at **http://localhost:4180**.
 3. To install it as an app, click the install icon at the right of Chrome's address bar. It then opens in its own window and works **offline**: no internet connection is needed to open, change or save your books.
 
 When a new version is ready, a bar at the top says **"A new version of EasyBooks is ready"**. Click **Save, close and update**: your open company is saved and closed first, then the new version starts. Open the company again afterwards. If the save fails, nothing updates and the bar tells you why.

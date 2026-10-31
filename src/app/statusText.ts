@@ -24,3 +24,9 @@ export function versionText(version = __APP_VERSION__, build = __APP_BUILD__) {
     title: `EasyBooks ${version}, built from commit ${commit}${day ? ` on ${day}` : ''}`,
   };
 }
+
+/** The browser tab and installed app window: "Acme LLC – EasyBooks", company first so a narrow tab still shows it (CO-2). */
+export function windowTitle(legalName: string | null | undefined): string {
+  const name = legalName?.trim();
+  return name ? `${name} – EasyBooks` : 'EasyBooks';
+}

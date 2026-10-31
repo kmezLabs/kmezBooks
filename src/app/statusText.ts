@@ -25,8 +25,14 @@ export function versionText(version = __APP_VERSION__, build = __APP_BUILD__) {
   };
 }
 
-/** The browser tab and installed app window: "Acme LLC – EasyBooks", company first so a narrow tab still shows it (CO-2). */
-export function windowTitle(legalName: string | null | undefined): string {
+/**
+ * The window title (CO-2). A browser tab gets "Acme LLC – EasyBooks", company
+ * first so a narrow tab still shows it. The installed app gets just "Acme LLC":
+ * Chrome puts "EasyBooks - " in front of any title that doesn't start with the
+ * app's name, so its title bar reads "EasyBooks - Acme LLC".
+ */
+export function windowTitle(legalName: string | null | undefined, installed = false): string {
   const name = legalName?.trim();
-  return name ? `${name} – EasyBooks` : 'EasyBooks';
+  if (!name) return 'EasyBooks';
+  return installed ? name : `${name} – EasyBooks`;
 }

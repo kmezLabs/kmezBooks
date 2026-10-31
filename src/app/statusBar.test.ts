@@ -50,5 +50,8 @@ describe('status bar (CO-6)', () => {
     expect(windowTitle('  Acme LLC ')).toBe('Acme LLC – EasyBooks');
     expect(windowTitle(null)).toBe('EasyBooks');
     expect(windowTitle('')).toBe('EasyBooks');
+    // Chrome adds "EasyBooks - " in front in the installed app's title bar
+    expect(windowTitle('Acme Holdings LLC', true)).toBe('Acme Holdings LLC');
+    expect(windowTitle(null, true)).toBe('EasyBooks');
   });
 });

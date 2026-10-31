@@ -16,7 +16,7 @@ The first time an update arrives after this guide was written, close every EasyB
 
 The **status bar** at the bottom shows whether your changes are saved, when the last backup was made, whether this computer is online (EasyBooks works the same offline), and a short message after you do something, such as an export. On the far right is the version, with the build it came from, for example `v0.1.0 · build 6035081, Oct 31`; it tells you which version is running after an update.
 
-The browser tab, or the title bar of the installed app, shows the open company's name, for example "Acme LLC – EasyBooks", so you can tell windows apart. With no company open it says just "EasyBooks".
+The browser tab, or the title bar of the installed app, shows the open company's name, "Acme LLC – EasyBooks" in a tab and "EasyBooks - Acme LLC" in the installed app, so you can tell windows apart. With no company open it says just "EasyBooks".
 
 ## Your company folders
 

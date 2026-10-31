@@ -102,10 +102,13 @@ export function App() {
 
   if (!status) return <p className="loading">Loading…</p>;
   return (
-    <>
+    // Fills the window: the banner and status bar stay put, the screen between them scrolls
+    <div className="app-shell">
       <UpdateBanner status={status} />
-      {status.open ? <Workspace status={status} /> : <StartScreen notice={notice} />}
+      <div className="screen">
+        {status.open ? <Workspace status={status} /> : <StartScreen notice={notice} />}
+      </div>
       <StatusBar status={status} />
-    </>
+    </div>
   );
 }

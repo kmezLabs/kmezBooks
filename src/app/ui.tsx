@@ -46,6 +46,11 @@ export function Dialog(props: { title: string; children: ReactNode; onClose?: ()
   );
 }
 
+/** The element the page scrolls in: the workspace's main pane, or the document. */
+export function scrollPane(): HTMLElement {
+  return document.querySelector<HTMLElement>('.main-pane') ?? document.documentElement;
+}
+
 export function ErrorText({ children }: { children: ReactNode }) {
   return children ? (
     <p className="error" role="alert">

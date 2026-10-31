@@ -323,139 +323,142 @@ export function Workspace({ status }: { status: SessionStatus }) {
             </div>
           ))}
         </nav>
-        <main>
-          <Problems status={status} onBackups={() => go('backups')} onPage={go} />
-          {page === 'journal' && (
-            <JournalPage
-              // Remount when the filter or opened entry changes, so the page starts over
-              key={`${accountFilter ?? 'all'}:${openEntry ?? ''}:${visit}`}
-              status={status}
-              accountFilter={accountFilter}
-              onClearAccountFilter={() => setAccountFilter(null)}
-              onMakeRecurring={
-                status.readOnly
-                  ? undefined
-                  : (draft) => {
-                      setRecurringDraft(draft);
-                      setPage('recurring');
-                    }
-              }
-              initialEntryId={openEntry}
-              backLabel={
-                openEntry
-                  ? `← Back to ${entryFrom === 'reports' ? 'report' : PAGES[entryFrom].toLowerCase()}`
-                  : undefined
-              }
-              onBackToReport={
-                openEntry
-                  ? () => {
-                      setOpenEntry(null);
-                      setPage(entryFrom);
-                    }
-                  : undefined
-              }
-            />
-          )}
-          {page === 'accounts' && (
-            <AccountsPage
-              status={status}
-              onShowEntries={(id) => {
-                setAccountFilter(id);
-                setPage('journal');
-              }}
-            />
-          )}
-          {reportsVisited && (
-            <div hidden={page !== 'reports'}>
-              <ReportsPage
+        {/* The page scrolls here, the sidebar on its own and the top bar not at all */}
+        <div className="main-pane">
+          <main>
+            <Problems status={status} onBackups={() => go('backups')} onPage={go} />
+            {page === 'journal' && (
+              <JournalPage
+                // Remount when the filter or opened entry changes, so the page starts over
+                key={`${accountFilter ?? 'all'}:${openEntry ?? ''}:${visit}`}
                 status={status}
+                accountFilter={accountFilter}
+                onClearAccountFilter={() => setAccountFilter(null)}
+                onMakeRecurring={
+                  status.readOnly
+                    ? undefined
+                    : (draft) => {
+                        setRecurringDraft(draft);
+                        setPage('recurring');
+                      }
+                }
+                initialEntryId={openEntry}
+                backLabel={
+                  openEntry
+                    ? `← Back to ${entryFrom === 'reports' ? 'report' : PAGES[entryFrom].toLowerCase()}`
+                    : undefined
+                }
+                onBackToReport={
+                  openEntry
+                    ? () => {
+                        setOpenEntry(null);
+                        setPage(entryFrom);
+                      }
+                    : undefined
+                }
+              />
+            )}
+            {page === 'accounts' && (
+              <AccountsPage
+                status={status}
+                onShowEntries={(id) => {
+                  setAccountFilter(id);
+                  setPage('journal');
+                }}
+              />
+            )}
+            {reportsVisited && (
+              <div hidden={page !== 'reports'}>
+                <ReportsPage
+                  status={status}
+                  onOpenEntry={(id) => {
+                    setOpenEntry(id);
+                    setEntryFrom('reports');
+                    setPage('journal');
+                  }}
+                />
+              </div>
+            )}
+            {/* Kept mounted, so its filters survive opening an entry and coming back */}
+            <div hidden={page !== 'register'}>
+              <RegisterPage
+                // A payee filter starts the register over, at that payee's latest
+                key={payeeFilter?.id ?? 'all'}
+                status={status}
+                payee={payeeFilter}
+                onClearPayee={() => setPayeeFilter(null)}
                 onOpenEntry={(id) => {
                   setOpenEntry(id);
-                  setEntryFrom('reports');
+                  setEntryFrom('register');
                   setPage('journal');
                 }}
               />
             </div>
-          )}
-          {/* Kept mounted, so its filters survive opening an entry and coming back */}
-          <div hidden={page !== 'register'}>
-            <RegisterPage
-              // A payee filter starts the register over, at that payee's latest
-              key={payeeFilter?.id ?? 'all'}
-              status={status}
-              payee={payeeFilter}
-              onClearPayee={() => setPayeeFilter(null)}
-              onOpenEntry={(id) => {
-                setOpenEntry(id);
-                setEntryFrom('register');
-                setPage('journal');
-              }}
-            />
-          </div>
-          {page === 'accountsRegister' && (
-            <RegisterPage
-              key={visit}
-              status={status}
-              single
-              onOpenEntry={(id) => {
-                setOpenEntry(id);
-                setEntryFrom(page);
-                setPage('journal');
-              }}
-            />
-          )}
-          {page === 'recurring' && (
-            <RecurringPage
-              key={visit}
-              status={status}
-              draft={recurringDraft}
-              onDraftUsed={() => setRecurringDraft(null)}
-            />
-          )}
-          {page === 'payees' && (
-            <PayeesPage
-              status={status}
-              onShowTransactions={(p) => {
-                setPayeeFilter(p);
-                setPage('register');
-              }}
-            />
-          )}
-          {page === 'close' && <CloseBooksPage status={status} />}
-          {page === 'invoices' && (
-            <SalesDocsPage
-              key={visit}
-              status={status}
-              kind="invoice"
-              onMakeRecurring={(d) => {
-                setInvoiceDraft(draftFromInvoice(d));
-                setPage('recurringInvoices');
-              }}
-            />
-          )}
-          {page === 'estimates' && <SalesDocsPage key={visit} status={status} kind="estimate" />}
-          {page === 'recurringInvoices' && (
-            <RecurringInvoicesPage
-              key={visit}
-              status={status}
-              draft={invoiceDraft}
-              onDraftUsed={() => setInvoiceDraft(null)}
-              onOpenInvoices={() => go('invoices')}
-            />
-          )}
-          {page === 'items' && <ItemsPage status={status} />}
-          {page === 'bills' && <BillsPage key={visit} status={status} />}
-          {page === 'banking' && <BankingPage status={status} />}
-          {page === 'rules' && <RulesPage status={status} />}
-          {page === 'reconcile' && <ReconcilePage status={status} />}
-          {page === 'migration' && <MigrationPage status={status} />}
-          {page === 'company' && <CompanyPage status={status} />}
-          {page === 'modules' && <ModulesPage status={status} />}
-          {page === 'backups' && <BackupsPage status={status} />}
-          {page === 'audit' && <AuditLogPage status={status} />}
-          {page === 'security' && <SecurityPage status={status} />}
-          {page === 'm1' && <M1LabPage status={status} />}
-        </main>
+            {page === 'accountsRegister' && (
+              <RegisterPage
+                key={visit}
+                status={status}
+                single
+                onOpenEntry={(id) => {
+                  setOpenEntry(id);
+                  setEntryFrom(page);
+                  setPage('journal');
+                }}
+              />
+            )}
+            {page === 'recurring' && (
+              <RecurringPage
+                key={visit}
+                status={status}
+                draft={recurringDraft}
+                onDraftUsed={() => setRecurringDraft(null)}
+              />
+            )}
+            {page === 'payees' && (
+              <PayeesPage
+                status={status}
+                onShowTransactions={(p) => {
+                  setPayeeFilter(p);
+                  setPage('register');
+                }}
+              />
+            )}
+            {page === 'close' && <CloseBooksPage status={status} />}
+            {page === 'invoices' && (
+              <SalesDocsPage
+                key={visit}
+                status={status}
+                kind="invoice"
+                onMakeRecurring={(d) => {
+                  setInvoiceDraft(draftFromInvoice(d));
+                  setPage('recurringInvoices');
+                }}
+              />
+            )}
+            {page === 'estimates' && <SalesDocsPage key={visit} status={status} kind="estimate" />}
+            {page === 'recurringInvoices' && (
+              <RecurringInvoicesPage
+                key={visit}
+                status={status}
+                draft={invoiceDraft}
+                onDraftUsed={() => setInvoiceDraft(null)}
+                onOpenInvoices={() => go('invoices')}
+              />
+            )}
+            {page === 'items' && <ItemsPage status={status} />}
+            {page === 'bills' && <BillsPage key={visit} status={status} />}
+            {page === 'banking' && <BankingPage status={status} />}
+            {page === 'rules' && <RulesPage status={status} />}
+            {page === 'reconcile' && <ReconcilePage status={status} />}
+            {page === 'migration' && <MigrationPage status={status} />}
+            {page === 'company' && <CompanyPage status={status} />}
+            {page === 'modules' && <ModulesPage status={status} />}
+            {page === 'backups' && <BackupsPage status={status} />}
+            {page === 'audit' && <AuditLogPage status={status} />}
+            {page === 'security' && <SecurityPage status={status} />}
+            {page === 'm1' && <M1LabPage status={status} />}
+          </main>
+        </div>
       </div>
     </div>
   );

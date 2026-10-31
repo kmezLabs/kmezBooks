@@ -32,7 +32,7 @@ import {
 } from '../ledgerUi';
 import { registerAccount, setRegisterAccount } from '../settings';
 import { announce } from '../statusMessages';
-import { Dialog, ErrorText } from '../ui';
+import { Dialog, ErrorText, scrollPane } from '../ui';
 
 const PAGE = 200;
 type Period = RangePreset | 'all';
@@ -156,11 +156,11 @@ export function RegisterPage(props: {
     const target = scroll.current;
     if (!result || !target) return;
     scroll.current = null;
-    const root = document.documentElement;
+    const pane = scrollPane();
     if (target === 'latest') {
-      window.scrollTo(0, query.order === 'asc' ? root.scrollHeight : 0);
+      pane.scrollTo(0, query.order === 'asc' ? pane.scrollHeight : 0);
     } else {
-      window.scrollTo(0, root.scrollHeight - target.fromBottom);
+      pane.scrollTo(0, pane.scrollHeight - target.fromBottom);
     }
   }, [result, query.order]);
 
@@ -181,8 +181,8 @@ export function RegisterPage(props: {
   };
   const more = () => {
     if (query.order === 'asc') {
-      const root = document.documentElement;
-      scroll.current = { fromBottom: root.scrollHeight - window.scrollY };
+      const pane = scrollPane();
+      scroll.current = { fromBottom: pane.scrollHeight - pane.scrollTop };
     }
     setLimit(limit + PAGE);
   };

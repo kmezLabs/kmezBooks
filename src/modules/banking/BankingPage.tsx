@@ -11,6 +11,7 @@ import {
   useClosedPeriodOverride,
   PayeeField,
 } from '../../app/ledgerUi';
+import { announce } from '../../app/statusMessages';
 import { Dialog, ErrorText, formatDateTime, useAction } from '../../app/ui';
 import type { AccountRow } from '../../shared/accounts';
 import { formatMoney } from '../../shared/money';
@@ -215,6 +216,7 @@ export function BankingPage({ status }: { status: SessionStatus }) {
             setReading(null);
             if (r) {
               setResult(summary(r, names));
+              announce(summary(r, names));
               const first = r.statements[0]?.accountId;
               if (first) setAccountId(first);
               setView('new');

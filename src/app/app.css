@@ -635,6 +635,68 @@ table.report-gl td:first-child {
 
 /* ---- print: just the report ---- */
 
+/* ---- status bar (CO-6) ---- */
+
+body {
+  /* Room for the status bar, so nothing hides under it */
+  padding-bottom: 32px;
+}
+
+.status-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 16px;
+  padding: 5px 16px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+
+.status-bar .save-state {
+  font-size: inherit;
+  color: var(--fg);
+}
+
+.status-bar .badge {
+  font-size: 0.75rem;
+  padding: 0 6px;
+}
+
+.status-bar .warn-text {
+  color: var(--warn);
+}
+
+.status-bar .status-message {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+}
+
+.status-bar .status-version {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  body {
+    padding-bottom: 56px;
+  }
+  .status-bar .status-message {
+    order: 10;
+    flex-basis: 100%;
+  }
+}
+
 @media print {
   :root {
     --fg: #000;
@@ -644,10 +706,12 @@ table.report-gl td:first-child {
   }
   body {
     background: #fff;
+    padding-bottom: 0;
   }
   .topbar,
   .sidebar,
   .banner,
+  .status-bar,
   .report-controls,
   .account-picker,
   section.reconcile > h2,

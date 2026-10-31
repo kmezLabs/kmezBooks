@@ -14,6 +14,8 @@ When a new version is ready, a bar at the top says **"A new version of EasyBooks
 
 The first time an update arrives after this guide was written, close every EasyBooks window and open it again. From then on, the bar handles updates.
 
+The **status bar** at the bottom shows whether your changes are saved, when the last backup was made, whether this computer is online (EasyBooks works the same offline), and a short message after you do something, such as an export. On the far right is the version, with the build it came from, for example `v0.1.0 · build 6035081, Oct 31`; it tells you which version is running after an update.
+
 ## Your company folders
 
 Each company is one folder on your disk, which you chose when you created it. Nothing about your books is stored in the browser except the list of recently opened folders.

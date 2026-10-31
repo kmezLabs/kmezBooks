@@ -75,6 +75,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 9. After the MVP, at the owner's request: recurring journal entries (`GL-5`, for depreciation and amortization; built 2026-10-28)
 10. **M9** Invoices and bills, cash basis, per-company modules that start off (planned 2026-10-28): slice 1 products & services, estimates, invoices, customer payments, slice 2 the invoice PDF and sending it, slice 3 recurring invoices, slice 4 bills and bill payments (built)
 11. At the owner's request: one Accounts register for any account, with a reconciled column for banks and cards (`GL-13`), and transfers between accounts (`GL-14`) (built 2026-10-29)
+12. At the owner's request: a status bar with save state, last backup, online/offline, messages after actions, and the version and build (`CO-6`) (built 2026-10-31)
 
 ## Conversation history (how we got here)
 

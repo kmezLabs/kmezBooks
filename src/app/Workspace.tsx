@@ -32,7 +32,7 @@ import { ModulesPage } from './pages/ModulesPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { ensureReadWrite, pickFolder, rememberFolder } from './recentFolders';
 import { formatDate } from './ledgerUi';
-import { ErrorText, formatDateTime, formatTime, useAction } from './ui';
+import { ErrorText, formatDateTime, useAction } from './ui';
 
 const PAGES = {
   register: 'Transactions',
@@ -95,18 +95,6 @@ const MODULE_OF: Partial<Record<Page, Module>> = {
   reconcile: 'banking',
   migration: 'migration',
 };
-
-function SaveState({ status }: { status: SessionStatus }) {
-  if (status.readOnly) return <span className="badge">Read-only</span>;
-  if (status.saving) return <span className="save-state">Saving…</span>;
-  if (status.error) return <span className="save-state error-text">Not saved</span>;
-  if (status.dirty) return <span className="save-state">Unsaved changes</span>;
-  return (
-    <span className="save-state muted">
-      {status.lastSavedAt ? `Saved ${formatTime(status.lastSavedAt)}` : 'All changes saved'}
-    </span>
-  );
-}
 
 /** Problems the owner has to act on, with the actions that fix them. */
 function Problems({
@@ -308,7 +296,6 @@ export function Workspace({ status }: { status: SessionStatus }) {
         <div className="company-name" title="Active company">
           {status.legalName}
         </div>
-        <SaveState status={status} />
         <button
           className="secondary"
           disabled={busy || status.saving}

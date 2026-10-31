@@ -82,6 +82,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | CO-3 | Data is fully isolated per company: each company is a separate folder and database, and no transaction can reference another company's records | M |
 | CO-4 | Enable or disable feature modules per company | M |
 | CO-5 | Copy chart of accounts and settings from one company to a new one | S |
+| CO-6 | Status bar at the bottom of every screen (owner, Oct 31): save state, the last backup, online or offline, short messages after actions (exports, postings, payments, imports, backups), and on the far right the app's version and the build (git commit and date) it came from. Built Oct 31 | S |
 
 ### Ledger core (GL)
 

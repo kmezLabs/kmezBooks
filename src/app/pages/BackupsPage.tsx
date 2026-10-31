@@ -12,6 +12,7 @@ import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
 import { download } from '../export/exportReport';
 import { ensureReadWrite, getBackupFolder, pickFolder, setBackupFolder } from '../recentFolders';
+import { announce } from '../statusMessages';
 import { Dialog, ErrorText, TextField, formatBytes, formatDateTime, useAction } from '../ui';
 
 const LABELS: Record<string, string> = {
@@ -298,6 +299,7 @@ export function BackupsPage({ status }: { status: SessionStatus }) {
           onClick={() =>
             run(async () => {
               await db.backupNow();
+              announce('Backup saved');
               await refresh();
             })
           }

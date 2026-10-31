@@ -78,7 +78,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | ID | Requirement | Pri |
 | --- | --- | --- |
 | CO-1 | Create and manage multiple companies, each with its own legal name, EIN, address, fiscal year start and books | M |
-| CO-2 | Switch between companies in one app; every screen shows the active company, and so do the browser tab and the installed app's title bar ("Acme LLC – EasyBooks", added Oct 31) | M |
+| CO-2 | Switch between companies in one app; every screen shows the active company, and so do the browser tab and the installed app's title bar ("Acme LLC – EasyBooks" in a tab, "EasyBooks - Acme LLC" in the app, added Oct 31) | M |
 | CO-3 | Data is fully isolated per company: each company is a separate folder and database, and no transaction can reference another company's records | M |
 | CO-4 | Enable or disable feature modules per company | M |
 | CO-5 | Copy chart of accounts and settings from one company to a new one | S |

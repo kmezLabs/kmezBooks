@@ -78,7 +78,7 @@ Each requirement has a stable ID (module prefix + number) so it can be traced, r
 | ID | Requirement | Pri |
 | --- | --- | --- |
 | CO-1 | Create and manage multiple companies, each with its own legal name, EIN, address, fiscal year start and books | M |
-| CO-2 | Switch between companies in one app; every screen shows the active company, and so do the browser tab and the installed app's title bar ("Acme LLC – EasyBooks" in a tab, "EasyBooks - Acme LLC" in the app, added Oct 31) | M |
+| CO-2 | Switch between companies in one app; every screen shows the active company, and so do the browser tab and the installed app's title bar ("Acme LLC – kmezBooks" in a tab, "kmezBooks - Acme LLC" in the app, added Oct 31) | M |
 | CO-3 | Data is fully isolated per company: each company is a separate folder and database, and no transaction can reference another company's records | M |
 | CO-4 | Enable or disable feature modules per company | M |
 | CO-5 | Copy chart of accounts and settings from one company to a new one | S |
@@ -266,7 +266,7 @@ The ledger tables are the only source of truth for the financial statements; inv
 | BankFeed, StatementImport, BankTransaction | which ledger account a statement account is; per imported file its name, period and closing balance; per transaction the bank id, date, amount, payee, memo, check number, review status (new, posted, matched, excluded) and the entry that accounts for it. Column mapping for CSV/Excel (BK-2) later | BK |
 | BankRule | priority, on/off, conditions (text in payee or description, money in or out, amount range, account), category, payee, memo, post automatically | BK |
 | Reconciliation, ReconciledLine | account, statement date, beginning and ending balance, open or done; the ledger lines it cleared | BK |
-| Attachment | file name, type, size, content hash, linked entity; the encrypted file is `attachments/<id>.eba` in the company folder | shared |
+| Attachment | file name, type, size, content hash, linked entity; the encrypted file is `attachments/<id>.kma` in the company folder (`.eba` before the rename) | shared |
 | AuditEvent | user, action, entity, before/after, timestamp | shared |
 
 Backups are not tracked in the database: they are files named by time in the backup folder, and the app finds them by listing that folder (DF-9).

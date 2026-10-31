@@ -43,9 +43,10 @@ function useInactivityLock(open: boolean, onLocked: () => void) {
   }, [open]);
 }
 
-// The installed app's own window, not a browser tab. "Open in EasyBooks" moves
+// The installed app's own window, not a browser tab. "Open in kmezBooks" moves
 // a tab into one without reloading, so this follows the change.
-const INSTALLED = '(display-mode: standalone), (display-mode: window-controls-overlay), (display-mode: minimal-ui)';
+const INSTALLED =
+  '(display-mode: standalone), (display-mode: window-controls-overlay), (display-mode: minimal-ui)';
 
 function useInstalledWindow(): boolean {
   return useSyncExternalStore(

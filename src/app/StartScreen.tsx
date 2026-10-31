@@ -29,7 +29,7 @@ export function StartScreen({ notice }: { notice: string | null }) {
   const openRecent = (f: RecentFolder) =>
     run(async () => {
       if (!(await ensureReadWrite(f.handle)))
-        throw new Error(`EasyBooks needs access to the folder ${f.handle.name}.`);
+        throw new Error(`kmezBooks needs access to the folder ${f.handle.name}.`);
       setOpening({ handle: f.handle, title: f.name });
     });
 
@@ -42,9 +42,9 @@ export function StartScreen({ notice }: { notice: string | null }) {
   if (!folderPickerSupported()) {
     return (
       <main className="start">
-        <h1>EasyBooks</h1>
+        <h1>kmezBooks</h1>
         <p className="warning">
-          This browser can't open folders on your disk, which EasyBooks needs to keep your books.
+          This browser can't open folders on your disk, which kmezBooks needs to keep your books.
           Use Chrome on a computer.
         </p>
       </main>
@@ -53,7 +53,7 @@ export function StartScreen({ notice }: { notice: string | null }) {
 
   return (
     <main className="start">
-      <h1>EasyBooks</h1>
+      <h1>kmezBooks</h1>
       {notice && <p className="notice">{notice}</p>}
       <section>
         <h2>Companies</h2>

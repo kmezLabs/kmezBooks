@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BACKUP_DIR, listBackups } from './backups';
 import { COMPANY_FILE } from './companyFolder';
 import { CompanySession, type SessionDeps } from './companySession';
-import { createCompanyKey, encryptDatabase } from './ebkFormat';
+import { createCompanyKey, encryptDatabase } from './kmbFormat';
 import { LOCK_FILE, STALE_AFTER_MS, writeLock } from './lockFile';
 import { MIGRATIONS } from './schema';
 import { migrate } from './migrations';
@@ -271,12 +271,12 @@ describe('one editor at a time (DF-3, DF-4)', () => {
     const a = newSession({ locks }).session;
     await a.open(asDir(dir), 'pw', { device: 'PC' });
     const companyId = a.status().companyId!;
-    expect(held.has(`easybooks-company-${companyId}`)).toBe(true);
+    expect(held.has(`kmezbooks-company-${companyId}`)).toBe(true);
     await a.close();
     expect(held.size).toBe(0);
 
     // Another tab holds the company but its lock file isn't there (yet): the tab lock still stops us
-    held.add(`easybooks-company-${companyId}`);
+    held.add(`kmezbooks-company-${companyId}`);
     const b = newSession({ locks }).session;
     await expect(b.open(asDir(dir), 'pw', { device: 'PC' })).rejects.toMatchObject({
       name: 'OpenInAnotherTabError',

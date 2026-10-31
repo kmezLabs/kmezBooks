@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   PBKDF2_ITERATIONS,
@@ -10,14 +11,14 @@ import {
   readHeader,
   unlockCompanyKey,
   verifyPassphrase,
-} from './ebkFormat';
+} from './kmbFormat';
 
 // Low iteration count keeps tests fast; the count is stored in the header,
 // so the code path is the same as with the production default.
 const FAST = 1_000;
 const plaintext = new TextEncoder().encode('SQLite format 3\0 pretend database bytes');
 
-describe('ebk format (DF-1, Security NFR)', () => {
+describe('kmb format (DF-1, Security NFR)', () => {
   it('defaults to 600,000 PBKDF2 iterations', () => {
     expect(PBKDF2_ITERATIONS).toBe(600_000);
   });
@@ -145,5 +146,44 @@ describe('attachment files (GL-4, EX-2)', () => {
     const key = await createCompanyKey('right one', FAST);
     expect(await verifyPassphrase(key, 'right one')).toBe(true);
     expect(await verifyPassphrase(key, 'wrong')).toBe(false);
+  });
+});
+
+describe('files from before the rename from EasyBooks', () => {
+  // Made by the EasyBooks code (ebkFormat.ts at 9c95f21) with test bytes, not real books
+  const fixture = (name: string) =>
+    new Uint8Array(readFileSync(`src/worker/testing/fixtures/${name}`));
+  const text = (b: Uint8Array) => new TextDecoder().decode(b);
+  const magic = (b: Uint8Array) => text(b.subarray(0, 4));
+
+  it('new company files and attachments start with KMB1 and KMA1', async () => {
+    const key = await createCompanyKey('pw', FAST);
+    expect(magic(await encryptDatabase(key, plaintext))).toBe('KMB1');
+    expect(magic(await encryptBlob(key, plaintext))).toBe('KMA1');
+  });
+
+  it('an EBK1 company file and its EBA1 attachment still open', async () => {
+    const file = fixture('legacy-company-EBK1.bin');
+    expect(magic(file)).toBe('EBK1');
+    const key = await unlockCompanyKey(readHeader(file), 'legacy passphrase');
+    expect(text(await decryptDatabase(key, file))).toBe('old database bytes');
+    const blob = fixture('legacy-attachment-EBA1.bin');
+    expect(magic(blob)).toBe('EBA1');
+    expect(text(await decryptBlob(key, blob))).toBe('old receipt bytes');
+  });
+
+  it('re-saving an old file writes the new marker, same key and passphrase', async () => {
+    const file = fixture('legacy-company-EBK1.bin');
+    const key = await unlockCompanyKey(readHeader(file), 'legacy passphrase');
+    const saved = await encryptDatabase(key, await decryptDatabase(key, file));
+    expect(magic(saved)).toBe('KMB1');
+    const again = await unlockCompanyKey(readHeader(saved), 'legacy passphrase');
+    expect(text(await decryptDatabase(again, saved))).toBe('old database bytes');
+  });
+
+  it('anything else is still not a company file', () => {
+    const file = fixture('legacy-company-EBK1.bin');
+    file.set([0x58, 0x58, 0x58, 0x31], 0);
+    expect(() => readHeader(file)).toThrow(/not a kmezBooks company file/);
   });
 });

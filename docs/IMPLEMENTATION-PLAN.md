@@ -52,21 +52,22 @@ Modules own their tables, but migrations share one numbered sequence (`NNNN_<mod
 
 ```
 Acme LLC/                    folder the owner picks or creates
-  company.ebk                encrypted SQLite database
+  company.kmb                encrypted SQLite database
   company.lock               who has it open, plus a heartbeat (DF-4)
-  attachments/<sha256>.ebk   one encrypted file per attachment
-  backups/company-2026-10-26T15-30.ebk
+  attachments/<id>.kma       one encrypted file per attachment
+  backups/company-2026-10-26T15-30-00Z.kmb
 ```
 
-`.ebk` file layout:
+`.kmb` file layout:
 
 | Part | Contents |
 | --- | --- |
-| Header (plain) | magic `EBK1`, format version, PBKDF2-SHA256 iterations (600,000) and 16-byte salt, wrapped data key, 12-byte IV |
+| Header (plain) | magic `KMB1`, format version, PBKDF2-SHA256 iterations (600,000) and 16-byte salt, wrapped data key, 12-byte IV |
 | Body | AES-256-GCM ciphertext of the SQLite database, with the header as additional authenticated data |
 
 - **Key wrapping.** A random data key encrypts the database and attachments. The passphrase-derived key only wraps it (AES-KW). Changing the passphrase (US-1) rewrites the header, not every attachment. A backup opens with the passphrase that was current when it was made.
 - **Fresh IV on every save.** The data key stays in the worker as a non-extractable `CryptoKey` while the company is unlocked, and is dropped on lock.
+- **Files from before the rename (Oct 31).** The app was called EasyBooks until 2026-10-31. Its files are `company.ebk` (magic `EBK1`), `attachments/<id>.eba` (`EBA1`) and `.ebk` backups, in the same layout. They are still read; nothing writes them. The first save of an old folder writes `company.kmb` and only then removes `company.ebk`; an empty `company.kmb` beside `company.ebk` (an unfinished first save) loses to it. Old attachments and backups stay as they are. Code: `src/worker/kmbFormat.ts`, `companyFolder.ts`, `attachments.ts`, `backups.ts`.
 - **Wrong passphrase vs damaged file.** A failed unwrap means a wrong passphrase. A failed body decrypt means the file is damaged; the app offers a restore (DF-10).
 
 ## M1 — Technical test + scaffold (detailed)
@@ -158,7 +159,7 @@ Built on branch `m3-ledger`. Integrity rules tested against the real schema, inc
 | GL-1 | `account` table: five types, detail types (catalog in `src/shared/accounts.ts`), sub-accounts shown as `Parent:Child`. Triggers keep a sub-account the parent's type, prevent cycles, and keep the type of an account with history or sub-accounts. Names unique among siblings (ignoring case), numbers unique |
 | GL-2 | 40-account cash-basis chart (no A/R or A/P; one each of Undeposited Funds, Retained Earnings and Opening Balance Equity). Seeded at creation unless "Start with the standard chart" is unticked (for companies that will be imported); an empty company can add it later |
 | GL-3 | `postEntry()` (`src/ledger/postEntry.ts`) writes a draft and its lines and posts it in one savepoint, so it can also run inside a document's own transaction later. The posting trigger requires two or more lines, debits = credits and a non-zero total. Entries can only be created as drafts |
-| GL-4 | Journal entry screen: date, ref, memo, lines with running totals, attachments. Attachments are encrypted with the company's data key (`EBA1` format) as `attachments/<id>.eba`, with a copy in the backup folder; the database keeps name, type, size and SHA-256, checked on open |
+| GL-4 | Journal entry screen: date, ref, memo, lines with running totals, attachments. Attachments are encrypted with the company's data key (`KMA1` format; `EBA1` before the rename) as `attachments/<id>.kma`, with a copy in the backup folder; the database keeps name, type, size and SHA-256, checked on open |
 | GL-6 | Lines change only while the entry is a draft; posted and void entries never change (except posted → void) and are never deleted. Void keeps the lines and drops the entry from balances |
 | GL-7 | An account with transactions can't be deleted, only made inactive; inactive accounts take no postings |
 | GL-8 | Postings to A/R or A/P accounts are refused unless the entry comes from the QuickBooks migration. `allocateProRata()` (`src/ledger/allocate.ts`) is ready for M7, with property tests |

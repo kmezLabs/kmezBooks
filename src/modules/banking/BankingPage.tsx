@@ -754,7 +754,7 @@ function ImportDialog(props: {
       )}
       {keys.length > 0 ? (
         <>
-          <p>Choose the account each statement belongs to. EasyBooks remembers it for next time.</p>
+          <p>Choose the account each statement belongs to. kmezBooks remembers it for next time.</p>
           <table className="list">
             <thead>
               <tr>

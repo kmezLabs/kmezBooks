@@ -101,9 +101,9 @@ describe('restore drill (M8, DF-10)', () => {
     });
 
     // The company folder's copy alone is enough; with neither, it's missing
-    dir.dirs.get(BACKUP_DIR)!.dirs.get(ATTACHMENT_DIR)!.files.delete(`${a.id}.eba`);
+    dir.dirs.get(BACKUP_DIR)!.dirs.get(ATTACHMENT_DIR)!.files.delete(`${a.id}.kma`);
     expect((await session.testBackup(newest!.name, 'the passphrase')).ok).toBe(true);
-    dir.dirs.get(ATTACHMENT_DIR)!.files.delete(`${a.id}.eba`);
+    dir.dirs.get(ATTACHMENT_DIR)!.files.delete(`${a.id}.kma`);
     expect(await session.testBackup(newest!.name, 'the passphrase')).toMatchObject({
       ok: false,
       missingAttachments: ['r.pdf'],

@@ -1,8 +1,8 @@
-// Encrypted company file format (.ebk), DF-1 and the Security NFR.
+// Encrypted company file format (.kmb), DF-1 and the Security NFR.
 // Layout and reasoning: docs/IMPLEMENTATION-PLAN.md, "Company folder and file format".
 //
 //   header (plain; also the AES-GCM additional authenticated data)
-//     magic "EBK1"        4
+//     magic "KMB1"        4    ("EBK1" in files saved before the rename to kmezBooks)
 //     format version      u16
 //     header length       u16
 //     KDF id              u8   (1 = PBKDF2-HMAC-SHA256)
@@ -21,7 +21,13 @@ import { DamagedFileError, NotACompanyFileError, WrongPassphraseError } from './
 
 export const PBKDF2_ITERATIONS = 600_000;
 
-const MAGIC = [0x45, 0x42, 0x4b, 0x31]; // "EBK1"
+const MAGIC = [0x4b, 0x4d, 0x42, 0x31]; // "KMB1"
+// Written before the app was renamed from EasyBooks; still read, never written
+const LEGACY_MAGIC = [0x45, 0x42, 0x4b, 0x31]; // "EBK1"
+
+function startsWith(file: Uint8Array, magic: number[]): boolean {
+  return magic.every((b, i) => file[i] === b);
+}
 const FORMAT_VERSION = 1;
 const KDF_PBKDF2_SHA256 = 1;
 const SALT_BYTES = 16;
@@ -30,7 +36,7 @@ const IV_BYTES = 12;
 const HEADER_BYTES = 4 + 2 + 2 + 1 + 4 + SALT_BYTES + WRAPPED_KEY_BYTES + IV_BYTES;
 const MAX_ITERATIONS = 10_000_000;
 
-export interface EbkHeader {
+export interface KmbHeader {
   iterations: number;
   salt: Uint8Array<ArrayBuffer>;
   wrappedKey: Uint8Array<ArrayBuffer>;
@@ -113,7 +119,7 @@ export async function createCompanyKey(
 }
 
 /** Unlock with the passphrase stored in a file's header. Throws WrongPassphraseError. */
-export async function unlockCompanyKey(header: EbkHeader, passphrase: string): Promise<CompanyKey> {
+export async function unlockCompanyKey(header: KmbHeader, passphrase: string): Promise<CompanyKey> {
   const dataKey = await unwrapDataKey(
     passphrase,
     header.salt,
@@ -149,7 +155,7 @@ export async function changePassphrase(
   return { dataKey: key.dataKey, iterations, salt, wrappedKey };
 }
 
-function writeHeader(h: EbkHeader): Uint8Array<ArrayBuffer> {
+function writeHeader(h: KmbHeader): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(HEADER_BYTES);
   const view = new DataView(out.buffer);
   out.set(MAGIC, 0);
@@ -167,9 +173,12 @@ function writeHeader(h: EbkHeader): Uint8Array<ArrayBuffer> {
 }
 
 /** Parse and validate the plain header. Throws NotACompanyFileError. */
-export function readHeader(file: Uint8Array): EbkHeader {
-  if (file.byteLength < HEADER_BYTES || MAGIC.some((b, i) => file[i] !== b)) {
-    throw new NotACompanyFileError('This is not an EasyBooks company file.');
+export function readHeader(file: Uint8Array): KmbHeader {
+  if (
+    file.byteLength < HEADER_BYTES ||
+    !(startsWith(file, MAGIC) || startsWith(file, LEGACY_MAGIC))
+  ) {
+    throw new NotACompanyFileError('This is not a kmezBooks company file.');
   }
   const view = new DataView(file.buffer, file.byteOffset, file.byteLength);
   const version = view.getUint16(4);
@@ -191,7 +200,7 @@ export function readHeader(file: Uint8Array): EbkHeader {
   return { iterations, salt, wrappedKey, iv };
 }
 
-/** Encrypt a serialized SQLite database into a complete .ebk file. */
+/** Encrypt a serialized SQLite database into a complete .kmb file. */
 export async function encryptDatabase(
   key: CompanyKey,
   plaintext: Uint8Array<ArrayBuffer>,
@@ -212,7 +221,7 @@ export async function encryptDatabase(
   return file;
 }
 
-/** Decrypt a complete .ebk file. Throws NotACompanyFileError or DamagedFileError. */
+/** Decrypt a complete company file (.kmb, or .ebk from before the rename). Throws NotACompanyFileError or DamagedFileError. */
 export async function decryptDatabase(
   key: CompanyKey,
   file: Uint8Array<ArrayBuffer>,
@@ -241,14 +250,16 @@ export async function verifyPassphrase(key: CompanyKey, passphrase: string): Pro
   }
 }
 
-// ---- attachment files (.eba) --------------------------------------------
+// ---- attachment files (.kma) --------------------------------------------
 //
-//   magic "EBA1" 4 | format version u16 | IV 12 | AES-256-GCM ciphertext
+//   magic "KMA1" 4 | format version u16 | IV 12 | AES-256-GCM ciphertext
+//   ("EBA1" and .eba in attachments added before the rename; still read)
 //
 // Encrypted with the company's data key (no passphrase material in the file),
 // so a passphrase change never touches attachments. The header is the AAD.
 
-const BLOB_MAGIC = [0x45, 0x42, 0x41, 0x31]; // "EBA1"
+const BLOB_MAGIC = [0x4b, 0x4d, 0x41, 0x31]; // "KMA1"
+const LEGACY_BLOB_MAGIC = [0x45, 0x42, 0x41, 0x31]; // "EBA1"
 const BLOB_HEADER_BYTES = 4 + 2 + IV_BYTES;
 
 export async function encryptBlob(
@@ -276,10 +287,10 @@ export async function decryptBlob(
   const view = new DataView(file.buffer, file.byteOffset, file.byteLength);
   if (
     file.byteLength < BLOB_HEADER_BYTES ||
-    BLOB_MAGIC.some((b, i) => file[i] !== b) ||
+    !(startsWith(file, BLOB_MAGIC) || startsWith(file, LEGACY_BLOB_MAGIC)) ||
     view.getUint16(4) !== FORMAT_VERSION
   ) {
-    throw new NotACompanyFileError('This is not an EasyBooks attachment file.');
+    throw new NotACompanyFileError('This is not a kmezBooks attachment file.');
   }
   const header = file.subarray(0, BLOB_HEADER_BYTES);
   try {

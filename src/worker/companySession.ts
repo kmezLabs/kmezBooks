@@ -201,6 +201,7 @@ import type { Report, ReportRequest } from '../shared/report';
 import type { AccountInput, AccountRow } from '../shared/accounts';
 import {
   ATTACHMENT_DIR,
+  attachmentFile,
   addAttachment,
   listAttachments,
   openAttachment,
@@ -463,11 +464,11 @@ export class CompanySession {
 
   private async attach(company: OpenCompany, device: string, sessionId = crypto.randomUUID()) {
     if (!company.readOnly && this.deps.locks) {
-      const release = await acquireTabLock(this.deps.locks, `easybooks-company-${company.id}`);
+      const release = await acquireTabLock(this.deps.locks, `kmezbooks-company-${company.id}`);
       if (!release) {
         company.close();
         throw new OpenInAnotherTabError(
-          'This company is already open in another EasyBooks tab or window. Switch to it, or close it there first.',
+          'This company is already open in another kmezBooks tab or window. Switch to it, or close it there first.',
         );
       }
       this.releaseTabLock = release;
@@ -708,7 +709,7 @@ export class CompanySession {
     const exists = async (dir: FileSystemDirectoryHandle, id: string) => {
       try {
         const folder = await dir.getDirectoryHandle(ATTACHMENT_DIR);
-        await folder.getFileHandle(`${id}.eba`);
+        await attachmentFile(folder, id);
         return true;
       } catch {
         return false;

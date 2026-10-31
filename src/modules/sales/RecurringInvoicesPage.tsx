@@ -85,7 +85,7 @@ export function RecurringInvoicesPage(props: {
       <h2>Recurring invoices</h2>
       <p className="muted">
         Invoices that repeat, such as monthly tuition. Each is made as a draft on its dates when you
-        open the company, ready to check and send from Invoices; nothing runs while EasyBooks is
+        open the company, ready to check and send from Invoices; nothing runs while kmezBooks is
         closed. To start one from an invoice, open it and use <strong>Make recurring</strong>.
       </p>
       {!readOnly && (

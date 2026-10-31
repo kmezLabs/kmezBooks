@@ -34,7 +34,7 @@ function TestDialog(props: { backup: BackupFile; onClose: () => void }) {
   return (
     <Dialog title="Test this backup" onClose={busy ? undefined : props.onClose}>
       <p>
-        Backup from <strong>{formatDateTime(props.backup.at)}</strong>. EasyBooks opens it in
+        Backup from <strong>{formatDateTime(props.backup.at)}</strong>. kmezBooks opens it in
         memory, checks it, and compares it with your books as they were then. Nothing is restored or
         changed.
       </p>
@@ -92,8 +92,8 @@ function CheckResult({ check, onClose }: { check: BackupCheck; onClose: () => vo
         {item(
           !check.upgradeError,
           check.upgradeError
-            ? `Can't be brought up to this version of EasyBooks: ${check.upgradeError}`
-            : 'Opens in this version of EasyBooks',
+            ? `Can't be brought up to this version of kmezBooks: ${check.upgradeError}`
+            : 'Opens in this version of kmezBooks',
         )}
         {item(
           check.sameCompany,
@@ -283,7 +283,7 @@ export function BackupsPage({ status }: { status: SessionStatus }) {
           <>
             the folder <strong>{folder.name}</strong>, in a folder of their own for this company
             {!folderInUse &&
-              ' (EasyBooks needs permission again, so they currently go to the company folder)'}
+              ' (kmezBooks needs permission again, so they currently go to the company folder)'}
           </>
         ) : (
           <>
@@ -381,7 +381,7 @@ function ExportSection() {
     <>
       <h3>Export</h3>
       <p className="muted">
-        Take everything out of EasyBooks, to keep or to open in other software. Unlike backups,{' '}
+        Take everything out of kmezBooks, to keep or to open in other software. Unlike backups,{' '}
         <strong>exports are not encrypted</strong>: anyone with the file can read these books.
       </p>
       <div className="buttons">

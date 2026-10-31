@@ -9,7 +9,7 @@ import {
   readBackup,
   writeBackup,
 } from './backups';
-import { FakeDir, asDir } from './testing/fakeDir';
+import { FakeDir, FakeFile, asDir } from './testing/fakeDir';
 
 const bytes = (s: string) => new TextEncoder().encode(s);
 const at = (iso: string) => new Date(iso);
@@ -17,7 +17,7 @@ const at = (iso: string) => new Date(iso);
 describe('backup names', () => {
   it('round-trips the time and an optional label', () => {
     const t = at('2026-10-26T15:30:05Z');
-    expect(backupName(t)).toBe('company-2026-10-26T15-30-05Z.ebk');
+    expect(backupName(t)).toBe('company-2026-10-26T15-30-05Z.kmb');
     expect(parseBackupName(backupName(t))).toEqual({ at: t, label: null });
     expect(parseBackupName(backupName(t, 'before-upgrade'))).toEqual({
       at: t,
@@ -26,9 +26,9 @@ describe('backup names', () => {
   });
 
   it('ignores other files', () => {
-    expect(parseBackupName('company.ebk')).toBeNull();
+    expect(parseBackupName('company.kmb')).toBeNull();
     expect(parseBackupName('notes.txt')).toBeNull();
-    expect(parseBackupName('company-2026-13-45T99-99-99Z.ebk')).toBeNull();
+    expect(parseBackupName('company-2026-13-45T99-99-99Z.kmb')).toBeNull();
   });
 });
 
@@ -57,8 +57,8 @@ describe('backup files', () => {
     dir.files.set('readme.txt', dir.files.get(backupName(at('2026-10-01T10:00:00Z')))!);
     const list = await listBackups(asDir(dir));
     expect(list.map((b) => b.name)).toEqual([
-      'company-2026-10-02T10-00-00Z.ebk',
-      'company-2026-10-01T10-00-00Z.ebk',
+      'company-2026-10-02T10-00-00Z.kmb',
+      'company-2026-10-01T10-00-00Z.kmb',
     ]);
     expect(list[0]!.size).toBe(3);
     expect(new TextDecoder().decode(await readBackup(asDir(dir), list[0]!.name))).toBe('new');
@@ -87,11 +87,29 @@ describe('backup files', () => {
       await writeBackup(asDir(dir), bytes(String(d)), at(`2026-10-0${d}T10:00:00Z`));
     }
     expect(await pruneBackups(asDir(dir), 3)).toEqual([
-      'company-2026-10-02T10-00-00Z.ebk',
-      'company-2026-10-01T10-00-00Z.ebk',
+      'company-2026-10-02T10-00-00Z.kmb',
+      'company-2026-10-01T10-00-00Z.kmb',
     ]);
     expect((await listBackups(asDir(dir))).length).toBe(3);
     await pruneBackups(asDir(dir), 0);
     expect((await listBackups(asDir(dir))).length).toBe(1);
+  });
+
+  it('keeps old .ebk backups from before the rename: listed, read and pruned by date', async () => {
+    const dir = new FakeDir();
+    const old = (name: string, content: string) => {
+      dir.files.set(name, Object.assign(new FakeFile(), { data: bytes(content) }));
+    };
+    old('company-2026-09-30T10-00-00Z.ebk', 'oldest');
+    old('company-2026-10-01T10-00-00Z-before-upgrade.ebk', 'old');
+    await writeBackup(asDir(dir), bytes('new'), at('2026-10-02T10:00:00Z'));
+    const list = await listBackups(asDir(dir));
+    expect(list.map((b) => [b.name, b.label])).toEqual([
+      ['company-2026-10-02T10-00-00Z.kmb', null],
+      ['company-2026-10-01T10-00-00Z-before-upgrade.ebk', 'before-upgrade'],
+      ['company-2026-09-30T10-00-00Z.ebk', null],
+    ]);
+    expect(new TextDecoder().decode(await readBackup(asDir(dir), list[1]!.name))).toBe('old');
+    expect(await pruneBackups(asDir(dir), 2)).toEqual(['company-2026-09-30T10-00-00Z.ebk']);
   });
 });

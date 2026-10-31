@@ -1,8 +1,9 @@
 // Attachments (GL-4, EX-2): receipts and documents linked to an entry. Each is
 // encrypted with the company's data key and written once as
-// attachments/<id>.eba in the company folder, with a copy in the backup folder.
+// attachments/<id>.kma in the company folder, with a copy in the backup folder.
 // The database records name, type, size and hash. Files are never rewritten or
-// deleted, so restoring an older database backup still finds them.
+// deleted, so restoring an older database backup still finds them. Attachments
+// added before the rename from EasyBooks are <id>.eba, and stay so.
 
 import type { OpenCompany } from './company';
 import { AppError, AttachmentMissingError } from './errors';
@@ -10,6 +11,21 @@ import type { Database } from './sqlite';
 
 export const ATTACHMENT_DIR = 'attachments';
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const EXTENSION = '.kma';
+const LEGACY_EXTENSION = '.eba';
+
+/** An attachment's file in an attachments folder: <id>.kma, or <id>.eba from before the rename. */
+export async function attachmentFile(
+  folder: FileSystemDirectoryHandle,
+  id: string,
+): Promise<FileSystemFileHandle> {
+  try {
+    return await folder.getFileHandle(`${id}${EXTENSION}`);
+  } catch (e) {
+    if (!(e instanceof DOMException && e.name === 'NotFoundError')) throw e;
+    return await folder.getFileHandle(`${id}${LEGACY_EXTENSION}`);
+  }
+}
 
 export interface AttachmentRow {
   id: string;
@@ -71,9 +87,9 @@ export async function addAttachment(
   const bytes = new Uint8Array(await file.arrayBuffer());
   const id = crypto.randomUUID();
   const encrypted = await company.encryptBlob(bytes);
-  await writeOnce(company.dir, `${id}.eba`, encrypted);
+  await writeOnce(company.dir, `${id}${EXTENSION}`, encrypted);
   // A copy beside the backups, so a lost company folder doesn't take its receipts along
-  if (backupDir) await writeOnce(backupDir, `${id}.eba`, encrypted).catch(() => {});
+  if (backupDir) await writeOnce(backupDir, `${id}${EXTENSION}`, encrypted).catch(() => {});
   const row: AttachmentRow = {
     id,
     fileName: file.name || 'attachment',
@@ -111,7 +127,7 @@ export async function openAttachment(
   let encrypted: Uint8Array<ArrayBuffer>;
   try {
     const folder = await company.dir.getDirectoryHandle(ATTACHMENT_DIR);
-    const file = await (await folder.getFileHandle(`${id}.eba`)).getFile();
+    const file = await (await attachmentFile(folder, id)).getFile();
     encrypted = new Uint8Array(await file.arrayBuffer());
   } catch {
     throw new AttachmentMissingError(

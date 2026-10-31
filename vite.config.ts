@@ -34,8 +34,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'EasyBooks',
-        short_name: 'EasyBooks',
+        name: 'kmezBooks',
+        short_name: 'kmezBooks',
         description:
           'Double-entry bookkeeping for your companies, stored in folders on your own disk.',
         theme_color: '#1f4e79',

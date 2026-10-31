@@ -1,6 +1,6 @@
 # Importing a company from QuickBooks Online
 
-How to bring one company's full history from QuickBooks Online into EasyBooks. Do it once per company. Keep the QuickBooks subscription until all four companies have been imported and tie out.
+How to bring one company's full history from QuickBooks Online into kmezBooks. Do it once per company. Keep the QuickBooks subscription until all four companies have been imported and tie out.
 
 ## 1. Export from QuickBooks Online
 
@@ -22,13 +22,13 @@ Use QuickBooks' **Export data**, with the company's reports on **Cash basis** (t
 | Balance Sheet, as of the piece's last day | The tie-out of the latest piece |
 | Customers, Vendors | Contact details |
 
-**Also export the Account List** (Chart of accounts → Run report → Export) into any of the folders. Without it, EasyBooks works out account types from the reports, but a **deleted** account with no balance can't be worked out, and you'll be asked to choose its type.
+**Also export the Account List** (Chart of accounts → Run report → Export) into any of the folders. Without it, kmezBooks works out account types from the reports, but a **deleted** account with no balance can't be worked out, and you'll be asked to choose its type.
 
 **Extra year-end checks (optional):** for a piece longer than a year, also export the Trial Balance as of each Dec 31 inside it. The tie-out then checks every year-end, not just the piece's last day. It's a small report, so it exports for any date.
 
 **Folder layout:** put all the pieces' folders inside one folder for the company, for example `C:\KM\QBO\Mawad Child Services\full data\`.
 
-## 2. Create a new, empty company in EasyBooks
+## 2. Create a new, empty company in kmezBooks
 
 The import only goes into a company with no transactions yet, so a company you've been testing with won't do.
 
@@ -40,7 +40,7 @@ The import only goes into a company with no transactions yet, so a company you'v
 
 1. Open the company and go to **QuickBooks import**.
 2. Click **Choose the exports folder…** and pick the company's folder (the one holding all the pieces).
-3. EasyBooks lists what it found: each piece and its dates, accounts, customers, vendors and transactions. Problems and warnings are listed too, and gaps or overlaps between pieces are named with the dates to export.
+3. kmezBooks lists what it found: each piece and its dates, accounts, customers, vendors and transactions. Problems and warnings are listed too, and gaps or overlaps between pieces are named with the dates to export.
 4. **Choose a type for any account it asks about.** For example, a deleted bank account is **Bank**, and a deleted card is **Credit card**.
 5. Click **Dry run**.
    - It posts everything, compares the result with QuickBooks' own trial balances and balance sheet, and then undoes it.

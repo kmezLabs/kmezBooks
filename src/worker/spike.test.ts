@@ -1,6 +1,6 @@
 // M1 spike checks. Set SPIKE_FULL=1 to also print a Node baseline at full size.
 import { describe, expect, it } from 'vitest';
-import { createCompanyKey, decryptDatabase, encryptDatabase } from './ebkFormat';
+import { createCompanyKey, decryptDatabase, encryptDatabase } from './kmbFormat';
 import { createIndexes, generateHistory, measureQueries, wasmHeapBytes } from './spike';
 import { deserializeDatabase, loadSqlite, openEmptyDatabase, serializeDatabase } from './sqlite';
 

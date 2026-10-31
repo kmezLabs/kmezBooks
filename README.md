@@ -1,4 +1,4 @@
-# EasyBooks
+# kmezBooks
 
 Double-entry bookkeeping for four US small businesses, as a standalone Chrome PWA. Each company's books are an encrypted folder on your own disk.
 

@@ -1,6 +1,6 @@
 # CLAUDE.md — Accounting App (MVP)
 
-Context for Claude Code. This project is a standalone, double-entry accounting PWA, inspired by QuickBooks Online, for the owner's four US small businesses. Each company's books are an encrypted company folder on the user's own disk, which the app opens like a document.
+Context for Claude Code. This project, **kmezBooks**, is a standalone, double-entry accounting PWA, inspired by QuickBooks Online, for the owner's four US small businesses. Each company's books are an encrypted company folder on the user's own disk, which the app opens like a document.
 
 **Source of truth for scope:** `docs/MVP-REQUIREMENTS.md` (exported from the requirements doc). Every requirement has a stable ID (e.g. `GL-3`, `BK-6`, `MG-5`) with priority **M** (must) or **S** (should). Reference these IDs in commits, PRs, tests and code comments. If this file and the requirements doc disagree, the requirements doc wins; flag the conflict to the user.
 
@@ -12,6 +12,7 @@ Context for Claude Code. This project is a standalone, double-entry accounting P
 
 | Topic | Decision |
 | --- | --- |
+| Name | **kmezBooks** (that casing; package `kmezbooks`). Renamed from EasyBooks on 2026-10-31 because that name belongs to a licensed product. New files are `company.kmb` / `KMB1`, `attachments/<id>.kma` / `KMA1`, backups `.kmb`, settings keys `kmezbooks.*`; old `.ebk`/`.eba` files and `easybooks.*` keys are still read (a folder converts on its first save) and must stay readable |
 | Audience | Owner's own use for 4 US businesses; may become a sellable product later (keep the door open, don't build for it yet) |
 | Users | **Owner only in the MVP.** Bookkeeper handoff by check-out (`DF-5`–`DF-8`, `US-2`, `US-4`) is S, first after the MVP. One editor per company at a time: lock file + on-disk change check (`DF-3`, `DF-4`); no sync |
 | Companies | 4, fully isolated (one folder and database each); **no intercompany transactions** |
@@ -76,6 +77,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 10. **M9** Invoices and bills, cash basis, per-company modules that start off (planned 2026-10-28): slice 1 products & services, estimates, invoices, customer payments, slice 2 the invoice PDF and sending it, slice 3 recurring invoices, slice 4 bills and bill payments (built)
 11. At the owner's request: one Accounts register for any account, with a reconciled column for banks and cards (`GL-13`), and transfers between accounts (`GL-14`) (built 2026-10-29)
 12. At the owner's request: a status bar with save state, last backup, online/offline, messages after actions, and the version and build (`CO-6`) (built 2026-10-31)
+13. Renamed EasyBooks to kmezBooks (2026-10-31): app, files, settings keys, GitHub repo `mawadk/kmezBooks`, local folder `C:\KM\dev\kmezBooks`
 
 ## Conversation history (how we got here)
 

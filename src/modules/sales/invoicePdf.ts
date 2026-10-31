@@ -97,7 +97,7 @@ export async function renderDocPdf(
   const title = doc.kind === 'invoice' ? 'Invoice' : 'Estimate';
   pdf.setTitle(`${title} ${doc.number}`);
   pdf.setAuthor(pdfText(company.legalName));
-  pdf.setCreator('EasyBooks');
+  pdf.setCreator('kmezBooks');
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = logoPng ? await pdf.embedPng(logoPng) : null;

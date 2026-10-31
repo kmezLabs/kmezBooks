@@ -13,6 +13,7 @@ import {
   useClosedPeriodOverride,
 } from '../../app/ledgerUi';
 import { PartySelect } from '../../app/PartySelect';
+import { announce } from '../../app/statusMessages';
 import { Dialog, ErrorText, TextField, formatBytes, useAction } from '../../app/ui';
 import type { AccountRow } from '../../shared/accounts';
 import { formatMoney, parseMoney, type Cents } from '../../shared/money';
@@ -736,6 +737,7 @@ function PayBillsDialog(props: {
         },
         passphrase,
       );
+      announce(`Paid ${formatMoney(total)}${open[0] ? ` to ${open[0].vendor}` : ''}`);
       props.onClose();
     });
   };

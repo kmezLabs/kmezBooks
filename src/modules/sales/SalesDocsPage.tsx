@@ -12,6 +12,7 @@ import {
   useClosedPeriodOverride,
 } from '../../app/ledgerUi';
 import { download } from '../../app/export/exportReport';
+import { announce } from '../../app/statusMessages';
 import { Dialog, ErrorText, TextField, useAction } from '../../app/ui';
 import type { AccountRow } from '../../shared/accounts';
 import { formatMoney, parseMoney, type Cents } from '../../shared/money';
@@ -560,7 +561,12 @@ function DocActions(props: {
           type="button"
           className="secondary"
           disabled={props.busy}
-          onClick={() => act(() => db.markDocSent(d.id))}
+          onClick={() =>
+            act(async () => {
+              await db.markDocSent(d.id);
+              announce(`${d.kind === 'invoice' ? 'Invoice' : 'Estimate'} ${d.number} marked sent`);
+            })
+          }
         >
           Mark as sent
         </button>
@@ -739,6 +745,7 @@ function ReceivePaymentDialog(props: {
         },
         passphrase,
       );
+      announce(`Received ${formatMoney(total)}${open[0] ? ` from ${open[0].customer}` : ''}`);
       props.onClose();
     });
   };
@@ -863,6 +870,9 @@ function SendDialog(props: { doc: Doc; onClose: () => void; onSent: () => void }
 
   const sent = async () => {
     await db.markDocSent(props.doc.id);
+    announce(
+      `${props.doc.kind === 'invoice' ? 'Invoice' : 'Estimate'} ${props.doc.number} marked sent`,
+    );
     props.onSent();
   };
 

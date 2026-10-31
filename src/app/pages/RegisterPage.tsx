@@ -31,6 +31,7 @@ import {
   PayeeField,
 } from '../ledgerUi';
 import { registerAccount, setRegisterAccount } from '../settings';
+import { announce } from '../statusMessages';
 import { Dialog, ErrorText } from '../ui';
 
 const PAGE = 200;
@@ -921,6 +922,11 @@ function QuickAdd(props: {
         passphrase,
       );
       for (const f of files) await db.addAttachment('journal_entry', String(id), f);
+      announce(
+        kind === 'transfer'
+          ? `Transfer ${formatMoney(total)} posted`
+          : `Added ${kind} ${formatMoney(total)}`,
+      );
       props.onAdded();
     });
 

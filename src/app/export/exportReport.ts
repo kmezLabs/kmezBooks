@@ -4,6 +4,7 @@
 
 import { strToU8, zipSync } from 'fflate';
 import { centsToDecimal } from '../../shared/money';
+import { announce } from '../statusMessages';
 import {
   formatPercent,
   percentToDecimal,
@@ -168,4 +169,5 @@ export function download(fileName: string, data: BlobPart, type: string) {
   a.download = fileName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  announce(`Saved ${fileName} to Downloads`);
 }

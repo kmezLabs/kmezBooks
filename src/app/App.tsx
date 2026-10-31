@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SessionStatus } from '../worker/companySession';
 import { db } from '../shared/workerClient';
 import { StartScreen } from './StartScreen';
+import { StatusBar } from './StatusBar';
 import { UpdateBanner } from './UpdateBanner';
 import { Workspace } from './Workspace';
 import { lockAfterMinutes } from './settings';
@@ -81,6 +82,7 @@ export function App() {
     <>
       <UpdateBanner status={status} />
       {status.open ? <Workspace status={status} /> : <StartScreen notice={notice} />}
+      <StatusBar status={status} />
     </>
   );
 }

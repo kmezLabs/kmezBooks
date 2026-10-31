@@ -25,6 +25,7 @@ import {
   useClosedPeriodOverride,
 } from '../ledgerUi';
 import type { RecurringDraft } from './RecurringPage';
+import { announce } from '../statusMessages';
 import { Dialog, ErrorText, TextField, formatBytes, formatDateTime, useAction } from '../ui';
 
 type View =
@@ -305,6 +306,7 @@ function NewEntry(props: {
         ? await db.saveEntryChange(e0.id, entry, overridePassphrase)
         : await db.postJournalEntry(entry, overridePassphrase);
       for (const f of files) await db.addAttachment('journal_entry', String(id), f);
+      announce(e0 ? `Saved entry ${id}` : `Posted entry ${id}`);
       props.onDone(id);
     });
   };

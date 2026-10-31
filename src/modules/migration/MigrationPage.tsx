@@ -314,7 +314,7 @@ function TieOutResult({ check }: { check: TieOutCheck }) {
           <tr>
             <th>Account</th>
             <th className="num">QuickBooks</th>
-            <th className="num">EasyBooks</th>
+            <th className="num">kmezBooks</th>
             <th className="num">Difference</th>
           </tr>
         </thead>

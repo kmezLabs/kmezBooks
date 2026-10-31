@@ -40,18 +40,18 @@ describe('status bar (CO-6)', () => {
     expect(__APP_BUILD__).toMatch(/^([0-9a-f]{7,} \d{4}-\d{2}-\d{2}|dev)$/);
     expect(versionText('0.1.0', '6035081 2026-10-30')).toEqual({
       short: 'v0.1.0 · build 6035081, Oct 30',
-      title: 'EasyBooks 0.1.0, built from commit 6035081 on 2026-10-30',
+      title: 'kmezBooks 0.1.0, built from commit 6035081 on 2026-10-30',
     });
     expect(versionText('0.1.0', 'dev').short).toBe('v0.1.0 · build dev');
   });
 
   it('puts the open company first in the window title (CO-2)', () => {
-    expect(windowTitle('Acme Holdings LLC')).toBe('Acme Holdings LLC – EasyBooks');
-    expect(windowTitle('  Acme LLC ')).toBe('Acme LLC – EasyBooks');
-    expect(windowTitle(null)).toBe('EasyBooks');
-    expect(windowTitle('')).toBe('EasyBooks');
-    // Chrome adds "EasyBooks - " in front in the installed app's title bar
+    expect(windowTitle('Acme Holdings LLC')).toBe('Acme Holdings LLC – kmezBooks');
+    expect(windowTitle('  Acme LLC ')).toBe('Acme LLC – kmezBooks');
+    expect(windowTitle(null)).toBe('kmezBooks');
+    expect(windowTitle('')).toBe('kmezBooks');
+    // Chrome adds "kmezBooks - " in front in the installed app's title bar
     expect(windowTitle('Acme Holdings LLC', true)).toBe('Acme Holdings LLC');
-    expect(windowTitle(null, true)).toBe('EasyBooks');
+    expect(windowTitle(null, true)).toBe('kmezBooks');
   });
 });

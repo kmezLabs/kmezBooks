@@ -1,6 +1,6 @@
 // Full export of a company (Portability, M8): everything in the database as
 // CSV and JSON, a plain journal for spreadsheets, and the attachments, in one
-// unencrypted .zip. Readable without EasyBooks, so the books are never locked
+// unencrypted .zip. Readable without kmezBooks, so the books are never locked
 // in. The decrypted SQLite copy is the database file itself.
 
 import { strToU8, zipSync, type Zippable } from 'fflate';
@@ -84,7 +84,7 @@ export function journalCsv(db: Database): string {
 
 function readme(meta: { company: string; exportedAt: string; schema: number }, missing: string[]) {
   return [
-    `EasyBooks export of ${meta.company}`,
+    `kmezBooks export of ${meta.company}`,
     `Made ${meta.exportedAt}, company schema version ${meta.schema}.`,
     '',
     'THIS EXPORT IS NOT ENCRYPTED. Anyone with this file can read these books.',

@@ -21,7 +21,7 @@ import type { ReportRequest } from '../shared/report';
 import type { NewCompany, CompanyDetails, Module } from './companyData';
 import { COMPANY_FILE } from './companyFolder';
 import { CompanySession, type OpenMode, type SessionStatus } from './companySession';
-import { createCompanyKey, encryptDatabase } from './ebkFormat';
+import { createCompanyKey, encryptDatabase } from './kmbFormat';
 import {
   createIndexes,
   dropIndexes,
@@ -301,9 +301,9 @@ const api = {
   },
 
   /**
-   * Atomic-save test: stream data into company.ebk in small chunks over
+   * Atomic-save test: stream data into company.kmb in small chunks over
    * `seconds`, so the tab can be killed part-way through, then abort. The data
-   * uses a throwaway key, so if any of it ever reached company.ebk the company
+   * uses a throwaway key, so if any of it ever reached company.kmb the company
    * would no longer open: reopening it afterwards is the test.
    */
   async spikeSlowWrite(seconds: number): Promise<number> {

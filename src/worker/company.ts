@@ -11,7 +11,12 @@ import {
   startSession,
   type NewCompany,
 } from './companyData';
-import { COMPANY_FILE, readCompanyFile, writeCompanyFile, type FileStamp } from './companyFolder';
+import {
+  existingCompanyFile,
+  readCompanyFile,
+  writeCompanyFile,
+  type FileStamp,
+} from './companyFolder';
 import {
   changePassphrase,
   createCompanyKey,
@@ -23,7 +28,7 @@ import {
   unlockCompanyKey,
   verifyPassphrase,
   type CompanyKey,
-} from './ebkFormat';
+} from './kmbFormat';
 import { AppError, CompanyExistsError, ReadOnlyError } from './errors';
 import { schemaVersion } from './migrations';
 import { LATEST_SCHEMA, applySchema } from './schema';
@@ -86,13 +91,10 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 async function assertNoCompany(dir: FileSystemDirectoryHandle) {
-  try {
-    await dir.getFileHandle(COMPANY_FILE);
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'NotFoundError') return;
-    throw e;
+  const existing = await existingCompanyFile(dir);
+  if (existing) {
+    throw new CompanyExistsError(`This folder already holds a company (${existing.name}).`);
   }
-  throw new CompanyExistsError(`This folder already holds a company (${COMPANY_FILE}).`);
 }
 
 /** Decrypt and load a file into memory without touching any folder. */

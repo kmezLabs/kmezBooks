@@ -1,5 +1,5 @@
 // Versioned encrypted backups (DF-9). A backup is a byte-for-byte copy of a
-// saved company.ebk, so it opens with the passphrase that was current when it
+// saved company.kmb, so it opens with the passphrase that was current when it
 // was made. Backups are found by listing the backup folder; their names carry
 // the time, so nothing about them is stored in the database.
 
@@ -17,12 +17,14 @@ export interface BackupFile {
   label: string | null;
 }
 
-// company-2026-10-26T15-30-00Z.ebk or company-2026-10-26T15-30-00Z-before-upgrade.ebk
-const NAME = /^company-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z(?:-([a-z0-9-]+))?\.ebk$/;
+// company-2026-10-26T15-30-00Z.kmb or company-2026-10-26T15-30-00Z-before-upgrade.kmb;
+// .ebk for backups made before the rename from EasyBooks, which are kept and restored alike
+const NAME =
+  /^company-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z(?:-([a-z0-9-]+))?\.(?:kmb|ebk)$/;
 
 export function backupName(at: Date, label?: string): string {
   const stamp = at.toISOString().slice(0, 19).replaceAll(':', '-');
-  return `company-${stamp}Z${label ? `-${label}` : ''}.ebk`;
+  return `company-${stamp}Z${label ? `-${label}` : ''}.kmb`;
 }
 
 export function parseBackupName(name: string): { at: Date; label: string | null } | null {

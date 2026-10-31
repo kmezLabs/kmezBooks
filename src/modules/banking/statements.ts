@@ -77,7 +77,7 @@ export function readStatements(files: StatementFile[]): {
         if (statement.currency && statement.currency.toUpperCase() !== 'USD') {
           problems.push({
             file: f.name,
-            message: `${feedLabel(statement)} is in ${statement.currency}; EasyBooks keeps books in US dollars only.`,
+            message: `${feedLabel(statement)} is in ${statement.currency}; kmezBooks keeps books in US dollars only.`,
           });
           continue;
         }

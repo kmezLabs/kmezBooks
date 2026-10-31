@@ -67,7 +67,7 @@ export function RecurringPage(props: {
       <h2>Recurring entries</h2>
       <p className="muted">
         Journal entries that repeat, such as monthly depreciation or amortization. Each posts on its
-        dates when you open the company; nothing runs while EasyBooks is closed. To start one from
+        dates when you open the company; nothing runs while kmezBooks is closed. To start one from
         an entry already in the books, open the entry and use <strong>Make recurring</strong>.
       </p>
       {!readOnly && (

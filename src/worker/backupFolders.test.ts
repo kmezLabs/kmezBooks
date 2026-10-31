@@ -4,7 +4,7 @@ import { CompanySession } from './companySession';
 import { FakeDir, asDir } from './testing/fakeDir';
 import { ACME } from './testing/fixtures';
 
-const backupsIn = (dir: FakeDir) => [...dir.files.keys()].filter((n) => n.endsWith('.ebk')).length;
+const backupsIn = (dir: FakeDir) => [...dir.files.keys()].filter((n) => n.endsWith('.kmb')).length;
 
 function newSession() {
   let t = new Date(2026, 9, 28, 9, 0, 0);

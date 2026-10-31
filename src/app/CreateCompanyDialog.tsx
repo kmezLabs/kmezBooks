@@ -100,7 +100,7 @@ export function CreateCompanyDialog({ onClose }: { onClose: () => void }) {
         </div>
         <p className="muted">
           Next, choose an empty folder for this company, for example{' '}
-          <code>Documents\EasyBooks\{details.legalName.trim() || 'Company name'}</code>. Fiscal year
+          <code>Documents\kmezBooks\{details.legalName.trim() || 'Company name'}</code>. Fiscal year
           starts in {MONTHS[details.fiscalYearStartMonth - 1]}.
         </p>
         <ErrorText>{error}</ErrorText>

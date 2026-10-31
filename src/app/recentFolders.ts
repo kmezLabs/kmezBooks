@@ -96,13 +96,16 @@ export async function pickFolder(
   }
 }
 
-/** Ask for a backup file (.ebk). Returns undefined if the owner cancels. */
+/** Ask for a backup file (.kmb, or .ebk from before the rename). Returns undefined if the owner cancels. */
 export async function pickBackupFile(): Promise<FileSystemFileHandle | undefined> {
   try {
     const [file] = await window.showOpenFilePicker!({
       id: 'backup-file',
       types: [
-        { description: 'EasyBooks company file', accept: { 'application/octet-stream': ['.ebk'] } },
+        {
+          description: 'kmezBooks company file',
+          accept: { 'application/octet-stream': ['.kmb', '.ebk'] },
+        },
       ],
     });
     return file;

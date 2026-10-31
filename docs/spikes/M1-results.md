@@ -29,7 +29,7 @@ All comfortably inside "no hard targets". Whole-file save is viable at this size
 | Passphrase change re-wraps the data key; files saved before the change still open with the new key, and old backups with the old passphrase | Pass |
 | In-memory SQLite serialize/deserialize; garbage and truncated databases rejected as damaged | Pass |
 | Migrations: ordering, gaps, failed migration rolls back including `user_version`, newer schema refused | Pass |
-| `company.ebk` never contains the plaintext database or the company name | Pass |
+| `company.kmb` never contains the plaintext database or the company name | Pass |
 | On-disk change check refuses to overwrite a file another copy saved (DF-3); a failed write keeps the old file | Pass (fake folder that behaves like Chrome's swap-file writes) |
 | STRICT tables refuse text and fractions in INTEGER columns | Pass |
 | Every worker error class names itself (the production build shortens class names) | Pass |
@@ -51,7 +51,7 @@ Chrome 155 headless on the development PC (8 cores, 16 GB), driving the real tes
 | Save 42 MB with indexes | 404 ms | 403 ms |
 | WebAssembly heap with 42 MB open | 107 MB | 107 MB |
 | PBKDF2-SHA256, 600,000 iterations | 200 ms | 200 ms |
-| Overwrite `company.ebk` from outside, then Save | Refused: `FileChangedOnDiskError` | Same |
+| Overwrite `company.kmb` from outside, then Save | Refused: `FileChangedOnDiskError` | Same |
 | Reload the page 3 s into the 10 s atomic-save test, reopen | Opens | Opens |
 
 The first run showed the refusal as `N: …`: the production build had shortened the error class names the UI matches on. Fixed by spelling each name out, with a test.
@@ -91,10 +91,10 @@ What the headless run couldn't cover: the real folder picker, Chrome's permissio
 `npm run build && npm run preview`, open http://localhost:4173 in Chrome.
 
 1. Check that Chrome offers to **install** the app (address-bar icon). Install it and continue in the installed window.
-2. Enter a passphrase. **New company in a folder…** → pick an empty folder, for example `Documents\EasyBooks-spike`.
+2. Enter a passphrase. **New company in a folder…** → pick an empty folder, for example `Documents\kmezBooks-spike`.
 3. **Generate history** (17 × 6,000), **Save**, **Close**, reopen from the recent list.
 4. Close the installed app, reopen it, open the company from the recent list. **Does Chrome ask for folder permission again?** Does it offer "Allow on every visit"?
-5. With the company open, edit `company.ebk` from Explorer (or copy another file over it), then **Save**. It must refuse.
+5. With the company open, edit `company.kmb` from Explorer (or copy another file over it), then **Save**. It must refuse.
 6. Offline: stop the preview server, reopen the installed app, open the company. It must still work.
 
 Results:

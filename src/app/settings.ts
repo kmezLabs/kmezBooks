@@ -3,14 +3,25 @@
 // register's account filter per company (GL-9). Browser storage may be
 // unavailable or cleared, so every access has a fallback.
 
-const DEVICE_KEY = 'easybooks.deviceName';
-const INACTIVITY_KEY = 'easybooks.lockAfterMinutes';
+const DEVICE_KEY = 'kmezbooks.deviceName';
+const INACTIVITY_KEY = 'kmezbooks.lockAfterMinutes';
+// Keys were "easybooks.*" before the rename; read once, then moved
+const PREFIX = 'kmezbooks.';
+const LEGACY_PREFIX = 'easybooks.';
 
 export const DEFAULT_LOCK_MINUTES = 15;
 
 function read(key: string): string | null {
   try {
-    return localStorage.getItem(key);
+    const value = localStorage.getItem(key);
+    if (value !== null || !key.startsWith(PREFIX)) return value;
+    const legacy = LEGACY_PREFIX + key.slice(PREFIX.length);
+    const old = localStorage.getItem(legacy);
+    if (old !== null) {
+      localStorage.setItem(key, old);
+      localStorage.removeItem(legacy);
+    }
+    return old;
   } catch {
     return null;
   }
@@ -44,9 +55,7 @@ export function setLockAfterMinutes(minutes: number) {
 }
 
 const registerAccountKey = (companyId: string, kind?: string) =>
-  kind
-    ? `easybooks.registerAccount.${kind}.${companyId}`
-    : `easybooks.registerAccount.${companyId}`;
+  kind ? `${PREFIX}registerAccount.${kind}.${companyId}` : `${PREFIX}registerAccount.${companyId}`;
 
 /**
  * The account the Transactions register was last filtered to, for this

@@ -26,7 +26,7 @@ export function UpdateBanner({ status }: { status: SessionStatus }) {
 
   return (
     <div className="update-banner" role="status">
-      <span>A new version of EasyBooks is ready.</span>
+      <span>A new version of kmezBooks is ready.</span>
       <button
         disabled={busy || status.saving}
         onClick={() =>

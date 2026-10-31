@@ -45,7 +45,7 @@ export function migrate(db: Database, migrations: Migration[]): { from: number; 
   const latest = latestVersion(migrations);
   if (from > latest) {
     throw new NewerSchemaError(
-      `This company was saved by a newer version of EasyBooks (schema ${from}; this app knows up to ${latest}). Update the app to open it.`,
+      `This company was saved by a newer version of kmezBooks (schema ${from}; this app knows up to ${latest}). Update the app to open it.`,
     );
   }
   for (const m of migrations.filter((m) => m.version > from)) {

@@ -93,9 +93,9 @@ describe('session: ledger (GL-2, GL-4, PC-1, PC-2)', () => {
     const row = await session.addAttachment('journal_entry', String(id), receipt);
     expect(row).toMatchObject({ fileName: 'lunch.txt', mimeType: 'text/plain', size: 21 });
 
-    const stored = dir.dirs.get(ATTACHMENT_DIR)!.files.get(`${row.id}.eba`)!.data;
+    const stored = dir.dirs.get(ATTACHMENT_DIR)!.files.get(`${row.id}.kma`)!.data;
     expect(Buffer.from(stored).includes(Buffer.from('receipt'))).toBe(false);
-    expect(dir.dirs.get(BACKUP_DIR)!.dirs.get(ATTACHMENT_DIR)!.files.has(`${row.id}.eba`)).toBe(
+    expect(dir.dirs.get(BACKUP_DIR)!.dirs.get(ATTACHMENT_DIR)!.files.has(`${row.id}.kma`)).toBe(
       true,
     );
 
@@ -107,7 +107,21 @@ describe('session: ledger (GL-2, GL-4, PC-1, PC-2)', () => {
     session.removeAttachment(row.id);
     expect(session.entry(id)!.files).toEqual([]);
     // The encrypted file stays, for older backups that still list it
-    expect(dir.dirs.get(ATTACHMENT_DIR)!.files.has(`${row.id}.eba`)).toBe(true);
+    expect(dir.dirs.get(ATTACHMENT_DIR)!.files.has(`${row.id}.kma`)).toBe(true);
+  });
+
+  it('opens an attachment saved as <id>.eba, from before the rename from EasyBooks', async () => {
+    const { dir, session, entry } = await openCompany();
+    const id = await session.postJournalEntry(entry('2026-03-01'));
+    const row = await session.addAttachment(
+      'journal_entry',
+      String(id),
+      new File(['old'], 'a.txt'),
+    );
+    const files = dir.dirs.get(ATTACHMENT_DIR)!.files;
+    files.set(`${row.id}.eba`, files.get(`${row.id}.kma`)!);
+    files.delete(`${row.id}.kma`);
+    expect(new TextDecoder().decode((await session.openAttachment(row.id)).bytes)).toBe('old');
   });
 
   it('reports a missing or swapped attachment file', async () => {
@@ -116,11 +130,11 @@ describe('session: ledger (GL-2, GL-4, PC-1, PC-2)', () => {
     const a = await session.addAttachment('journal_entry', String(id), new File(['one'], 'a.txt'));
     const b = await session.addAttachment('journal_entry', String(id), new File(['two'], 'b.txt'));
     const files = dir.dirs.get(ATTACHMENT_DIR)!.files;
-    files.set(`${a.id}.eba`, files.get(`${b.id}.eba`)!);
+    files.set(`${a.id}.kma`, files.get(`${b.id}.kma`)!);
     await expect(session.openAttachment(a.id)).rejects.toMatchObject({
       name: 'AttachmentMissingError',
     });
-    files.delete(`${b.id}.eba`);
+    files.delete(`${b.id}.kma`);
     await expect(session.openAttachment(b.id)).rejects.toThrow(/missing/);
   });
 

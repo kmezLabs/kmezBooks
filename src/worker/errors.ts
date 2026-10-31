@@ -6,7 +6,7 @@ export class AppError extends Error {
   override name = 'AppError';
 }
 
-/** The file isn't an EasyBooks company file, or uses a format this app can't read. */
+/** The file isn't a kmezBooks company file, or uses a format this app can't read. */
 export class NotACompanyFileError extends AppError {
   override name = 'NotACompanyFileError';
 }
@@ -90,7 +90,7 @@ export class AttachmentMissingError extends AppError {
 export function fromFolderAccess(e: unknown, folderName: string): unknown {
   if (e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
     return new FolderAccessError(
-      `EasyBooks no longer has permission to save in the folder “${folderName}”. Allow access, and your changes will be saved.`,
+      `kmezBooks no longer has permission to save in the folder “${folderName}”. Allow access, and your changes will be saved.`,
     );
   }
   return e;

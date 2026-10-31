@@ -7,5 +7,8 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 # Company folders and real QuickBooks exports never go in git
+*.kmb
+*.kma
 *.ebk
+*.eba
 /private/

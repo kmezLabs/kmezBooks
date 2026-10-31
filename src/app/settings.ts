@@ -35,10 +35,60 @@ function write(key: string, value: string) {
   }
 }
 
+/** What Chrome tells a page about the device (User-Agent Client Hints). */
+export interface DeviceHints {
+  platform?: string;
+  platformVersion?: string;
+  model?: string;
+}
+
+/**
+ * A starting name for this device, from what the browser shares: "Windows 11 PC",
+ * "Mac", or the phone's model on Android. Browsers never give pages the computer's
+ * own name, so two alike computers get the same guess until the owner names them.
+ */
+export function guessDeviceName(userAgent: string, hints: DeviceHints = {}): string {
+  const platform = hints.platform || '';
+  if (platform === 'Android' || /Android/i.test(userAgent)) {
+    return hints.model?.trim() || 'Android device';
+  }
+  if (platform === 'Windows' || /Windows/i.test(userAgent)) {
+    // Chrome reports Windows 11 as platform version 13 or higher, Windows 10 as 1 to 12
+    const major = Number(hints.platformVersion?.split('.')[0]);
+    if (major >= 13) return 'Windows 11 PC';
+    if (major >= 1) return 'Windows 10 PC';
+    return 'Windows PC';
+  }
+  if (platform === 'macOS' || /Macintosh|Mac OS X/i.test(userAgent)) return 'Mac';
+  if (platform === 'Chrome OS' || /CrOS/.test(userAgent)) return 'Chromebook';
+  if (platform === 'Linux' || /Linux/i.test(userAgent)) return 'Linux PC';
+  return 'This computer';
+}
+
+let detected: string | null = null;
+
+/** Ask Chrome for the details behind guessDeviceName; called once at startup. */
+export async function detectDevice(): Promise<void> {
+  const uaData = (
+    navigator as Navigator & {
+      userAgentData?: { getHighEntropyValues(hints: string[]): Promise<DeviceHints> };
+    }
+  ).userAgentData;
+  try {
+    const hints = await uaData?.getHighEntropyValues(['platformVersion', 'model']);
+    detected = guessDeviceName(navigator.userAgent, hints);
+  } catch {
+    // The plain guess from the user agent applies
+  }
+}
+
+/** True once the owner has named this device (Passphrase and device). */
+export function deviceNamed(): boolean {
+  return !!read(DEVICE_KEY);
+}
+
 export function deviceName(): string {
-  return (
-    read(DEVICE_KEY) || (/Android/i.test(navigator.userAgent) ? 'Android device' : 'This computer')
-  );
+  return read(DEVICE_KEY) || detected || guessDeviceName(navigator.userAgent);
 }
 
 export function setDeviceName(name: string) {

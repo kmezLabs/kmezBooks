@@ -11,6 +11,7 @@ import { StatusBar } from './StatusBar';
 import { UpdateBanner } from './UpdateBanner';
 import { Workspace } from './Workspace';
 import { lockAfterMinutes } from './settings';
+import { windowTitle } from './statusText';
 
 const ACTIVITY = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 
@@ -60,6 +61,12 @@ export function App() {
       `Closed after ${lockAfterMinutes()} minutes without activity. Open the company again to continue.`,
     ),
   );
+
+  // The open company's name on the browser tab and the installed app's title bar (CO-2)
+  const title = windowTitle(status?.open ? status.legalName : null);
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
 
   const unsaved = !!status && (status.dirty || status.saving);
   useEffect(() => {

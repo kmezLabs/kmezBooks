@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGE_MS, announce, currentMessage } from './statusMessages';
-import { formatAgo, versionText } from './statusText';
+import { formatAgo, versionText, windowTitle } from './statusText';
 
 describe('status bar (CO-6)', () => {
   afterEach(() => {
@@ -43,5 +43,12 @@ describe('status bar (CO-6)', () => {
       title: 'EasyBooks 0.1.0, built from commit 6035081 on 2026-10-30',
     });
     expect(versionText('0.1.0', 'dev').short).toBe('v0.1.0 · build dev');
+  });
+
+  it('puts the open company first in the window title (CO-2)', () => {
+    expect(windowTitle('Acme Holdings LLC')).toBe('Acme Holdings LLC – EasyBooks');
+    expect(windowTitle('  Acme LLC ')).toBe('Acme LLC – EasyBooks');
+    expect(windowTitle(null)).toBe('EasyBooks');
+    expect(windowTitle('')).toBe('EasyBooks');
   });
 });

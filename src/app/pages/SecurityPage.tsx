@@ -4,7 +4,13 @@
 import { useState } from 'react';
 import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
-import { deviceName, lockAfterMinutes, setDeviceName, setLockAfterMinutes } from '../settings';
+import {
+  deviceName,
+  deviceNamed,
+  lockAfterMinutes,
+  setDeviceName,
+  setLockAfterMinutes,
+} from '../settings';
 import { ErrorText, TextField, passphraseProblem, useAction } from '../ui';
 
 function ChangePassphrase({ status }: { status: SessionStatus }) {
@@ -103,7 +109,11 @@ function DeviceSettings() {
             setName(v);
             setSaved(false);
           }}
-          hint="Shown to other devices while you have a company open."
+          hint={
+            deviceNamed()
+              ? 'Shown to other devices while you have a company open.'
+              : 'Filled in from this device. Shown to other devices while you have a company open; give each computer its own name to tell them apart.'
+          }
         />
         <TextField
           label="Close company after (minutes idle)"

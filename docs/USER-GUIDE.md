@@ -51,7 +51,7 @@ When a new version is ready, a bar at the top says **"A new version of kmezBooks
 ### The screen
 
 - **Top bar:** the open company's name and **Close company**. It stays in place while you scroll.
-- **Sidebar** (left): the pages, in groups: Books, Sales, Purchases, Banking, Modules, Company, and Development in a test company. Pages of modules that are off aren't shown (see [Modules](#modules)). The sidebar and the page each scroll on their own.
+- **Sidebar** (left): the pages, in groups: Books, Sales, Purchases, Banking, Company (with **QuickBooks import** last), and Development in a test company. Pages of modules that are off aren't shown (see [Modules](#modules)). The sidebar and the page each scroll on their own.
 - **Status bar** (bottom):
   - whether your changes are saved ("Saved 2:14 PM" or "All changes saved")
   - when the last backup was made ("Backed up 2 hours ago"); hover over it for the exact time
@@ -295,7 +295,7 @@ The first reconciliation of an account starts from zero: check off everything up
 
 ## Sales: invoices and estimates
 
-Turn on **Customers and sales** on the **Modules** page. The Sales group then shows **Invoices**, **Estimates**, **Recurring invoices** and **Products & services**.
+Turn on **Customers and sales** under **Modules** on the **Company** page. The Sales group then shows **Invoices**, **Estimates**, **Recurring invoices** and **Products & services**.
 
 On a cash basis, an invoice only records what a customer owes. **Nothing goes into the books until the customer pays.** The payment then counts as income on the day it arrives.
 
@@ -334,7 +334,7 @@ Each time you open the company, kmezBooks makes the invoices that have come due 
 
 ## Purchases: bills
 
-Turn on **Vendors and bills** on the **Modules** page. **Bills** then appears under Purchases.
+Turn on **Vendors and bills** under **Modules** on the **Company** page. **Bills** then appears under Purchases.
 
 Like an invoice, a bill only records what you owe; **nothing goes into the books until you pay it**. The payment then counts as an expense on the day you pay.
 
@@ -379,7 +379,7 @@ On **Close books**, set a **closing date** to lock everything on or before it. N
 
 ## QuickBooks import
 
-**QuickBooks import** brings a company's history over from QuickBooks Online: the chart of accounts, customers, vendors and every transaction, from QuickBooks' cash-basis exports. It needs a company with **no transactions yet**, ideally created with **Start with the standard chart of accounts** unticked.
+**QuickBooks import**, the last page under Company in the sidebar, brings a company's history over from QuickBooks Online: the chart of accounts, customers, vendors and every transaction, from QuickBooks' cash-basis exports. It needs a company with **no transactions yet**, ideally created with **Start with the standard chart of accounts** unticked.
 
 ### Exporting from QuickBooks Online
 
@@ -412,11 +412,12 @@ Keep the QuickBooks subscription until every company has been imported and check
 - **On invoices and estimates:** email, phone, website, and a **footer** printed at the foot of every invoice and estimate (how to pay, a thank-you).
 - **Logo:** **Add logo…** takes any picture and makes it small; it's shown at the top of invoices and estimates.
 - **Posted transactions:** **Allow changing and deleting posted transactions**; see [Correcting a posted transaction](#correcting-a-posted-transaction).
+- **Modules:** see below.
 - When the company was created, and its id.
 
 ### Modules
 
-**Modules** turns parts of kmezBooks on or off for each company:
+**Modules**, at the bottom of the **Company** page, turns parts of kmezBooks on or off for each company. The sidebar shows or hides their pages straight away:
 
 | Module | What it adds | Starts |
 | --- | --- | --- |

@@ -17,6 +17,7 @@ export const SOURCES: Record<string, string> = {
   recurring: 'Recurring entry',
   invoice_payment: 'Invoice payment',
   bill_payment: 'Bill payment',
+  test_history: 'Made-up history (technical test)',
 };
 
 export function EntryPeek(props: { id: number; onOpen: () => void; lastSavedAt?: string | null }) {

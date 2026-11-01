@@ -128,6 +128,34 @@ describe('company session: create, autosave, close (DF-1, DF-2, DF-9)', () => {
   });
 });
 
+describe('test companies (CO-7)', () => {
+  it('are real companies unless created as a test company', async () => {
+    const { session } = newSession();
+    const { status } = await session.create(asDir(new FakeDir()), ACME, 'pw', 'Office PC');
+    expect(status.test).toBe(false);
+    expect(() => session.assertTestCompany()).toThrow(/only in a test company/);
+  });
+
+  it('keep the mark after saving and reopening, and allow the technical test', async () => {
+    const dir = new FakeDir();
+    const first = newSession().session;
+    const { status } = await first.create(asDir(dir), { ...ACME, test: true }, 'pw', 'Office PC');
+    expect(status.test).toBe(true);
+    await first.close();
+    const { session } = newSession();
+    const outcome = await session.open(asDir(dir), 'pw', { device: 'Office PC' });
+    expect(outcome.kind).toBe('opened');
+    expect(session.status().test).toBe(true);
+    expect(() => session.assertTestCompany()).not.toThrow();
+  });
+
+  it('can only be 0 or 1 in the schema', async () => {
+    const { session } = newSession();
+    await session.create(asDir(new FakeDir()), ACME, 'pw', 'Office PC');
+    expect(() => session.current().db.exec('UPDATE company SET test = 2')).toThrow(/CHECK/);
+  });
+});
+
 describe('one editor at a time (DF-3, DF-4)', () => {
   it('reports a fresh lock held by another device, and allows read-only opening', async () => {
     const dir = await createdCompany();

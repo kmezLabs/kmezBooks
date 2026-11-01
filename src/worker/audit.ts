@@ -133,7 +133,8 @@ export type AppAuditAction =
   | 'restore'
   | 'schema_upgrade'
   | 'passphrase_change'
-  | 'export';
+  | 'export'
+  | 'test_history';
 
 /** Record an event that isn't a row change, such as an unlock or a restore. */
 export function recordEvent(db: Database, action: AppAuditAction, note?: string): void {

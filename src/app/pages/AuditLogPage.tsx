@@ -18,6 +18,7 @@ const ACTIONS: Record<string, string> = {
   restore: 'Restored a backup',
   schema_upgrade: 'Upgraded the company file',
   passphrase_change: 'Changed the passphrase',
+  test_history: 'Replaced the made-up history (technical test)',
   closed_period_override: 'Changed a closed period',
   post: 'Posted an entry',
   void: 'Voided an entry',

@@ -223,6 +223,7 @@ import {
 import type { BackupCheck } from './backupDrill';
 import { OpenCompany, type BackupPreview, type Timings } from './company';
 import {
+  isTestCompany,
   owner,
   readAuditEvents,
   readDetails,
@@ -261,6 +262,8 @@ export interface SessionStatus {
   open: boolean;
   companyId: string | null;
   legalName: string | null;
+  /** A test company (CO-7): "– Test" after its name, and the Development pages */
+  test: boolean;
   readOnly: boolean;
   dirty: boolean;
   saving: boolean;
@@ -365,6 +368,7 @@ export class CompanySession {
       open: !!c,
       companyId: c ? c.id : null,
       legalName: c ? readDetails(c.db).legalName : null,
+      test: c ? isTestCompany(c.db) : false,
       readOnly: c ? c.readOnly || this.lockLost : false,
       dirty: c ? c.dirty : false,
       saving: this.saving,
@@ -400,6 +404,12 @@ export class CompanySession {
   private open_(): OpenCompany {
     if (!this.company) throw new NoCompanyOpenError('No company is open.');
     return this.company;
+  }
+
+  /** The M1 technical test writes made-up history, so it runs only in a test company (CO-7). */
+  assertTestCompany(): void {
+    if (!isTestCompany(this.open_().db))
+      throw new Error('The technical test runs only in a test company.');
   }
 
   private writable(): OpenCompany {

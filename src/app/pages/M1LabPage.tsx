@@ -42,7 +42,7 @@ const toMarkdown = (results: Result[]) =>
     .join('\n\n');
 
 export function M1LabPage({ status }: { status: SessionStatus }) {
-  const [years, setYears] = useState('17');
+  const [years, setYears] = useState('10');
   const [perYear, setPerYear] = useState('6000');
   const [passphrase, setPassphrase] = useState('');
   const [results, setResults] = useState<Result[]>(() => [
@@ -57,8 +57,11 @@ export function M1LabPage({ status }: { status: SessionStatus }) {
     <section>
       <h2>Technical test (M1)</h2>
       <p className="muted">
-        Generates throwaway history in <strong>this</strong> company. Use a test company, not a real
-        one. Steps: generate, wait for "Saved", reopen (timings), measure queries.
+        Posts made-up deposits and payments into <strong>this</strong> test company's books, so they
+        show in Transactions, the registers and the reports. Each run replaces the made-up history
+        of the last run; entries you made yourself stay. Steps: generate, wait for "Saved", reopen
+        (timings), time the reports. At 10 years of 6,000 it takes about two minutes and the file
+        grows to around 70 MB.
       </p>
       <fieldset disabled={busy || status.readOnly}>
         <div className="fields">
@@ -84,21 +87,18 @@ export function M1LabPage({ status }: { status: SessionStatus }) {
             onClick={() =>
               run(async () => {
                 const r = await db.spikeMeasure();
-                record('Queries', {
-                  ...Object.fromEntries(
-                    Object.entries(r.noIndex).map(([k, v]) => [`noIndex_${k}`, v]),
-                  ),
-                  createIndexesMs: r.indexMs,
-                  ...Object.fromEntries(
-                    Object.entries(r.withIndex).map(([k, v]) => [`indexed_${k}`, v]),
-                  ),
+                record('Reports', {
+                  plOneYearMs: r.plOneYearMs,
+                  plAllYearsMs: r.plAllYearsMs,
+                  balanceSheetMs: r.balanceSheetMs,
+                  trialBalanceMs: r.trialBalanceMs,
                   dbSize: mb(r.dbBytes),
                   wasmHeap: mb(r.wasmHeapBytes),
                 });
               })
             }
           >
-            Measure queries
+            Time the reports
           </button>
           <button
             className="secondary"

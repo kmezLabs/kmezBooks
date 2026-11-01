@@ -22,13 +22,7 @@ import type { NewCompany, CompanyDetails, Module } from './companyData';
 import { COMPANY_FILE } from './companyFolder';
 import { CompanySession, type OpenMode, type SessionStatus } from './companySession';
 import { createCompanyKey, encryptDatabase } from './kmbFormat';
-import {
-  createIndexes,
-  dropIndexes,
-  generateHistory,
-  measureQueries,
-  wasmHeapBytes,
-} from './spike';
+import { generateHistory, measureQueries, wasmHeapBytes } from './spike';
 import { serializeDatabase } from './sqlite';
 
 let listener: ((status: SessionStatus) => void) | undefined;
@@ -258,6 +252,7 @@ const api = {
   // ---- M1 technical test only (remove with src/worker/spike.ts) ----
 
   spikeGenerate(years: number, entriesPerYear: number) {
+    session.assertTestCompany();
     const start = performance.now();
     const counts = generateHistory(session.current().db, { years, entriesPerYear });
     session.touch();
@@ -265,16 +260,10 @@ const api = {
   },
 
   spikeMeasure() {
+    session.assertTestCompany();
     const company = session.current();
-    dropIndexes(company.db);
-    const noIndex = measureQueries(company.db);
-    const indexMs = createIndexes(company.db);
-    const withIndex = measureQueries(company.db);
-    session.touch();
     return {
-      noIndex,
-      indexMs,
-      withIndex,
+      ...measureQueries(company.db),
       dbBytes: company.info().dbBytes,
       wasmHeapBytes: wasmHeapBytes(company.sqlite3),
     };
@@ -282,6 +271,7 @@ const api = {
 
   /** Close and reopen the open company, returning the open timings. */
   async spikeReopen(passphrase: string, device: string) {
+    session.assertTestCompany();
     const dir = session.current().dir;
     await session.close();
     const outcome = await session.open(dir, passphrase, { device });

@@ -18,6 +18,8 @@ The **status bar** at the bottom shows whether your changes are saved, when the 
 
 The browser tab, or the title bar of the installed app, shows the open company's name, "Acme LLC – kmezBooks" in a tab and "kmezBooks - Acme LLC" in the installed app, so you can tell windows apart. With no company open it says just "kmezBooks".
 
+To try things out without touching real books, tick **Test company** when you create a company. Its name then shows "– Test" at the top, in the tab and in the title bar, and only a test company has the **Development** pages (the technical test, which fills the company with made-up history). It's set when the company is created and can't be changed later.
+
 ## Your company folders
 
 Each company is one folder on your disk, which you chose when you created it. Nothing about your books is stored in the browser except the list of recently opened folders.

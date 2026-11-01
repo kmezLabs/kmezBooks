@@ -356,7 +356,7 @@ export function RegisterPage(props: {
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Ref</th>
+                  <th className="ref">Ref</th>
                   <th>Payee</th>
                   {single ? (
                     <th>Account</th>
@@ -515,7 +515,7 @@ function RegisterLine(props: {
         title="Show details and quick changes"
       >
         <td className="nowrap">{formatDate(r.date)}</td>
-        <td>{r.ref}</td>
+        <td className="ref">{r.ref}</td>
         <td>
           {r.name ?? <span className="muted">{r.memo}</span>}
           {isVoid && <span className="badge small">void</span>}

@@ -586,6 +586,10 @@ label.check .hint {
   display: block;
 }
 
+label.check.disabled {
+  color: var(--muted);
+}
+
 /* A note under a tick box, lined up with its label text */
 .hint.check-note {
   margin: 2px 0 12px 28px;

@@ -8,7 +8,7 @@ Use QuickBooks' **Export data**, with the company's reports on **Cash basis** (t
 
 **Pieces:** QuickBooks can't export the Journal or General Ledger for all dates at once (the report is too large). Export the history in pieces instead:
 
-- Pieces can be any length: 5 years at a time worked for Mawad Child Services. Use one year at a time for a very busy company.
+- Pieces can be any length: 5 years at a time worked for a company with about 2,500 transactions a year. Use one year at a time for a very busy company.
 - If a piece still says it's too large, export it in two halves.
 - The pieces must follow each other with **no gaps and no overlaps**, for example 2010–2015, 2016–2020, 2021 to today. Start each piece the day after the previous one ends.
 - The last piece can end today.
@@ -26,7 +26,7 @@ Use QuickBooks' **Export data**, with the company's reports on **Cash basis** (t
 
 **Extra year-end checks (optional):** for a piece longer than a year, also export the Trial Balance as of each Dec 31 inside it. The tie-out then checks every year-end, not just the piece's last day. It's a small report, so it exports for any date.
 
-**Folder layout:** put all the pieces' folders inside one folder for the company, for example `C:\KM\QBO\Mawad Child Services\full data\`.
+**Folder layout:** put all the pieces' folders inside one folder for the company, for example `C:\Books\QBO\Acme LLC\full data\`.
 
 ## 2. Create a new, empty company in kmezBooks
 
@@ -62,4 +62,4 @@ The import only goes into a company with no transactions yet, so a company you'v
 
 ## Tried so far
 
-Mawad Child Services, 2010 to Oct 28, 2026, in three pieces of about 5 years: the dry run ties out with no differences at Dec 31, 2015, Dec 31, 2020 and Oct 28, 2026 (trial balances) and Oct 28, 2026 (balance sheet). Two deleted accounts needed a type chosen.
+One company, 2010 to Oct 28, 2026, in three pieces of about 5 years: the dry run ties out with no differences at Dec 31, 2015, Dec 31, 2020 and Oct 28, 2026 (trial balances) and Oct 28, 2026 (balance sheet). Two deleted accounts needed a type chosen.

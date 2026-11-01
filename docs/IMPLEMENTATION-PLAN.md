@@ -350,7 +350,7 @@ Checked: Vitest on the schema (each rule above) and the logic (due dates from te
 
 ## GL-5 — Recurring journal entries (built Oct 28)
 
-Asked for as depreciation and amortization. The QuickBooks history of both companies tried so far books them as **fixed monthly journal entries on the 1st**: Mawad Child Services, Depreciation 2,292.73; Mawad Holdings, Depreciation Expense 4,203.91 and Amortization Expense 153.43. Owner's decisions: recurring entries only (amounts set by the owner or CPA, no asset register); no loan schedules for now (mortgage payments are split by hand in bank review); post automatically and say so.
+Asked for as depreciation and amortization. The QuickBooks history of both companies tried so far books them as **fixed monthly journal entries on the 1st** (depreciation in one; depreciation and amortization in the other). Owner's decisions: recurring entries only (amounts set by the owner or CPA, no asset register); no loan schedules for now (mortgage payments are split by hand in bank review); post automatically and say so.
 
 | Part | How |
 | --- | --- |
@@ -367,7 +367,7 @@ A void can't be undone (GL-6: the schema only lets an entry go from posted to vo
 
 ## M7 — Payees, customers and vendors, expenses (slim)
 
-Owner's decision, Oct 28: the QuickBooks history of both companies tried so far has no invoices, bills, sales receipts or payments (Mawad Child Services 2025: 2,598 expenses, 241 deposits, 23 card credits, 13 journal entries, 3 checks, 2 card payments; Mawad Holdings: 63 expenses, 25 deposits, 13 journal entries, 12 checks), and the other two companies don't use them now either. So M7 builds what they use, and invoices, estimates and bills (AR-2 to AR-8, AP-2 to AP-5) become S, built when a company needs them; the outline for them is kept below.
+Owner's decision, Oct 28: the QuickBooks history of both companies tried so far has no invoices, bills, sales receipts or payments, only expenses, deposits, checks, card credits and payments, and journal entries, and the other two companies don't use them now either. So M7 builds what they use, and invoices, estimates and bills (AR-2 to AR-8, AP-2 to AP-5) become S, built when a company needs them; the outline for them is kept below.
 
 ### Slice 1: payees (GL-11, AR-1, AP-1; migration 0014)
 

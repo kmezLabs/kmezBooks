@@ -25,7 +25,7 @@ beforeEach(async () => {
   db = await newLedgerDb();
 });
 
-/** Monthly depreciation as Mawad Child Services books it: 2,292.73 on the 1st. */
+/** Monthly depreciation, booked on the 1st as QuickBooks companies do. */
 const depreciation = (extra: Partial<RecurringInput> = {}): RecurringInput => ({
   name: 'Depreciation',
   frequency: 'monthly',
@@ -36,8 +36,8 @@ const depreciation = (extra: Partial<RecurringInput> = {}): RecurringInput => ({
   payee: null,
   memo: null,
   lines: [
-    { accountId: accountId(db, 'Depreciation'), debit: 2292_73, credit: 0, memo: null },
-    { accountId: accountId(db, 'Accumulated Depreciation'), debit: 0, credit: 2292_73, memo: null },
+    { accountId: accountId(db, 'Depreciation'), debit: 1250_00, credit: 0, memo: null },
+    { accountId: accountId(db, 'Accumulated Depreciation'), debit: 0, credit: 1250_00, memo: null },
   ],
   ...extra,
 });
@@ -69,12 +69,12 @@ describe('recurring entries: the schedule (GL-5)', () => {
 describe('recurring entries: posting (GL-5)', () => {
   it('posts every date that has come, each on its own date, once', () => {
     const id = createRecurring(db, depreciation());
-    expect(getRecurring(db, id)).toMatchObject({ nextDate: '2026-01-01', amount: 2292_73 });
+    expect(getRecurring(db, id)).toMatchObject({ nextDate: '2026-01-01', amount: 1250_00 });
     const r = postDue(db, '2026-03-15');
     expect(r.posted.map((p) => p.date)).toEqual(['2026-01-01', '2026-02-01', '2026-03-01']);
     expect(r.waiting).toEqual([]);
     expect(entries()).toEqual(['2026-01-01 posted', '2026-02-01 posted', '2026-03-01 posted']);
-    expect(balance('Depreciation')).toBe(3 * 2292_73);
+    expect(balance('Depreciation')).toBe(3 * 1250_00);
     expect(getRecurring(db, id)).toMatchObject({
       nextDate: '2026-04-01',
       lastPosted: '2026-03-01',

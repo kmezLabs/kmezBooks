@@ -76,8 +76,7 @@ const NAV: { group: string; pages: Page[] }[] = [
   { group: 'Sales', pages: ['invoices', 'estimates', 'recurringInvoices', 'items'] },
   { group: 'Purchases', pages: ['bills'] },
   { group: 'Banking', pages: ['banking', 'rules', 'reconcile'] },
-  { group: 'Modules', pages: ['migration'] },
-  { group: 'Company', pages: ['company', 'backups', 'audit', 'security'] },
+  { group: 'Company', pages: ['company', 'backups', 'audit', 'security', 'migration'] },
   { group: 'Development', pages: ['m1'] },
 ];
 

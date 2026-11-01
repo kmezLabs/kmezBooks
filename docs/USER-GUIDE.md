@@ -51,7 +51,7 @@ When a new version is ready, a bar at the top says **"A new version of kmezBooks
 ### The screen
 
 - **Top bar:** the open company's name and **Close company**. It stays in place while you scroll.
-- **Sidebar** (left): the pages, in groups: Books, Sales, Purchases, Banking, Modules, Company, and Development in a test company. Pages of modules that are off aren't shown (see [Modules](#modules)). The sidebar and the page each scroll on their own.
+- **Sidebar** (left): the pages, in groups: Books, Sales, Purchases, Banking, Company (with **QuickBooks import** last), and Development in a test company. Pages of modules that are off aren't shown (see [Modules](#modules)). The sidebar and the page each scroll on their own.
 - **Status bar** (bottom):
   - whether your changes are saved ("Saved 2:14 PM" or "All changes saved")
   - when the last backup was made ("Backed up 2 hours ago"); hover over it for the exact time
@@ -379,7 +379,7 @@ On **Close books**, set a **closing date** to lock everything on or before it. N
 
 ## QuickBooks import
 
-**QuickBooks import** brings a company's history over from QuickBooks Online: the chart of accounts, customers, vendors and every transaction, from QuickBooks' cash-basis exports. It needs a company with **no transactions yet**, ideally created with **Start with the standard chart of accounts** unticked.
+**QuickBooks import**, the last page under Company in the sidebar, brings a company's history over from QuickBooks Online: the chart of accounts, customers, vendors and every transaction, from QuickBooks' cash-basis exports. It needs a company with **no transactions yet**, ideally created with **Start with the standard chart of accounts** unticked.
 
 ### Exporting from QuickBooks Online
 

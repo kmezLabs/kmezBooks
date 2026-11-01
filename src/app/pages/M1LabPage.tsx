@@ -42,7 +42,7 @@ const toMarkdown = (results: Result[]) =>
     .join('\n\n');
 
 export function M1LabPage({ status }: { status: SessionStatus }) {
-  const [years, setYears] = useState('17');
+  const [years, setYears] = useState('10');
   const [perYear, setPerYear] = useState('6000');
   const [passphrase, setPassphrase] = useState('');
   const [results, setResults] = useState<Result[]>(() => [
@@ -58,10 +58,10 @@ export function M1LabPage({ status }: { status: SessionStatus }) {
       <h2>Technical test (M1)</h2>
       <p className="muted">
         Posts made-up deposits and payments into <strong>this</strong> test company's books, so they
-        show in Transactions, the registers and the reports. Each run replaces the made-up history of
-        the last run; entries you made yourself stay. Steps: generate, wait for "Saved", reopen
-        (timings), time the reports. At 17 years of 6,000 it takes a few minutes and the file grows
-        to over 100 MB.
+        show in Transactions, the registers and the reports. Each run replaces the made-up history
+        of the last run; entries you made yourself stay. Steps: generate, wait for "Saved", reopen
+        (timings), time the reports. At 10 years of 6,000 it takes about two minutes and the file
+        grows to around 70 MB.
       </p>
       <fieldset disabled={busy || status.readOnly}>
         <div className="fields">

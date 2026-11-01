@@ -513,7 +513,7 @@ On **Backups**, under **Export**:
 
 ## Test companies and the technical test
 
-To try things out without touching real books, tick **Test company** when you create a company. It's set then and can't be changed later; companies made before November 1, 2026 are real companies.
+To try things out without touching real books, tick **Test company** when you create a company. It's set then and can't be changed later.
 
 - Its name shows "– Test" at the top, in the browser tab and in the title bar.
 - It always starts with the standard chart of accounts.

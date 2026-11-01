@@ -1,4 +1,5 @@
-// Company details (CO-1), and what invoices show about the company (AR-8).
+// Company details (CO-1), what invoices show about the company (AR-8),
+// changing posted entries (GL-6) and the company's modules (CO-4).
 
 import { useEffect, useState } from 'react';
 import { normalizeDetails, validateDetails, type CompanyDetails } from '../../shared/company';
@@ -6,10 +7,17 @@ import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
 import { CompanyFields } from '../CompanyFields';
 import { Dialog, ErrorText, TextField, formatDateTime, useAction } from '../ui';
+import { ModulesSection } from './ModulesSection';
 
 type Details = CompanyDetails & { id: string; createdAt: string };
 
-export function CompanyPage({ status }: { status: SessionStatus }) {
+export function CompanyPage({
+  status,
+  onModulesChanged,
+}: {
+  status: SessionStatus;
+  onModulesChanged: () => void;
+}) {
   const [saved, setSaved] = useState<Details | null>(null);
   const [draft, setDraft] = useState<CompanyDetails | null>(null);
   const [done, setDone] = useState(false);
@@ -123,6 +131,7 @@ export function CompanyPage({ status }: { status: SessionStatus }) {
       </form>
       <InvoiceLogo status={status} />
       <PostedEdits status={status} />
+      <ModulesSection status={status} onChange={onModulesChanged} />
       <p className="muted">
         Company created {formatDateTime(saved.createdAt)} · id <code>{saved.id}</code>
       </p>

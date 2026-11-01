@@ -295,7 +295,7 @@ The first reconciliation of an account starts from zero: check off everything up
 
 ## Sales: invoices and estimates
 
-Turn on **Customers and sales** on the **Modules** page. The Sales group then shows **Invoices**, **Estimates**, **Recurring invoices** and **Products & services**.
+Turn on **Customers and sales** under **Modules** on the **Company** page. The Sales group then shows **Invoices**, **Estimates**, **Recurring invoices** and **Products & services**.
 
 On a cash basis, an invoice only records what a customer owes. **Nothing goes into the books until the customer pays.** The payment then counts as income on the day it arrives.
 
@@ -334,7 +334,7 @@ Each time you open the company, kmezBooks makes the invoices that have come due 
 
 ## Purchases: bills
 
-Turn on **Vendors and bills** on the **Modules** page. **Bills** then appears under Purchases.
+Turn on **Vendors and bills** under **Modules** on the **Company** page. **Bills** then appears under Purchases.
 
 Like an invoice, a bill only records what you owe; **nothing goes into the books until you pay it**. The payment then counts as an expense on the day you pay.
 
@@ -412,11 +412,12 @@ Keep the QuickBooks subscription until every company has been imported and check
 - **On invoices and estimates:** email, phone, website, and a **footer** printed at the foot of every invoice and estimate (how to pay, a thank-you).
 - **Logo:** **Add logo…** takes any picture and makes it small; it's shown at the top of invoices and estimates.
 - **Posted transactions:** **Allow changing and deleting posted transactions**; see [Correcting a posted transaction](#correcting-a-posted-transaction).
+- **Modules:** see below.
 - When the company was created, and its id.
 
 ### Modules
 
-**Modules** turns parts of kmezBooks on or off for each company:
+**Modules**, at the bottom of the **Company** page, turns parts of kmezBooks on or off for each company. The sidebar shows or hides their pages straight away:
 
 | Module | What it adds | Starts |
 | --- | --- | --- |

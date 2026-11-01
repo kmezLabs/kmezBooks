@@ -28,7 +28,6 @@ import { PayeesPage } from './pages/PayeesPage';
 import { RecurringPage, type RecurringDraft } from './pages/RecurringPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ReportsPage } from './pages/ReportsPage';
-import { ModulesPage } from './pages/ModulesPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { ensureReadWrite, pickFolder, rememberFolder } from './recentFolders';
 import { formatDate } from './ledgerUi';
@@ -53,7 +52,6 @@ const PAGES = {
   reconcile: 'Reconcile',
   migration: 'QuickBooks import',
   company: 'Company',
-  modules: 'Modules',
   backups: 'Backups',
   audit: 'Audit log',
   security: 'Passphrase and device',
@@ -79,7 +77,7 @@ const NAV: { group: string; pages: Page[] }[] = [
   { group: 'Purchases', pages: ['bills'] },
   { group: 'Banking', pages: ['banking', 'rules', 'reconcile'] },
   { group: 'Modules', pages: ['migration'] },
-  { group: 'Company', pages: ['company', 'modules', 'backups', 'audit', 'security'] },
+  { group: 'Company', pages: ['company', 'backups', 'audit', 'security'] },
   { group: 'Development', pages: ['m1'] },
 ];
 
@@ -275,10 +273,10 @@ export function Workspace({ status }: { status: SessionStatus }) {
   const [modules, setModules] = useState<Record<Module, boolean> | null>(null);
   const { busy, run } = useAction();
 
-  // Re-read on every page change, so switching a module on the Modules page shows up
-  useEffect(() => {
-    void db.modules().then(setModules);
-  }, [status.companyId, page]);
+  const readModules = () => void db.modules().then(setModules);
+  // Re-read on every page change too, so a restored backup's modules show up; the
+  // Company page says when it switches one, so the sidebar follows at once
+  useEffect(readModules, [status.companyId, page]);
 
   const shown = (p: Page) => {
     if (TEST_ONLY.has(p) && !status.test) return false;
@@ -456,8 +454,7 @@ export function Workspace({ status }: { status: SessionStatus }) {
             {page === 'rules' && <RulesPage status={status} />}
             {page === 'reconcile' && <ReconcilePage status={status} />}
             {page === 'migration' && <MigrationPage status={status} />}
-            {page === 'company' && <CompanyPage status={status} />}
-            {page === 'modules' && <ModulesPage status={status} />}
+            {page === 'company' && <CompanyPage status={status} onModulesChanged={readModules} />}
             {page === 'backups' && <BackupsPage status={status} />}
             {page === 'audit' && <AuditLogPage status={status} />}
             {page === 'security' && <SecurityPage status={status} />}

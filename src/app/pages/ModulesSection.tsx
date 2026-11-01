@@ -1,4 +1,4 @@
-// Feature modules per company (CO-4).
+// Feature modules per company (CO-4), a section of the Company page.
 
 import { useEffect, useState } from 'react';
 import { MODULES, type Module } from '../../shared/company';
@@ -36,7 +36,14 @@ const LABELS: Record<Module, { name: string; about: string; note: string | null 
   },
 };
 
-export function ModulesPage({ status }: { status: SessionStatus }) {
+export function ModulesSection({
+  status,
+  onChange,
+}: {
+  status: SessionStatus;
+  /** A module was switched, so the sidebar shows or hides its pages at once */
+  onChange: () => void;
+}) {
   const [modules, setModules] = useState<Record<Module, boolean> | null>(null);
   const { busy, error, run } = useAction();
 
@@ -50,11 +57,12 @@ export function ModulesPage({ status }: { status: SessionStatus }) {
     run(async () => {
       await db.setModule(m, on);
       setModules(await db.modules());
+      onChange();
     });
 
   return (
-    <section>
-      <h2>Modules</h2>
+    <>
+      <h3>Modules</h3>
       <p className="muted">
         The ledger, period close and reports are always on. Turning a module off hides its screens
         for this company; its data stays.
@@ -82,6 +90,6 @@ export function ModulesPage({ status }: { status: SessionStatus }) {
         ))}
       </ul>
       <ErrorText>{error}</ErrorText>
-    </section>
+    </>
   );
 }

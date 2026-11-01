@@ -950,6 +950,11 @@ table.register-list tr.editor > td {
   padding: 4px 12px 12px;
 }
 
+/* Cells may break anywhere, which squeezed "Ref" and check numbers like 1029 onto two lines */
+table.register-list .ref {
+  overflow-wrap: normal;
+}
+
 /* ---- payees (GL-11) ---- */
 
 textarea {

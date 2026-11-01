@@ -1,13 +1,16 @@
 // M1 technical test only: made-up history at 17-year size and report timings.
 // Runs only in a test company (CO-7). The history is posted into the real
 // ledger through postEntry(), so it shows in Transactions, the registers and
-// the reports, and the timings measure the real schema.
+// the reports, and the timings measure the real schema. Each run replaces the
+// previous run's history; the schema lets only a test company delete it.
 // Remove this file (and its UI) once docs/spikes/M1-results.md is written.
 
 import { seedDefaultChart } from '../ledger/accounts';
 import { postEntry, type EntryLineInput } from '../ledger/postEntry';
 import { runReport } from '../ledger/reports';
 import type { ReportRequest } from '../shared/report';
+import { recordEvent } from './audit';
+import { isTestCompany } from './companyData';
 import type { Database, Sqlite3Static } from './sqlite';
 
 export interface GenerateOptions {
@@ -60,6 +63,33 @@ function dropOldScratchTables(db: Database) {
            DROP TABLE IF EXISTS spike_account;`);
 }
 
+/**
+ * Delete the previous run's made-up history, and undo what was done with it:
+ * bank transactions matched to it go back to review, and it leaves any
+ * reconciliation in progress. Returns how many entries went.
+ */
+function removeTestHistory(db: Database): number {
+  const closed = Number(
+    db.selectValue(
+      `SELECT count(*) FROM journal_entry WHERE source_type = ? AND date <= (SELECT closing_date FROM company)`,
+      [TEST_HISTORY_SOURCE],
+    ),
+  );
+  if (closed > 0) {
+    throw new Error(
+      'Some made-up history is in the closed period, so it can’t be replaced. Move the closing date back on Close books first.',
+    );
+  }
+  const entries = `SELECT id FROM journal_entry WHERE source_type = '${TEST_HISTORY_SOURCE}'`;
+  const removed = Number(db.selectValue(`SELECT count(*) FROM (${entries})`));
+  db.exec(`UPDATE bank_txn SET status = 'new', entry_id = NULL WHERE entry_id IN (${entries});
+           DELETE FROM reconciled_line WHERE line_id IN
+             (SELECT id FROM journal_line WHERE entry_id IN (${entries}));
+           DELETE FROM journal_line WHERE entry_id IN (${entries});
+           DELETE FROM journal_entry WHERE source_type = '${TEST_HISTORY_SOURCE}';`);
+  return removed;
+}
+
 function ids(db: Database, where: string): string[] {
   return db
     .selectArrays(`SELECT id FROM account WHERE active = 1 AND ${where} ORDER BY name`)
@@ -67,16 +97,18 @@ function ids(db: Database, where: string): string[] {
 }
 
 /**
- * Post made-up deposits and payments, `entriesPerYear` for each of the last
- * `years` calendar years, up to today. Money moves in and out of the
- * company's bank and card accounts, against its income and expense accounts,
- * so every entry is an ordinary cash-basis posting. A company with no
+ * Replace the made-up history with new: `entriesPerYear` deposits and
+ * payments for each of the last `years` calendar years, up to today. Money
+ * moves in and out of the company's bank and card accounts, against its
+ * income and expense accounts, so every entry is an ordinary cash-basis
+ * posting. Entries the owner made themselves stay. A company with no
  * accounts gets the standard chart first. All or nothing: one transaction.
  */
 export function generateHistory(
   db: Database,
   opts: GenerateOptions,
-): { entries: number; lines: number } {
+): { removed: number; entries: number; lines: number } {
+  if (!isTestCompany(db)) throw new Error('The technical test runs only in a test company.');
   const rand = mulberry32(opts.seed ?? 42);
   const pick = <T>(xs: T[]) => xs[Math.floor(rand() * xs.length)]!;
   const phrase = (n: number) => Array.from({ length: n }, () => pick(WORDS)).join(' ');
@@ -86,6 +118,7 @@ export function generateHistory(
   db.exec('BEGIN');
   try {
     dropOldScratchTables(db);
+    const removed = removeTestHistory(db);
     if (Number(db.selectValue('SELECT count(*) FROM account')) === 0) seedDefaultChart(db);
     const cash = ids(db, `detail_type IN ('bank', 'credit_card', 'cash_on_hand')`);
     const income = ids(db, `type = 'income'`);
@@ -138,8 +171,13 @@ export function generateHistory(
         lines += parts + 1;
       }
     }
+    recordEvent(
+      db,
+      'test_history',
+      `${removed.toLocaleString('en-US')} made-up entries replaced by ${entries.toLocaleString('en-US')}`,
+    );
     db.exec('COMMIT');
-    return { entries, lines };
+    return { removed, entries, lines };
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;

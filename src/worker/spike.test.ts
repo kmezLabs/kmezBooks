@@ -1,13 +1,16 @@
 // M1 technical test: made-up history posted into the real ledger (CO-7 test
 // companies only). Set SPIKE_FULL=1 to also print a Node baseline at full size.
 import { describe, expect, it } from 'vitest';
-import { newCompanyDb } from '../../db/tests/testDb';
+import { COMPANY_ID, OWNER_ID, insertCompany, newCompanyDb } from '../../db/tests/testDb';
+import { seedDefaultChart } from '../ledger/accounts';
 import { newLedgerDb, post } from '../../db/tests/ledgerTestDb';
 import { register } from '../ledger/register';
 import type { Database } from './sqlite';
 import { createCompanyKey, decryptDatabase, encryptDatabase } from './kmbFormat';
 import { TEST_HISTORY_SOURCE, generateHistory, measureQueries, wasmHeapBytes } from './spike';
-import { deserializeDatabase, loadSqlite, serializeDatabase } from './sqlite';
+import { migrate } from './migrations';
+import { MIGRATIONS, applySchema } from './schema';
+import { deserializeDatabase, loadSqlite, openEmptyDatabase, serializeDatabase } from './sqlite';
 
 const TODAY = '2026-11-01';
 
@@ -133,6 +136,36 @@ describe('M1 made-up history', () => {
     asTest(db);
     const own = post(db, '2026-03-02', 'Office Supplies and Software', 'Checking', 6_00);
     expect(() => db.exec(`DELETE FROM journal_line WHERE entry_id = ${own}`)).toThrow(/GL-6/);
+  });
+
+  it('replaces history in a test company made before the delete exception (schema 20)', async () => {
+    // An earlier build of CO-7 made test companies with 0020 only
+    const db = openEmptyDatabase(await loadSqlite());
+    migrate(
+      db,
+      MIGRATIONS.filter((m) => m.version <= 20),
+    );
+    db.exec('BEGIN');
+    db.exec({
+      sql: `INSERT INTO session (id, company_id, user_id, unlocked_at) VALUES (1, ?, ?, 'now')`,
+      bind: [COMPANY_ID, OWNER_ID],
+    });
+    insertCompany(db, { test: 1 });
+    db.exec({
+      sql: `INSERT INTO app_user (id, company_id, name, role) VALUES (?, ?, 'Owner', 'owner')`,
+      bind: [OWNER_ID, COMPANY_ID],
+    });
+    db.exec('COMMIT');
+    seedDefaultChart(db);
+    generateHistory(db, { years: 1, entriesPerYear: 10, today: TODAY });
+    expect(() => generateHistory(db, { years: 1, entriesPerYear: 10, today: TODAY })).toThrow(
+      /GL-6/,
+    );
+    applySchema(db);
+    expect(generateHistory(db, { years: 1, entriesPerYear: 10, today: TODAY })).toMatchObject({
+      removed: 10,
+      entries: 10,
+    });
   });
 
   it("won't replace made-up history in a closed period", async () => {

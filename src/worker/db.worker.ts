@@ -258,6 +258,7 @@ const api = {
   // ---- M1 technical test only (remove with src/worker/spike.ts) ----
 
   spikeGenerate(years: number, entriesPerYear: number) {
+    session.assertTestCompany();
     const start = performance.now();
     const counts = generateHistory(session.current().db, { years, entriesPerYear });
     session.touch();
@@ -265,6 +266,7 @@ const api = {
   },
 
   spikeMeasure() {
+    session.assertTestCompany();
     const company = session.current();
     dropIndexes(company.db);
     const noIndex = measureQueries(company.db);
@@ -282,6 +284,7 @@ const api = {
 
   /** Close and reopen the open company, returning the open timings. */
   async spikeReopen(passphrase: string, device: string) {
+    session.assertTestCompany();
     const dir = session.current().dir;
     await session.close();
     const outcome = await session.open(dir, passphrase, { device });

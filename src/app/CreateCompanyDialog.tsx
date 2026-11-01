@@ -20,6 +20,7 @@ const EMPTY: NewCompany = {
   fiscalYearStartMonth: 1,
   ownerName: '',
   standardChart: true,
+  test: false,
 };
 
 export function CreateCompanyDialog({ onClose }: { onClose: () => void }) {
@@ -77,6 +78,20 @@ export function CreateCompanyDialog({ onClose }: { onClose: () => void }) {
             </span>
           </span>
         </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={details.test ?? false}
+            onChange={(e) => setDetails({ ...details, test: e.target.checked })}
+          />
+          <span>Test company</span>
+        </label>
+        <p className="hint check-note">
+          A company for trying things out, not real books. Its name shows “– Test” at the top, in
+          the browser tab and in the app’s title bar, so it can’t be mistaken for a real company.
+          Only test companies have the Development pages, such as the technical test, which fills
+          the company with made-up history. This is set now and can’t be changed later.
+        </p>
         <h3>Passphrase</h3>
         <p className="muted">
           The company's books are encrypted with this passphrase. It cannot be recovered: if it is

@@ -25,6 +25,12 @@ export function versionText(version = __APP_VERSION__, build = __APP_BUILD__) {
   };
 }
 
+/** "Acme LLC – Test" for a test company (CO-7), otherwise the name as it is. */
+export function companyLabel(legalName: string | null | undefined, test = false) {
+  const name = legalName?.trim();
+  return name && test ? `${name} – Test` : (name ?? null);
+}
+
 /**
  * The window title (CO-2). A browser tab gets "Acme LLC – kmezBooks", company
  * first so a narrow tab still shows it. The installed app gets just "Acme LLC":

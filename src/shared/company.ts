@@ -26,6 +26,8 @@ export interface NewCompany extends CompanyDetails {
   ownerName: string;
   /** Start with the default chart of accounts (GL-2); default true. */
   standardChart?: boolean;
+  /** A test company (CO-7): "– Test" after its name, and the Development pages; default false. */
+  test?: boolean;
 }
 
 const blankToNull = (s: string | null | undefined) => {

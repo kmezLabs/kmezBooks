@@ -96,6 +96,9 @@ const MODULE_OF: Partial<Record<Page, Module>> = {
   migration: 'migration',
 };
 
+/** Pages only a test company has (CO-7): they write made-up history. */
+const TEST_ONLY: ReadonlySet<Page> = new Set(['m1']);
+
 /** Problems the owner has to act on, with the actions that fix them. */
 function Problems({
   status,
@@ -278,6 +281,7 @@ export function Workspace({ status }: { status: SessionStatus }) {
   }, [status.companyId, page]);
 
   const shown = (p: Page) => {
+    if (TEST_ONLY.has(p) && !status.test) return false;
     const m = MODULE_OF[p];
     return !m || !!modules?.[m];
   };
@@ -295,6 +299,7 @@ export function Workspace({ status }: { status: SessionStatus }) {
       <header className="topbar">
         <div className="company-name" title="Active company">
           {status.legalName}
+          {status.test && <span className="test-mark"> – Test</span>}
         </div>
         <button
           className="secondary"
@@ -456,7 +461,7 @@ export function Workspace({ status }: { status: SessionStatus }) {
             {page === 'backups' && <BackupsPage status={status} />}
             {page === 'audit' && <AuditLogPage status={status} />}
             {page === 'security' && <SecurityPage status={status} />}
-            {page === 'm1' && <M1LabPage status={status} />}
+            {page === 'm1' && status.test && <M1LabPage status={status} />}
           </main>
         </div>
       </div>

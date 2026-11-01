@@ -11,7 +11,7 @@ import { StatusBar } from './StatusBar';
 import { UpdateBanner } from './UpdateBanner';
 import { Workspace } from './Workspace';
 import { lockAfterMinutes } from './settings';
-import { windowTitle } from './statusText';
+import { companyLabel, windowTitle } from './statusText';
 
 const ACTIVITY = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 
@@ -78,8 +78,12 @@ export function App() {
     ),
   );
 
-  // The open company's name on the browser tab and the installed app's title bar (CO-2)
-  const title = windowTitle(status?.open ? status.legalName : null, useInstalledWindow());
+  // The open company's name on the browser tab and the installed app's title bar
+  // (CO-2), with "– Test" for a test company (CO-7)
+  const title = windowTitle(
+    status?.open ? companyLabel(status.legalName, status.test) : null,
+    useInstalledWindow(),
+  );
   useEffect(() => {
     document.title = title;
   }, [title]);

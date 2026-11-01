@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGE_MS, announce, currentMessage } from './statusMessages';
-import { formatAgo, versionText, windowTitle } from './statusText';
+import { companyLabel, formatAgo, versionText, windowTitle } from './statusText';
 
 describe('status bar (CO-6)', () => {
   afterEach(() => {
@@ -53,5 +53,13 @@ describe('status bar (CO-6)', () => {
     // Chrome adds "kmezBooks - " in front in the installed app's title bar
     expect(windowTitle('Acme Holdings LLC', true)).toBe('Acme Holdings LLC');
     expect(windowTitle(null, true)).toBe('kmezBooks');
+  });
+
+  it('marks a test company "– Test" at the top and in the title (CO-7)', () => {
+    expect(companyLabel('Acme LLC', true)).toBe('Acme LLC – Test');
+    expect(companyLabel(' Acme LLC ', false)).toBe('Acme LLC');
+    expect(companyLabel(null, true)).toBe(null);
+    expect(windowTitle(companyLabel('Acme LLC', true))).toBe('Acme LLC – Test – kmezBooks');
+    expect(windowTitle(companyLabel('Acme LLC', true), true)).toBe('Acme LLC – Test');
   });
 });

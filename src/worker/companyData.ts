@@ -52,6 +52,11 @@ export function readDetails(db: Database): CompanyDetails & { id: string; create
   };
 }
 
+/** Whether this is a test company (CO-7); set at creation and never changed. */
+export function isTestCompany(db: Database): boolean {
+  return db.selectValue('SELECT test FROM company') === 1;
+}
+
 /** The company's logo, a PNG, for invoices (AR-8); null without one. */
 export function readLogo(db: Database): Uint8Array | null {
   const png = db.selectValue('SELECT png FROM company_logo');
@@ -123,8 +128,8 @@ export function initCompany(
       bind: [ids.companyId, ids.ownerId, now.toISOString()],
     });
     db.exec({
-      sql: `INSERT INTO company (id, legal_name, ein, address_line1, address_line2, city, state, postal_code, fiscal_year_start_month)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO company (id, legal_name, ein, address_line1, address_line2, city, state, postal_code, fiscal_year_start_month, test)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       bind: [
         ids.companyId,
         d.legalName,
@@ -135,6 +140,7 @@ export function initCompany(
         d.state,
         d.postalCode,
         d.fiscalYearStartMonth,
+        details.test ? 1 : 0,
       ],
     });
     db.exec({

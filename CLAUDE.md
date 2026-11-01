@@ -72,7 +72,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 5. **M5** `MG`: QuickBooks Online cash-basis import with dry run and year-end tie-out (`MG-5`), run against real data per company (built; one company-year tied out; the full runs per company are the owner's, with the app)
 6. **M6** `BK`: `.qbo` import, duplicate detection, review queue, rules, reconciliation (built; tried on real bank statements; card statements still to try)
 7. **M7** (slim, owner decision 2026-10-28): payees with customer and vendor records (`GL-11`, `AR-1`, `AP-1`), then expenses (`EX`). Invoices, estimates and bills are S until a company needs them (done)
-8. **M8** Offline polish, export, restore drill, owner guide (`docs/OWNER-GUIDE.md`) (built 2026-10-28)
+8. **M8** Offline polish, export, restore drill, owner guide (`docs/USER-GUIDE.md`, renamed from OWNER-GUIDE and made a full user guide on 2026-11-01) (built 2026-10-28)
 9. After the MVP, at the owner's request: recurring journal entries (`GL-5`, for depreciation and amortization; built 2026-10-28)
 10. **M9** Invoices and bills, cash basis, per-company modules that start off (planned 2026-10-28): slice 1 products & services, estimates, invoices, customer payments, slice 2 the invoice PDF and sending it, slice 3 recurring invoices, slice 4 bills and bill payments (built)
 11. At the owner's request: one Accounts register for any account, with a reconciled column for banks and cards (`GL-13`), and transfers between accounts (`GL-14`) (built 2026-10-29)

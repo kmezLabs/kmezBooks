@@ -47,7 +47,8 @@ function Instructions() {
           Gear icon → Tools → Export data. On Reports, choose one year (January 1 to December 31)
           and export; on Lists, export customers and vendors. Repeat for every year, back to the
           first year in QuickBooks. Each export is a folder named like{' '}
-          <code>Company 20250101-20251231</code>.
+          <code>Company 20250101-20251231</code>. A single export for All Dates also works, but
+          then only its last day can be tied out, not each year-end.
         </li>
         <li>
           Chart of accounts → Run report → Export to Excel, for the Account List with each
@@ -295,7 +296,7 @@ function AccountMapping(props: {
 }
 
 function TieOutResult({ check }: { check: TieOutCheck }) {
-  const title = `${check.report} as of ${formatDate(check.asOf)}`;
+  const title = `${check.report} as of ${formatDate(check.asOf)}${check.allDates ? ' (All Dates)' : ''}`;
   if (check.differences.length === 0) {
     return (
       <p className="notice">

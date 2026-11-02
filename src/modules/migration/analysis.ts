@@ -21,6 +21,7 @@ import {
 import {
   KIND_LABELS,
   QboFileError,
+  isAllDates,
   parseAccountList,
   parseAsOf,
   parseContactList,
@@ -112,6 +113,8 @@ export type OpeningBalances =
 
 export interface TrialBalanceFile {
   asOf: string;
+  /** Run for "All Dates": income and expenses add up from this day, not the fiscal year's start (MG-11) */
+  since?: string;
   file: string;
   /** Account full name → debit minus credit */
   balances: Map<string, number>;
@@ -119,6 +122,8 @@ export interface TrialBalanceFile {
 
 export interface BalanceSheetFile {
   asOf: string;
+  /** As for TrialBalanceFile: its Net Income is for every year since this day */
+  since?: string;
   file: string;
   lines: StatementLine[];
 }
@@ -142,8 +147,14 @@ interface ParsedFile {
   kind: QboKind;
   company: string;
   basis: Basis;
+  /** Row 3 as written */
+  subtitle: string;
+  /** Run for "All Dates" (MG-11): dated once every file is read */
+  allDates: boolean;
+  run: string | null;
   period: Period | null;
   asOf: string | null;
+  since?: string;
   journal?: QboTransaction[];
   ledger?: GeneralLedger;
   trialBalance?: Map<string, number>;
@@ -164,6 +175,45 @@ function describePeriod(f: ParsedFile): string {
   if (f.period) return `${f.period.from} – ${f.period.to}`;
   if (f.asOf) return `as of ${f.asOf}`;
   return '';
+}
+
+/**
+ * Dates for reports run for "All Dates" (MG-11), whose row 3 names none: from
+ * the first day of the earliest transaction's year to the day they were run, or
+ * the latest transaction if that is later. Income and expenses in such a trial
+ * balance or balance sheet add up over that whole span, as one long year.
+ */
+function dateAllDates(parsed: ParsedFile[]): Period | null {
+  const open = parsed.filter((f) => f.allDates);
+  const dates = parsed
+    .flatMap((f) => [...(f.journal ?? []), ...(f.ledger?.lines ?? [])].map((t) => t.date))
+    .sort();
+  const first = dates[0];
+  const to = [dates.at(-1), ...open.map((f) => f.run)]
+    .filter((d): d is string => !!d)
+    .sort()
+    .at(-1);
+  if (!open.length || !first || !to) return null;
+  const span = { from: `${first.slice(0, 4)}-01-01`, to };
+  for (const f of open) {
+    if (f.kind === 'journal' || f.kind === 'generalLedger') {
+      f.period = span;
+    } else if (f.kind === 'trialBalance' || f.kind === 'balanceSheet') {
+      f.asOf = span.to;
+      f.since = span.from;
+    }
+  }
+  return span;
+}
+
+/** Why a file's dates can't be used, saying what row 3 holds. */
+function unreadDates(f: ParsedFile, what: 'period' | '"As of" date'): string {
+  if (f.allDates) {
+    return `${f.path} is for All Dates, but no Journal or General Ledger shows which dates those are.`;
+  }
+  return f.subtitle.trim()
+    ? `${f.path}: the ${what} on row 3 ("${f.subtitle.trim()}") can't be read.`
+    : `${f.path}: row 3 should hold the ${what}, but it's empty.`;
 }
 
 /** Read one file; null with a summary note if it isn't a QuickBooks export. */
@@ -196,6 +246,9 @@ function readFile(
     kind: header.kind,
     company: header.company,
     basis: header.basis,
+    subtitle: header.subtitle,
+    allDates: isAllDates(header.subtitle),
+    run: header.run,
     period: null,
     asOf: null,
   };
@@ -346,6 +399,13 @@ export function analyze(sources: SourceFile[]): Analysis {
     files.push(summary);
     if (p) parsed.push(p);
   }
+  const allDates = dateAllDates(parsed);
+  if (allDates) {
+    for (const s of files) {
+      const f = parsed.find((x) => x.path === s.path);
+      if (f?.allDates) s.period = describePeriod(f);
+    }
+  }
 
   // ---- company and accounting method ----
   const companies = [...new Set(parsed.map((f) => f.company).filter(Boolean))];
@@ -372,7 +432,7 @@ export function analyze(sources: SourceFile[]): Analysis {
   >();
   for (const f of parsed.filter((x) => x.kind === 'journal' || x.kind === 'generalLedger')) {
     if (!f.period) {
-      errors.push(`${f.path}: the period on row 3 can't be read.`);
+      errors.push(unreadDates(f, 'period'));
       continue;
     }
     const k = periodKey(f.period);
@@ -396,18 +456,27 @@ export function analyze(sources: SourceFile[]): Analysis {
       );
     }
   });
-  if (periods.length === 0) errors.push('No Journal or General Ledger export was found.');
+  if (!parsed.some((f) => f.kind === 'journal' || f.kind === 'generalLedger')) {
+    errors.push('No Journal or General Ledger export was found.');
+  }
+  if (allDates) {
+    warnings.push(
+      `The reports are for All Dates (${allDates.from} – ${allDates.to}), so only ${allDates.to} can be tied out, not each year-end. To check every year, export one year at a time (MG-5).`,
+    );
+  }
 
   const trialBalances: TrialBalanceFile[] = parsed
     .filter((f) => f.kind === 'trialBalance')
-    .flatMap((f) => (f.asOf ? [{ asOf: f.asOf, file: f.path, balances: f.trialBalance! }] : []));
+    .flatMap((f) =>
+      f.asOf ? [{ asOf: f.asOf, since: f.since, file: f.path, balances: f.trialBalance! }] : [],
+    );
   const balanceSheets = parsed
     .filter((f) => f.kind === 'balanceSheet' && f.asOf)
     .sort((a, b) => a.asOf!.localeCompare(b.asOf!));
   for (const f of parsed.filter(
     (x) => (x.kind === 'trialBalance' || x.kind === 'balanceSheet') && !x.asOf,
   )) {
-    errors.push(`${f.path}: the "As of" date on row 3 can't be read.`);
+    errors.push(unreadDates(f, '"As of" date'));
   }
 
   // ---- transactions ----
@@ -652,7 +721,12 @@ export function analyze(sources: SourceFile[]): Analysis {
     opening,
     trialBalances,
     balanceSheet: latestBs
-      ? { asOf: latestBs.asOf!, file: latestBs.path, lines: latestBs.statement! }
+      ? {
+          asOf: latestBs.asOf!,
+          since: latestBs.since,
+          file: latestBs.path,
+          lines: latestBs.statement!,
+        }
       : null,
   };
 }

@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { groupLedgerLines, resolveStatementName } from './analysis';
 import { isDeletedName, mapQboType } from './qboAccounts';
 import {
+  isAllDates,
   parseAsOf,
   parseGeneralLedger,
   parseJournal,
   parsePeriod,
   parseStatement,
   readHeader,
+  runDate,
   type GlLine,
 } from './qboReports';
 import { xlsx, type XCell } from './testing/qboFixtures';
@@ -54,6 +56,19 @@ describe('report headers and periods', () => {
     expect(parseAsOf('As of June 2025')).toBe('2025-06-30');
     expect(parsePeriod('All Dates')).toBeNull();
     expect(parseAsOf('December 31, 2025')).toBeNull();
+  });
+
+  it('recognises "All Dates" and reads the day a report was run (MG-11)', () => {
+    expect(isAllDates('All Dates')).toBe(true);
+    expect(isAllDates(' all dates ')).toBe(true);
+    expect(isAllDates('January - December 2025')).toBe(false);
+    expect(runDate('Monday, Nov 02, 2026 02:06:45 PM GMT-8 - Cash Basis')).toBe('2026-11-02');
+    expect(runDate('Tuesday, Oct 27, 2026 10:06:28 AM GMT-7')).toBe('2026-10-27');
+    expect(runDate('Tuesday, Oct 27')).toBeNull();
+    expect(runDate('TOTAL')).toBeNull();
+    expect(readHeader(sheet('Journal', [], 'Friday, Jan 9, 2026 08:00:00 AM GMT-8'))?.run).toBe(
+      '2026-01-09',
+    );
   });
 });
 

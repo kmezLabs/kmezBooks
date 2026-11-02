@@ -194,6 +194,7 @@ Owner's decision, Oct 28: none of the four companies uses invoices, estimates or
 | MG-8 | Set the closing date to the cutover date after a successful migration | S |
 | MG-9 | Bring over open invoices and bills, with what is still owed on them, as open documents so they can be paid in the new app (no ledger effect, since the ledger is cash basis) | S |
 | MG-10 | ~~Import payment-to-invoice and payment-to-bill links for migrated history~~ Retired Oct 26: history is imported on a cash basis (MG-2), so no links are needed | — |
+| MG-11 | Also accept reports exported for **All Dates** (owner, Nov 2): their period runs from January 1 of the first transaction's year to the day they were run (or the last transaction, if later), and the tie-out compares that one date the way QuickBooks totals it, with income and expenses since the start and nothing rolled into Retained Earnings. Each year-end isn't checked, so the app says so. Built Nov 2 | S |
 
 Keep the QuickBooks Online subscription active until every company passes the tie-out, since access to the data ends some time after cancelling.
 

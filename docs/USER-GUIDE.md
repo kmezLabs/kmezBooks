@@ -426,6 +426,7 @@ The page's **How to export from QuickBooks Online** has the steps:
 
 1. Set the accounting method to **Cash**: gear icon → Account and settings → Advanced → Accounting → Accounting method. This only changes how reports are shown; switch it back afterwards if you like.
 2. Gear icon → Tools → **Export data**. On Reports, choose one year (January 1 to December 31) and export; on Lists, export customers and vendors. Repeat for **every year**, back to the first year in QuickBooks.
+   - One export for **All Dates** also works: kmezBooks dates it from the first transaction to the day it was exported. But then only that last day can be tied out, not each year-end, so exporting year by year is the better check.
 3. Chart of accounts → Run report → **Export to Excel**, for the Account List with each account's type.
 4. Put everything in one folder (subfolders are fine).
 

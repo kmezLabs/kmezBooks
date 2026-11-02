@@ -28,12 +28,10 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <p>{versionText().title}</p>
-      <p>
-        Designed and Developed by Khaleel Mawad.
-      </p>
+      <p>Designed and Developed by Khaleel Mawad.</p>
 
       <h3>Your books and your privacy</h3>
-       <p>
+      <p>
         Your books never leave your computer. Each company is an encrypted folder on your own disk,
         unlocked with its passphrase.
       </p>
@@ -41,9 +39,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         No telemetry: kmezBooks sends no usage data, analytics or crash reports. It goes online only
         to load itself and to check for a new version.
       </p>
-      <p>
-        This project is maintained by Khaleel Mawad and is open to contributions and feedback.
-      </p>
+      <p>This project is maintained by Khaleel Mawad and is open to contributions and feedback.</p>
 
       <h3>Links</h3>
       <ul className="about-links">

@@ -62,7 +62,7 @@ Chrome keeps a few things for each address, so the web address starts without th
 
 ### The screen
 
-- **Top bar:** the open company's name, **About** and **Close company**. It stays in place while you scroll.
+- **Top bar:** the open company's name, **Close company** and, at the far right, **About**. It stays in place while you scroll.
 - **Sidebar** (left): the pages, in groups: Books, Sales, Purchases, Banking, Company (with **QuickBooks import** last), and Development in a test company. Pages of modules that are off aren't shown (see [Modules](#modules)). The sidebar and the page each scroll on their own.
 - **Status bar** (bottom):
   - whether your changes are saved ("Saved 2:14 PM" or "All changes saved")

@@ -298,9 +298,6 @@ export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout:
           {status.legalName}
           {status.test && <span className="test-mark"> – Test</span>}
         </div>
-        <button className="link" onClick={onAbout}>
-          About
-        </button>
         <button
           className="secondary"
           disabled={busy || status.saving}
@@ -308,6 +305,9 @@ export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout:
           onClick={() => run(() => db.close())}
         >
           Close company
+        </button>
+        <button className="link" onClick={onAbout}>
+          About
         </button>
       </header>
       <div className="body">

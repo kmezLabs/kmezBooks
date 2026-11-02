@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CreateCompanyDialog } from './CreateCompanyDialog';
 import { HELP_TOPICS } from './helpTopics';
+import { GearIcon } from './icons';
 import { OpenCompanyDialog } from './OpenCompanyDialog';
 import { RestoreFromFileDialog } from './RestoreFromFileDialog';
 import {
@@ -17,21 +18,33 @@ import { ErrorText, formatDateTime, useAction } from './ui';
 
 type Open = { handle: FileSystemDirectoryHandle; title: string };
 
-type HeaderProps = { onAbout: () => void; onHelp: (topics: readonly string[]) => void };
+type HeaderProps = {
+  onAbout: () => void;
+  onHelp: (topics: readonly string[]) => void;
+  onSettings: () => void;
+};
 
-/** The start screen's title, with help (CO-9) and About (CO-8) on the right. */
-function StartHeader({ onAbout, onHelp }: HeaderProps) {
+/** The start screen's title, with help (CO-9), settings (CO-10) and About (CO-8) on the right. */
+function StartHeader({ onAbout, onHelp, onSettings }: HeaderProps) {
   return (
     <div className="start-header">
       <h1>kmezBooks</h1>
       <div className="start-actions">
         <button
-          className="help-button"
+          className="icon-button help-button"
           aria-label="Help: getting started"
           title="Help for this page"
           onClick={() => onHelp(HELP_TOPICS.start)}
         >
           ?
+        </button>
+        <button
+          className="icon-button settings-button"
+          aria-label="Settings"
+          title="Settings"
+          onClick={onSettings}
+        >
+          <GearIcon />
         </button>
         <button className="secondary" onClick={onAbout}>
           About

@@ -7,6 +7,9 @@ import {
   registerAccount,
   setDeviceName,
   setLockAfterMinutes,
+  setThemeChoice,
+  THEMES,
+  themeChoice,
 } from './settings';
 
 describe('device settings', () => {
@@ -84,5 +87,55 @@ describe('guessing the device name', () => {
     expect(guessDeviceName('Mozilla/5.0 (X11; CrOS x86_64 14541.0.0)')).toBe('Chromebook');
     expect(guessDeviceName('Mozilla/5.0 (X11; Linux x86_64)')).toBe('Linux PC');
     expect(guessDeviceName('Something else')).toBe('This computer');
+  });
+});
+
+describe('theme (CO-10)', () => {
+  let store: Map<string, string>;
+  const root = { dataset: {} as Record<string, string> };
+  beforeEach(() => {
+    store = new Map();
+    root.dataset = {};
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    vi.stubGlobal('document', { documentElement: root });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('follows the computer until a theme is chosen', () => {
+    expect(themeChoice()).toBe('system');
+  });
+
+  it('keeps every theme, and marks the page with it at once', () => {
+    for (const { id } of THEMES) {
+      setThemeChoice(id);
+      expect(themeChoice()).toBe(id);
+      expect(store.get('kmezbooks.theme')).toBe(id);
+      expect(root.dataset.theme).toBe(id === 'system' ? undefined : id);
+    }
+  });
+
+  it('ignores a theme it does not know', () => {
+    store.set('kmezbooks.theme', 'neon');
+    expect(themeChoice()).toBe('system');
+  });
+
+  it('falls back to System when browser storage is blocked', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('blocked');
+      },
+      setItem: () => {
+        throw new Error('blocked');
+      },
+    });
+    expect(themeChoice()).toBe('system');
+    setThemeChoice('dark');
+    expect(root.dataset.theme).toBe('dark');
   });
 });

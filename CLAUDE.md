@@ -82,6 +82,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 14. Hosting on GitHub Pages with a home page and the user guide, GPL-3.0-or-later, public repo, protected `develop` and `release` branches (2026-11-01)
 15. About panel (`CO-8`): version, no telemetry, links, copyright and GPL notice (2026-11-02)
 16. Help on every page (`CO-9`): a **?** opens the page's user-guide sections in a side panel. The guide is rendered into the app from `docs/USER-GUIDE.md` at build time (`scripts/guide.mjs`, shared with the site build), so help follows the guide and works offline; `src/app/helpTopics.ts` maps pages to heading ids, and a test fails if a heading it names is gone (2026-11-02)
+17. Settings dialog with themes (`CO-10`): a gear in the top bar opens Settings; themes System, Light, Dark, Grey, High contrast and Warm are sets of the 14 colour variables in `src/app/app.css`, chosen per computer (`kmezbooks.theme`, applied before the page draws by `index.html`). `src/app/themes.test.ts` checks every theme is complete and readable (2026-11-02)
 
 ## Conversation history (how we got here)
 

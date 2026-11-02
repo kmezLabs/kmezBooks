@@ -6,6 +6,16 @@
     <meta name="theme-color" content="#1f4e79" />
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <title>kmezBooks</title>
+    <script>
+      // The chosen theme (CO-10), set before the page draws so it never flashes
+      // the wrong colours; settings.ts keeps it after that
+      try {
+        const theme = localStorage.getItem('kmezbooks.theme');
+        if (theme && theme !== 'system') document.documentElement.dataset.theme = theme;
+      } catch {
+        // Browser storage blocked: System applies
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

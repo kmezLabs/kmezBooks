@@ -28,13 +28,12 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <p>{versionText().title}</p>
-
-      <h3>Your books and your privacy</h3>
       <p>
         Designed and Developed by Khaleel Mawad.
       </p>
 
-      <p>
+      <h3>Your books and your privacy</h3>
+       <p>
         Your books never leave your computer. Each company is an encrypted folder on your own disk,
         unlocked with its passphrase.
       </p>

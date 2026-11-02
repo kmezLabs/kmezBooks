@@ -31,12 +31,19 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
 
       <h3>Your books and your privacy</h3>
       <p>
+        Designed and Developed by Khaleel Mawad.
+      </p>
+
+      <p>
         Your books never leave your computer. Each company is an encrypted folder on your own disk,
         unlocked with its passphrase.
       </p>
       <p>
         No telemetry: kmezBooks sends no usage data, analytics or crash reports. It goes online only
         to load itself and to check for a new version.
+      </p>
+      <p>
+        This project is maintained by Khaleel Mawad and is open to contributions and feedback.
       </p>
 
       <h3>Links</h3>

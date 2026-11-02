@@ -32,6 +32,7 @@ import { SecurityPage } from './pages/SecurityPage';
 import { ensureReadWrite, pickFolder, rememberFolder } from './recentFolders';
 import { formatDate } from './ledgerUi';
 import { HELP_TOPICS } from './helpTopics';
+import { GearIcon } from './icons';
 import { ErrorText, formatDateTime, useAction } from './ui';
 
 const PAGES = {
@@ -55,7 +56,7 @@ const PAGES = {
   company: 'Company',
   backups: 'Backups',
   audit: 'Audit log',
-  security: 'Passphrase and device',
+  security: 'Passphrase',
   m1: 'Technical test (M1)',
 } as const;
 export type Page = keyof typeof PAGES;
@@ -257,9 +258,11 @@ export function Workspace({
   status,
   onAbout,
   onHelp,
+  onSettings,
 }: {
   status: SessionStatus;
   onAbout: () => void;
+  onSettings: () => void;
   /** Shows these guide sections in the help panel, or closes it (null) */
   onHelp: (topics: readonly string[] | null) => void;
 }) {
@@ -322,12 +325,20 @@ export function Workspace({
         </button>
         {/* In the top bar, so it stays in view while the page scrolls (CO-9) */}
         <button
-          className="help-button"
+          className="icon-button help-button"
           aria-label={`Help: ${PAGES[page]}`}
           title="Help for this page"
           onClick={() => onHelp(HELP_TOPICS[page])}
         >
           ?
+        </button>
+        <button
+          className="icon-button settings-button"
+          aria-label="Settings"
+          title="Settings"
+          onClick={onSettings}
+        >
+          <GearIcon />
         </button>
         <button className="secondary" onClick={onAbout}>
           About

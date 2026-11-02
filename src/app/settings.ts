@@ -84,7 +84,7 @@ export async function detectDevice(): Promise<void> {
   }
 }
 
-/** True once the owner has named this device (Passphrase and device). */
+/** True once the owner has named this device (Settings, This device). */
 export function deviceNamed(): boolean {
   return !!read(DEVICE_KEY);
 }

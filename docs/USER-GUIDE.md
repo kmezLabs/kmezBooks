@@ -24,7 +24,7 @@ This guide covers every screen. You don't need to read it all at once: start wit
 16. [Company settings and modules](#company-settings-and-modules)
 17. [Keeping your books safe](#keeping-your-books-safe)
 18. [Audit log](#audit-log)
-19. [Passphrase and device](#passphrase-and-device)
+19. [Passphrase](#passphrase)
 20. [Test companies and the technical test](#test-companies-and-the-technical-test)
 21. [When something goes wrong](#when-something-goes-wrong)
 22. [Words used in kmezBooks](#words-used-in-kmezbooks)
@@ -57,12 +57,12 @@ Chrome keeps a few things for each address, so the web address starts without th
 1. Close every company in the old copy.
 2. Open https://mawadk.github.io/kmezBooks/app/ and install it.
 3. Open each company with **Open company folder…**, once. After that it's in the recent list.
-4. Choose each company's backup folder again, under **Backups**, and set this computer's device name and idle time under **Passphrase and device**.
+4. Choose each company's backup folder again, under **Backups**, and set this computer's device name and idle time in **Settings** (the gear).
 5. Then uninstall the old copy, or keep it as a spare. Don't use both at once: the folder lock stops the second one from opening a company the first has open.
 
 ### The screen
 
-- **Top bar:** the open company's name, **Close company**, **?** for help with the page you're on, the gear for **Settings** (see [Settings and themes](#settings-and-themes)), and, at the far right, **About**. It stays in place while you scroll.
+- **Top bar:** the open company's name, **Close company**, **?** for help with the page you're on, the gear for **Settings** (see [Settings](#settings)), and, at the far right, **About**. It stays in place while you scroll.
 - **Sidebar** (left): the pages, in groups: Books, Sales, Purchases, Banking, Company (with **QuickBooks import** last), and Development in a test company. Pages of modules that are off aren't shown (see [Modules](#modules)). The sidebar and the page each scroll on their own.
 - **Status bar** (bottom):
   - whether your changes are saved ("Saved 2:14 PM" or "All changes saved")
@@ -78,9 +78,9 @@ The **?** in the top bar, after **Close company** (and on the start screen, next
 
 On a phone-sized window the sidebar becomes a strip of page buttons under the top bar, and help covers the whole screen.
 
-### Settings and themes
+### Settings
 
-The gear in the top bar, next to **?** (and on the start screen), opens **Settings**. Settings belong to this computer, not to a company: they apply to every company you open here, and to the start screen.
+The gear in the top bar, next to **?** (and on the start screen), opens **Settings**. Settings belong to this computer, not to a company: they apply to every company you open here, and to the start screen. Press **Esc** or **Close** when you're done.
 
 **Theme** sets the colours. Click one and it applies at once:
 
@@ -94,6 +94,12 @@ The gear in the top bar, next to **?** (and on the start screen), opens **Settin
 | **Warm** | cream paper and brown ink, for long sessions |
 
 Each choice shows a small sample in its own colours. Printed reports and PDFs are always light, whatever the theme. The theme is remembered by this browser, so the web address and `localhost:4180` each keep their own (see [Moving from this computer to the web address](#moving-from-this-computer-to-the-web-address)).
+
+**This device:**
+
+- **Device name:** shown to other devices in the folder lock while you have a company open ("Office PC has this company open"). It starts as what Chrome says about the computer, such as "Windows 11 PC"; give each computer its own name to tell them apart.
+- **Close company after (minutes idle):** 1 to 240, 15 by default.
+- **Save device settings** saves the device name and the idle time, for this computer.
 
 ---
 
@@ -134,7 +140,7 @@ The same company can't be open in two tabs of the same browser either.
 
 There is no Save button. kmezBooks saves about two seconds after each change, when you switch away from the window, and when you close the company. Every save writes the whole company file at once, so a power cut mid-save leaves the previous version intact.
 
-**Close company** (top right) saves, closes the company, forgets its key and goes back to the start screen. A company also closes by itself after **15 minutes** without activity; change that on [Passphrase and device](#passphrase-and-device).
+**Close company** (top right) saves, closes the company, forgets its key and goes back to the start screen. A company also closes by itself after **15 minutes** without activity; change that in [Settings](#settings).
 
 ### Moving a company or renaming its folder
 
@@ -484,7 +490,7 @@ Each company has its own passphrase (at least 10 characters). It encrypts the bo
 
 - **If you lose a company's passphrase, its books cannot be opened. Not by you, not by anyone, not by the developer.** There's no reset, because the passphrase is the key itself.
 - Write each passphrase down and keep it somewhere safe and separate from the computer, such as a password manager or a sealed envelope.
-- Change it on **Passphrase and device**. Backups made before the change still open with the **old** passphrase, so keep the old one until those backups have aged out (kmezBooks keeps the newest 30).
+- Change it on the **Passphrase** page. Backups made before the change still open with the **old** passphrase, so keep the old one until those backups have aged out (kmezBooks keeps the newest 30).
 
 ### Backups
 
@@ -536,12 +542,11 @@ On **Backups**, under **Export**:
 
 ---
 
-## Passphrase and device
+## Passphrase
 
-- **Change passphrase:** enter the current one and the new one twice. It takes effect at once. Existing backups keep the passphrase they were made with.
-- **Device name:** shown to other devices in the folder lock while you have a company open ("Office PC has this company open"). It starts as what Chrome says about the computer, such as "Windows 11 PC"; give each computer its own name to tell them apart.
-- **Close company after (minutes idle):** 1 to 240, 15 by default.
-- **Save device settings** saves the device name and the idle time, for this computer.
+**Change passphrase:** enter the current one and the new one twice. It takes effect at once. Existing backups keep the passphrase they were made with.
+
+This computer's device name and idle time are in [Settings](#settings).
 
 ---
 

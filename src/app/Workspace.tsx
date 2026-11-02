@@ -56,7 +56,7 @@ const PAGES = {
   company: 'Company',
   backups: 'Backups',
   audit: 'Audit log',
-  security: 'Passphrase and device',
+  security: 'Passphrase',
   m1: 'Technical test (M1)',
 } as const;
 export type Page = keyof typeof PAGES;

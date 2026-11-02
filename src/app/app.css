@@ -525,7 +525,10 @@ td {
   text-align: left;
   border-bottom: 1px solid var(--line);
   padding: 5px 6px;
-  overflow-wrap: anywhere;
+  /* Columns are sized so whole words fit; only a word too long for any
+     column breaks. ("anywhere" let the browser squeeze a column to one
+     letter, so Account and Payee broke into pieces.) */
+  overflow-wrap: break-word;
   vertical-align: top;
 }
 
@@ -1329,8 +1332,21 @@ table.report-gl.two-line {
   table-layout: fixed;
 }
 
+/* The columns below set the widths, and Payee and memo takes what's left */
 table.report-gl.two-line .wide {
+  width: auto;
   max-width: none;
+}
+
+@media screen {
+  /* Narrower than this, Payee and Account would close up: the report
+     scrolls sideways instead (printing fits the page as before) */
+  table.report-gl.two-line {
+    min-width: 43rem;
+  }
+  .report-sheet {
+    overflow-x: auto;
+  }
 }
 
 table.report-gl col.gl-date {
@@ -1342,7 +1358,7 @@ table.report-gl col.gl-account {
 }
 
 table.report-gl col.gl-money {
-  width: 7rem;
+  width: 6.5rem;
 }
 
 table.report-gl.two-line td {

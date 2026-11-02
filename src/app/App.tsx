@@ -8,6 +8,7 @@ import type { SessionStatus } from '../worker/companySession';
 import { db } from '../shared/workerClient';
 import { AboutDialog } from './AboutDialog';
 import { HelpPanel } from './HelpPanel';
+import { SettingsDialog } from './SettingsDialog';
 import { StartScreen } from './StartScreen';
 import { StatusBar } from './StatusBar';
 import { UpdateBanner } from './UpdateBanner';
@@ -66,6 +67,8 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [about, setAbout] = useState(false);
   const showAbout = () => setAbout(true);
+  const [settings, setSettings] = useState(false);
+  const showSettings = () => setSettings(true);
   // The guide sections the help panel shows (CO-9), or null when it's closed
   const [help, setHelp] = useState<readonly string[] | null>(null);
 
@@ -119,9 +122,19 @@ export function App() {
       <div className="screen-row">
         <div className="screen">
           {status.open ? (
-            <Workspace status={status} onAbout={showAbout} onHelp={setHelp} />
+            <Workspace
+              status={status}
+              onAbout={showAbout}
+              onHelp={setHelp}
+              onSettings={showSettings}
+            />
           ) : (
-            <StartScreen notice={notice} onAbout={showAbout} onHelp={setHelp} />
+            <StartScreen
+              notice={notice}
+              onAbout={showAbout}
+              onHelp={setHelp}
+              onSettings={showSettings}
+            />
           )}
         </div>
         {help && <HelpPanel key={help.join(' ')} topics={help} onClose={() => setHelp(null)} />}
@@ -129,6 +142,8 @@ export function App() {
       <StatusBar status={status} onAbout={showAbout} />
       {/* One About panel for every screen (CO-8) */}
       {about && <AboutDialog onClose={() => setAbout(false)} />}
+      {/* Settings for this computer, such as the theme (CO-10) */}
+      {settings && <SettingsDialog onClose={() => setSettings(false)} />}
     </div>
   );
 }

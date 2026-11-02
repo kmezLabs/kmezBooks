@@ -13,6 +13,7 @@
   --ok: #1e7a34;
   --notice-bg: #e8f1fb;
   --overlay: rgb(0 0 0 / 0.35);
+  color-scheme: light;
   font-family:
     system-ui,
     -apple-system,
@@ -23,8 +24,13 @@
   background: var(--bg);
 }
 
+/* Themes (CO-10). With no theme chosen ("System") the page follows the
+   computer: light above, dark here. A chosen theme sets data-theme on <html>
+   (settings.ts, and index.html before the page draws); the theme previews in
+   Settings carry their own data-theme. themes.test.ts checks every theme has
+   all the colours, readable contrast, and that the two dark sets match. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --fg: #e6e9ed;
     --muted: #9aa4b1;
     --bg: #15181c;
@@ -39,7 +45,101 @@
     --ok: #7fd690;
     --notice-bg: #1c2c3d;
     --overlay: rgb(0 0 0 / 0.6);
+    color-scheme: dark;
   }
+}
+
+[data-theme='light'] {
+  --fg: #1b1f24;
+  --muted: #5b6470;
+  --bg: #ffffff;
+  --panel: #f5f7fa;
+  --line: #d9dee5;
+  --accent: #1f4e79;
+  --accent-fg: #ffffff;
+  --error: #a4262c;
+  --error-bg: #fde7e9;
+  --warn-bg: #fff4ce;
+  --warn: #8a5300;
+  --ok: #1e7a34;
+  --notice-bg: #e8f1fb;
+  --overlay: rgb(0 0 0 / 0.35);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --fg: #e6e9ed;
+  --muted: #9aa4b1;
+  --bg: #15181c;
+  --panel: #1e2228;
+  --line: #333a43;
+  --accent: #7fb2e5;
+  --accent-fg: #10141a;
+  --error: #ff8a8f;
+  --error-bg: #3a1d20;
+  --warn-bg: #3d3416;
+  --warn: #f0c060;
+  --ok: #7fd690;
+  --notice-bg: #1c2c3d;
+  --overlay: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+/* Softer than Light: mid-grey paper, less glare */
+[data-theme='grey'] {
+  --fg: #1d2126;
+  --muted: #424a54;
+  --bg: #dcdfe3;
+  --panel: #d0d4d9;
+  --line: #b4bac2;
+  --accent: #1c4670;
+  --accent-fg: #ffffff;
+  --error: #8a1a20;
+  --error-bg: #efd2d4;
+  --warn-bg: #e9d9a8;
+  --warn: #5e3a00;
+  --ok: #145424;
+  --notice-bg: #cbd7e4;
+  --overlay: rgb(0 0 0 / 0.4);
+  color-scheme: light;
+}
+
+/* Black on white with black rules: every colour pair reaches 7:1 */
+[data-theme='contrast'] {
+  --fg: #000000;
+  --muted: #2b2b2b;
+  --bg: #ffffff;
+  --panel: #f0f0f0;
+  --line: #000000;
+  --accent: #00307a;
+  --accent-fg: #ffffff;
+  --error: #8b0000;
+  --error-bg: #ffe3e3;
+  --warn-bg: #fff0b3;
+  --warn: #4d3000;
+  --ok: #00561c;
+  --notice-bg: #dde9fa;
+  --overlay: rgb(0 0 0 / 0.5);
+  color-scheme: light;
+}
+
+/* Cream paper and brown ink, for long sessions */
+[data-theme='warm'] {
+  --fg: #3b3128;
+  --muted: #66574a;
+  --bg: #f8f1e3;
+  --panel: #efe5d2;
+  --line: #d9c9ac;
+  --accent: #7a4416;
+  --accent-fg: #ffffff;
+  --error: #952a20;
+  --error-bg: #f5d9cf;
+  --warn-bg: #f0dfac;
+  --warn: #634000;
+  --ok: #386419;
+  --notice-bg: #e8dfcb;
+  --overlay: rgb(40 30 20 / 0.35);
+  color-scheme: light;
 }
 
 * {
@@ -207,7 +307,8 @@ button.link {
   gap: 12px;
 }
 
-button.help-button {
+/* Round icon buttons: help (CO-9) and settings (CO-10) */
+button.icon-button {
   width: 26px;
   height: 26px;
   padding: 0;
@@ -216,6 +317,108 @@ button.help-button {
   color: var(--accent);
   font-weight: 700;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+/* ---- settings and themes (CO-10) ---- */
+
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 8px 0;
+  padding: 0;
+  border: none;
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.theme-card:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.theme-card:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.theme-card .theme-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.theme-card input {
+  width: auto;
+  margin: 0;
+}
+
+.theme-card .muted {
+  font-size: 0.85rem;
+}
+
+/* A small page in the theme's own colours: a panel, a line of text, a button */
+.theme-preview {
+  display: block;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.8rem;
+}
+
+.theme-preview .tp-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+}
+
+.theme-preview .tp-muted {
+  color: var(--muted);
+}
+
+.theme-preview .tp-button {
+  padding: 1px 8px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* System: the light and dark looks side by side */
+.theme-preview.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0;
+  overflow: hidden;
+}
+
+.theme-preview.split > .theme-preview {
+  border: none;
+  border-radius: 0;
+}
+
+/* Half the room: the text and the button only */
+.theme-preview.split .tp-muted {
+  display: none;
 }
 
 /* Beside the screen, so the page stays usable while you read */
@@ -912,11 +1115,24 @@ table.report-gl td:first-child {
 }
 
 @media print {
-  :root {
-    --fg: #000;
-    --muted: #444;
-    --bg: #fff;
-    --line: #999;
+  /* Paper is always light, whatever the theme */
+  :root,
+  [data-theme] {
+    --fg: #000000;
+    --muted: #444444;
+    --bg: #ffffff;
+    --panel: #f5f7fa;
+    --line: #999999;
+    --accent: #1f4e79;
+    --accent-fg: #ffffff;
+    --error: #a4262c;
+    --error-bg: #fde7e9;
+    --warn-bg: #fff4ce;
+    --warn: #8a5300;
+    --ok: #1e7a34;
+    --notice-bg: #e8f1fb;
+    --overlay: rgb(0 0 0 / 0.35);
+    color-scheme: light;
   }
   body {
     background: #fff;

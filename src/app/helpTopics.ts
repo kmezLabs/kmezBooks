@@ -26,6 +26,6 @@ export const HELP_TOPICS = {
   company: ['company-settings-and-modules'],
   backups: ['backups', 'test-a-backup-the-restore-drill', 'restore', 'export'],
   audit: ['audit-log'],
-  security: ['passphrase-and-device', 'your-passphrase'],
+  security: ['passphrase', 'your-passphrase'],
   m1: ['test-companies-and-the-technical-test'],
 } as const satisfies Record<Page | 'start', readonly string[]>;

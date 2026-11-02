@@ -80,6 +80,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 12. At the owner's request: a status bar with save state, last backup, online/offline, messages after actions, and the version and build (`CO-6`) (built 2026-10-31)
 13. Renamed EasyBooks to kmezBooks (2026-10-31): app, files, settings keys, GitHub repo `mawadk/kmezBooks`, local folder `C:\KM\dev\kmezBooks`
 14. Hosting on GitHub Pages with a home page and the user guide, GPL-3.0-or-later, public repo, protected `develop` and `release` branches (2026-11-01)
+15. About panel (`CO-8`): version, no telemetry, links, copyright and GPL notice (2026-11-02)
 
 ## Conversation history (how we got here)
 

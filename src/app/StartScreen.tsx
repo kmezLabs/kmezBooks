@@ -16,7 +16,19 @@ import { ErrorText, formatDateTime, useAction } from './ui';
 
 type Open = { handle: FileSystemDirectoryHandle; title: string };
 
-export function StartScreen({ notice }: { notice: string | null }) {
+/** The start screen's title, with About (CO-8) on the right. */
+function StartHeader({ onAbout }: { onAbout: () => void }) {
+  return (
+    <div className="start-header">
+      <h1>kmezBooks</h1>
+      <button className="secondary" onClick={onAbout}>
+        About
+      </button>
+    </div>
+  );
+}
+
+export function StartScreen({ notice, onAbout }: { notice: string | null; onAbout: () => void }) {
   const [recent, setRecent] = useState<RecentFolder[]>([]);
   const [opening, setOpening] = useState<Open | null>(null);
   const [dialog, setDialog] = useState<'create' | 'restore' | null>(null);
@@ -42,7 +54,7 @@ export function StartScreen({ notice }: { notice: string | null }) {
   if (!folderPickerSupported()) {
     return (
       <main className="start">
-        <h1>kmezBooks</h1>
+        <StartHeader onAbout={onAbout} />
         <p className="warning">
           This browser can't open folders on your disk, which kmezBooks needs to keep your books.
           Use Chrome on a computer.
@@ -53,7 +65,7 @@ export function StartScreen({ notice }: { notice: string | null }) {
 
   return (
     <main className="start">
-      <h1>kmezBooks</h1>
+      <StartHeader onAbout={onAbout} />
       {notice && <p className="notice">{notice}</p>}
       <section>
         <h2>Companies</h2>

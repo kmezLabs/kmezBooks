@@ -22,7 +22,12 @@ function build(): string {
   }
 }
 
+// Where the app is served from: '/' on this computer (localhost:4180), and
+// '/kmezBooks/app/' on GitHub Pages, set by scripts/build-pages.mjs
+const base = process.env.KMB_BASE ?? '/';
+
 export default defineConfig({
+  base,
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_BUILD__: JSON.stringify(build()),
@@ -41,7 +46,8 @@ export default defineConfig({
         theme_color: '#1f4e79',
         background_color: '#ffffff',
         display: 'standalone',
-        start_url: '/',
+        start_url: base,
+        scope: base,
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

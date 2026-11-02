@@ -341,18 +341,18 @@ describe('review queue (BK-3, BK-4)', () => {
           { accountId: account, debit: 0, credit: cents, memo: lineMemo },
         ],
       });
-    const barre = 'CLR*PUREBARRE47026854  ROSWELL GA CLR*PUREBARRE77066389 MILTON GA';
+    const studio = 'CLR*YOGAHOUSE47026854  SPRINGFIELD IL CLR*YOGAHOUSE77066389 SHELBYVILLE IL';
     // A card's history is often dated a day or more before the statement
-    const week1 = history('2026-01-04', card, 20_00, barre);
-    const week2 = history('2026-01-11', card, 20_00, barre);
-    const handEntered = history('2026-01-06', card, 20_00, 'Pure Barre class');
+    const week1 = history('2026-01-04', card, 20_00, studio);
+    const week2 = history('2026-01-11', card, 20_00, studio);
+    const handEntered = history('2026-01-06', card, 20_00, 'Yoga House class');
     const adobe = history('2026-01-19', card, 15_00, 'Adobe', 'ADOBE *PHTOSHP SAN JOSE CA');
     // QuickBooks kept an earlier month's text for the payroll: the payee on the same day
     const payroll = history(
       '2026-01-15',
       checking,
       8250_00,
-      'ADP WAGE PAY DES:WAGE PAY ID:934932200324MNX INDN:MAWAD CO ID:9333006057 CCD',
+      'ADP WAGE PAY DES:WAGE PAY ID:111122223333ABC INDN:SAMPLE CO ID:1234567890 CCD',
     );
     db.exec(`UPDATE qbo_import_run SET status = 'done', finished_at = '2026-01-31T00:00:00Z'`);
     importFiles(
@@ -363,15 +363,15 @@ describe('review queue (BK-3, BK-4)', () => {
             fitid: 'B2',
             date: '2026-01-12',
             amount: '-20.00',
-            name: 'CLR*PUREBARRE47026854',
-            memo: 'ROSWELL GA',
+            name: 'CLR*YOGAHOUSE47026854',
+            memo: 'SPRINGFIELD IL',
           },
           {
             fitid: 'B1',
             date: '2026-01-05',
             amount: '-20.00',
-            name: 'CLR*PUREBARRE47026854',
-            memo: 'ROSWELL GA',
+            name: 'CLR*YOGAHOUSE47026854',
+            memo: 'SPRINGFIELD IL',
           },
           {
             fitid: 'A1',
@@ -389,7 +389,7 @@ describe('review queue (BK-3, BK-4)', () => {
             date: '2026-01-15',
             amount: '-8250.00',
             name: 'ADP WAGE PAY DES:WAGE PAY',
-            memo: 'ADP WAGE PAY DES:WAGE PAY ID:XXXXX0375916MNX INDN:MAWAD CO ID:XXXXX06057 CCD',
+            memo: 'ADP WAGE PAY DES:WAGE PAY ID:XXXXX4445555ABC INDN:SAMPLE CO ID:XXXXX67890 CCD',
           },
         ],
       }),

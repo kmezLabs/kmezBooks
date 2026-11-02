@@ -1,0 +1,24 @@
+# Every PR to develop or release must pass this before it can merge
+# (the branch rulesets require the "check" job).
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, release]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      # The GitHub Pages site: home page, app and user guide, with its link checks
+      - run: npm run build:pages

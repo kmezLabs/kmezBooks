@@ -21,7 +21,7 @@ const invoice = (lines = 2): PdfDoc => ({
   termsDays: 15,
   memo: 'Thank you for choosing us!',
   customer: 'Smith Family',
-  customerAddress: '12 Oak Lane\nRoswell, GA 30075',
+  customerAddress: '12 Oak Lane\nSpringfield, IL 62701',
   lines: Array.from({ length: lines }, (_, i) => ({
     itemId: null,
     itemName: 'Tuition',
@@ -81,7 +81,7 @@ describe('invoice PDF (AR-4, AR-8)', () => {
       'Acme Child Care LLC',
       'office@acme.example',
       'Smith Family',
-      'Roswell, GA 30075',
+      'Springfield, IL 62701',
       'Tuition: Week 1 - "full day"',
       '2.5',
       '380.00',

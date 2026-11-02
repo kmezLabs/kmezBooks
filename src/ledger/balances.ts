@@ -36,10 +36,14 @@ export interface TrialBalance {
 
 const TYPE_ORDER: AccountType[] = ['asset', 'liability', 'equity', 'income', 'expense'];
 
-/** Trial balance of posted entries on or before `asOf` (RP-4 builds on this in M4). */
-export function trialBalance(db: Database, asOf: string): TrialBalance {
+/**
+ * Trial balance of posted entries on or before `asOf` (RP-4 builds on this in
+ * M4). `since` starts income and expenses on that day instead of the fiscal
+ * year's first, as QuickBooks does for a report run for "All Dates" (MG-11).
+ */
+export function trialBalance(db: Database, asOf: string, since?: string): TrialBalance {
   const startMonth = Number(db.selectValue('SELECT fiscal_year_start_month FROM company'));
-  const fyStart = fiscalYearStart(asOf, startMonth);
+  const fyStart = since ?? fiscalYearStart(asOf, startMonth);
   const net = new Map<string, { type: AccountType; detailType: string; net: bigint }>();
   for (const r of db.selectArrays(
     `SELECT a.id, a.type, a.detail_type, sum(l.debit - l.credit)

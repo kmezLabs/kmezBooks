@@ -17,6 +17,7 @@ import {
   type FxCompany,
   type FxOptions,
   type FxTxn,
+  xlsx,
 } from './testing/qboFixtures';
 
 const ACCOUNTS: FxAccount[] = [
@@ -245,6 +246,89 @@ describe('analysis (MG-2, MG-4)', () => {
     const p = plan({ omit: ['General_ledger.xlsx'] });
     expect(p.summary.errors).toEqual([]);
     expect(p.summary.opening).toMatchObject({ date: '2023-12-31', fromTrialBalance: true });
+  });
+
+  it('says what row 3 holds when it is not a period, and still finds the ledger', () => {
+    const files = exportFiles(COMPANY).filter((f) => f.path.includes('2025'));
+    const loose = files.map((f) => ({ ...f, path: f.path.split('/').at(-1)! }));
+    const ledger = loose.find((f) => f.path === 'General_ledger.xlsx')!;
+    ledger.bytes = xlsx('General Ledger', [
+      ['Sample Holdings LLC'],
+      ['General Ledger'],
+      ['Soon'],
+      null,
+      [null, 'Date', 'Transaction Type', 'Num', 'Name', 'Memo/Description', 'Account', 'Debit', 'Credit'],
+    ]);
+    const { errors } = analyze(loose).summary;
+    expect(errors).toContain('General_ledger.xlsx: the period on row 3 ("Soon") can\'t be read.');
+    expect(errors).not.toContain('No Journal or General Ledger export was found.');
+  });
+});
+
+describe('exports for All Dates (MG-11)', () => {
+  // QuickBooks' "All Dates": every year in one file, income and expenses added
+  // up over the whole span with nothing rolled into Retained Earnings
+  const ALL: FxCompany = {
+    ...COMPANY,
+    before: [],
+    years: [{ from: '2024-01-01', to: '2025-12-31', txns: [...year(2024), ...year(2025)] }],
+  };
+  const allPlan = () => analyze(exportFiles(ALL, { allDates: true }));
+
+  it('dates them from the first transaction to the day they were run', () => {
+    const { summary } = allPlan();
+    expect(summary.errors).toEqual([]);
+    expect(summary.periods).toEqual([
+      expect.objectContaining({
+        from: '2024-01-01',
+        to: '2026-10-27',
+        source: 'journal',
+        cashChecked: true,
+        transactions: 120,
+        trialBalance: true,
+        balanceSheet: true,
+      }),
+    ]);
+    expect(summary.files.find((f) => f.label === 'Trial Balance')?.period).toBe('as of 2026-10-27');
+    expect(summary.warnings).toContain(
+      'The reports are for All Dates (2024-01-01 – 2026-10-27), so only 2026-10-27 can be tied out, not each year-end. To check every year, export one year at a time (MG-5).',
+    );
+    expect(summary.opening).toBeNull();
+  });
+
+  it('ties out against the All Dates trial balance and balance sheet', async () => {
+    const db = await newCompanyDb();
+    const p = allPlan();
+    const result = runImport(db, p, proposeChoices(db, p.summary.accounts), { commit: false });
+    expect(result.errors).toEqual([]);
+    expect(
+      result.tieOut?.checks.map((c) => [c.report, c.asOf, c.allDates, c.differences.length]),
+    ).toEqual([
+      ['Trial Balance', '2026-10-27', true, 0],
+      ['Balance Sheet', '2026-10-27', true, 0],
+    ]);
+  });
+
+  it('runs to the last transaction when it is after the day they were run', () => {
+    const late: FxCompany = {
+      ...ALL,
+      years: [{ ...ALL.years[0]!, to: '2027-12-31', txns: [...ALL.years[0]!.txns, ...year(2027)] }],
+    };
+    const { summary } = analyze(exportFiles(late, { allDates: true }));
+    expect(summary.errors).toEqual([]);
+    expect(summary.periods[0]).toMatchObject({ from: '2024-01-01', to: '2027-12-28' });
+  });
+
+  it('needs a Journal or General Ledger to know the dates', () => {
+    const files = exportFiles(ALL, {
+      allDates: true,
+      omit: ['Journal.xlsx', 'General_ledger.xlsx'],
+    });
+    expect(analyze(files).summary.errors).toEqual([
+      'No Journal or General Ledger export was found.',
+      'Sample Holdings LLC/Balance_sheet.xlsx is for All Dates, but no Journal or General Ledger shows which dates those are.',
+      'Sample Holdings LLC/Trial_balance.xlsx is for All Dates, but no Journal or General Ledger shows which dates those are.',
+    ]);
   });
 });
 

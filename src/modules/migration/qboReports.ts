@@ -60,6 +60,8 @@ export interface QboHeader {
   /** Row 3 as written, e.g. "January - December 2025" or "As of December 31, 2025" */
   subtitle: string;
   basis: Basis;
+  /** The day it was run, from the footer ("Monday, Nov 02, 2026 02:06:45 PM GMT-8") */
+  run: string | null;
 }
 
 /** A problem in a file, with where it is. */
@@ -76,12 +78,21 @@ export function readHeader(sheet: Sheet): QboHeader | null {
   const kind = TITLES[norm(first[1] ?? '')];
   if (!kind) return null;
   let basis: Basis = null;
+  let run: string | null = null;
   for (const row of sheet.rows.slice(-6)) {
     const t = text(row.cells[0]);
     if (/cash basis/i.test(t)) basis = 'cash';
     else if (/accrual basis/i.test(t)) basis = 'accrual';
+    run = runDate(t) ?? run;
   }
-  return { kind, company: first[0] ?? '', title: first[1] ?? '', subtitle: first[2] ?? '', basis };
+  return {
+    kind,
+    company: first[0] ?? '',
+    title: first[1] ?? '',
+    subtitle: first[2] ?? '',
+    basis,
+    run,
+  };
 }
 
 // ---- dates and periods ----
@@ -126,6 +137,16 @@ export function parseAsOf(subtitle: string): string | null {
   if (!p || !p.year) return null;
   return iso(p.year, p.month, p.day ?? lastDay(p.year, p.month));
 }
+
+/** "Monday, Nov 02, 2026 02:06:45 PM GMT-8 - Cash Basis" → "2026-11-02". */
+export function runDate(footer: string): string | null {
+  const m = /^[A-Za-z]+,\s+([A-Za-z]+\.?\s+\d{1,2},\s+\d{4})\b/.exec(footer.trim());
+  const p = m && datePart(m[1]!);
+  return p && p.day && p.year ? iso(p.year, p.month, p.day) : null;
+}
+
+/** Row 3 of a report run for "All Dates", which names no dates (MG-11). */
+export const isAllDates = (subtitle: string) => /^all dates$/i.test(subtitle.trim());
 
 /** "January - December 2025", "January 1 - October 27, 2026", "July 2024 - June 2025", "March 2025". */
 export function parsePeriod(subtitle: string): Period | null {

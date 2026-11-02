@@ -71,9 +71,17 @@ export function App() {
   const showSettings = () => setSettings(true);
   // The guide sections the help panel shows (CO-9), or null when it's closed
   const [help, setHelp] = useState<readonly string[] | null>(null);
+  // Whether a company was open at the last status, to notice it opening or closing
+  const wasOpen = useRef(false);
 
   useEffect(() => {
     const update = (s: SessionStatus) => {
+      // Help is for the screen it was opened on: opening or closing a company
+      // (by Close company, or the inactivity lock) closes it (CO-9)
+      if (s.open !== wasOpen.current) {
+        wasOpen.current = s.open;
+        setHelp(null);
+      }
       setStatus(s);
       // A company opened: the "locked after inactivity" notice has done its job
       if (s.open) setNotice(null);

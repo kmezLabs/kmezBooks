@@ -199,6 +199,139 @@ button.link {
   gap: 12px;
 }
 
+/* ---- help (CO-9) ---- */
+
+.start-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+button.help-button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Pinned to the page's top right corner, on its title line: past the
+   section's margin, border and padding */
+.page-help {
+  position: relative;
+  height: 0;
+}
+
+.page-help .help-button {
+  position: absolute;
+  top: 27px;
+  right: 15px;
+  z-index: 1;
+}
+
+/* Beside the screen, so the page stays usable while you read */
+.help-panel {
+  flex: none;
+  width: 420px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.help-panel:focus {
+  outline: none;
+}
+
+.help-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.help-head strong {
+  flex: 1;
+}
+
+button.help-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0 6px;
+}
+
+.help-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  line-height: 1.5;
+}
+
+.help-body h2 + h2,
+.help-body h3 {
+  margin-top: 20px;
+}
+
+.help-body ul,
+.help-body ol {
+  padding-left: 22px;
+}
+
+.help-body table {
+  display: block;
+  overflow-x: auto;
+}
+
+.help-body th,
+.help-body td {
+  border: 1px solid var(--line);
+  overflow-wrap: normal;
+}
+
+.help-body th {
+  background: var(--panel);
+  color: inherit;
+}
+
+.help-body code {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.help-body hr {
+  display: none;
+}
+
+.help-online {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* On a phone the panel covers the screen */
+@media (max-width: 760px) {
+  .help-panel {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    z-index: 9;
+    border-left: none;
+  }
+}
+
 .about-head img {
   border-radius: 10px;
   flex: none;
@@ -460,9 +593,15 @@ code {
   height: 100dvh;
 }
 
-.app-shell > .screen {
+.app-shell > .screen-row {
   flex: 1;
   min-height: 0;
+  display: flex;
+}
+
+.screen-row > .screen {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
 }
 
@@ -799,7 +938,8 @@ table.report-gl td:first-child {
     display: block;
     height: auto;
   }
-  .app-shell > .screen,
+  .app-shell > .screen-row,
+  .screen-row > .screen,
   .workspace .body,
   .main-pane {
     display: block;
@@ -807,6 +947,8 @@ table.report-gl td:first-child {
   }
   .topbar,
   .sidebar,
+  .help-panel,
+  .page-help,
   .banner,
   .status-bar,
   .report-controls,

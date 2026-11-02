@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CreateCompanyDialog } from './CreateCompanyDialog';
+import { HELP_TOPICS } from './helpTopics';
 import { OpenCompanyDialog } from './OpenCompanyDialog';
 import { RestoreFromFileDialog } from './RestoreFromFileDialog';
 import {
@@ -16,19 +17,31 @@ import { ErrorText, formatDateTime, useAction } from './ui';
 
 type Open = { handle: FileSystemDirectoryHandle; title: string };
 
-/** The start screen's title, with About (CO-8) on the right. */
-function StartHeader({ onAbout }: { onAbout: () => void }) {
+type HeaderProps = { onAbout: () => void; onHelp: (topics: readonly string[]) => void };
+
+/** The start screen's title, with help (CO-9) and About (CO-8) on the right. */
+function StartHeader({ onAbout, onHelp }: HeaderProps) {
   return (
     <div className="start-header">
       <h1>kmezBooks</h1>
-      <button className="secondary" onClick={onAbout}>
-        About
-      </button>
+      <div className="start-actions">
+        <button
+          className="help-button"
+          aria-label="Help: getting started"
+          title="Help for this page"
+          onClick={() => onHelp(HELP_TOPICS.start)}
+        >
+          ?
+        </button>
+        <button className="secondary" onClick={onAbout}>
+          About
+        </button>
+      </div>
     </div>
   );
 }
 
-export function StartScreen({ notice, onAbout }: { notice: string | null; onAbout: () => void }) {
+export function StartScreen({ notice, ...header }: { notice: string | null } & HeaderProps) {
   const [recent, setRecent] = useState<RecentFolder[]>([]);
   const [opening, setOpening] = useState<Open | null>(null);
   const [dialog, setDialog] = useState<'create' | 'restore' | null>(null);
@@ -54,7 +67,7 @@ export function StartScreen({ notice, onAbout }: { notice: string | null; onAbou
   if (!folderPickerSupported()) {
     return (
       <main className="start">
-        <StartHeader onAbout={onAbout} />
+        <StartHeader {...header} />
         <p className="warning">
           This browser can't open folders on your disk, which kmezBooks needs to keep your books.
           Use Chrome on a computer.
@@ -65,7 +78,7 @@ export function StartScreen({ notice, onAbout }: { notice: string | null; onAbou
 
   return (
     <main className="start">
-      <StartHeader onAbout={onAbout} />
+      <StartHeader {...header} />
       {notice && <p className="notice">{notice}</p>}
       <section>
         <h2>Companies</h2>

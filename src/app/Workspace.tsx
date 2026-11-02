@@ -31,6 +31,7 @@ import { ReportsPage } from './pages/ReportsPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { ensureReadWrite, pickFolder, rememberFolder } from './recentFolders';
 import { formatDate } from './ledgerUi';
+import { HELP_TOPICS } from './helpTopics';
 import { ErrorText, formatDateTime, useAction } from './ui';
 
 const PAGES = {
@@ -57,7 +58,7 @@ const PAGES = {
   security: 'Passphrase and device',
   m1: 'Technical test (M1)',
 } as const;
-type Page = keyof typeof PAGES;
+export type Page = keyof typeof PAGES;
 
 const NAV: { group: string; pages: Page[] }[] = [
   {
@@ -252,7 +253,15 @@ function RecurringNotice({ status, onPage }: { status: SessionStatus; onPage: (p
   );
 }
 
-export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout: () => void }) {
+export function Workspace({
+  status,
+  onAbout,
+  onHelp,
+}: {
+  status: SessionStatus;
+  onAbout: () => void;
+  onHelp: (topics: readonly string[]) => void;
+}) {
   // Transactions is the home panel (GL-9)
   const [page, setPage] = useState<Page>('register');
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
@@ -332,6 +341,17 @@ export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout:
         <div className="main-pane">
           <main>
             <Problems status={status} onBackups={() => go('backups')} onPage={go} />
+            {/* At the top right of every page, on its title line (CO-9) */}
+            <div className="page-help">
+              <button
+                className="help-button"
+                aria-label={`Help: ${PAGES[page]}`}
+                title="Help for this page"
+                onClick={() => onHelp(HELP_TOPICS[page])}
+              >
+                ?
+              </button>
+            </div>
             {page === 'journal' && (
               <JournalPage
                 // Remount when the filter or opened entry changes, so the page starts over

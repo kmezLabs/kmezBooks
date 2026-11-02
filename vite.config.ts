@@ -58,6 +58,10 @@ export default defineConfig({
         // sqlite3.wasm must be precached for offline use
         globPatterns: ['**/*.{js,css,html,wasm,png,svg}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // Opening a file by its address (third-party-licenses.txt) must show
+        // the file, not the app: only addresses without a file name fall back
+        // to index.html.
+        navigateFallbackDenylist: [/\/[^/?]*\.[^/?]*(\?|$)/],
       },
       // The dev service worker is opt-in (PWA_DEV=1): generating it needs a
       // burst of memory, and nothing in development depends on it.

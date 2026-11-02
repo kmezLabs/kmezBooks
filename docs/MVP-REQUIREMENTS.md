@@ -64,7 +64,7 @@ The app has no backend and no database server. The PWA holds the screens, the wo
 | Company files | Opened from and saved to your disk with Chrome's File System Access API; whole-file encryption with the browser's built-in WebCrypto: AES-GCM, with the key derived from the passphrase by PBKDF2 |
 | Money | Integer cents in SQLite (`INTEGER`); integer cents or a decimal library in TypeScript |
 | Migrations and tests | Numbered SQL migration files in git; Vitest for TypeScript logic and for integrity rules, run against the real schema |
-| Hosting | Local development server (`localhost`) for now; where to host is decided later |
+| Hosting | GitHub Pages (decided Nov 1): a home page at https://mawadk.github.io/kmezBooks/, the app at …/app/ and the user guide at …/guide/, published from the `release` branch. The local server (`localhost:4180`) still works |
 | Backups | Your usual file backups, plus encrypted versioned copies written by the app |
 
 The earlier plan, self-hosted Supabase over PostgreSQL on the home lab (Oct 24), was replaced on Oct 26 by this standalone design: no server to run, full offline use, and each company in files you control.
@@ -227,7 +227,7 @@ New module (Oct 26) for the standalone design.
 
 | Area | Requirement |
 | --- | --- |
-| Deployment | The app is static files (HTML, JavaScript, WebAssembly); no database server or Docker stack. For now it runs from a local development server; where to host it, over HTTPS, is decided later |
+| Deployment | The app is static files (HTML, JavaScript, WebAssembly); no database server or Docker stack. Served over HTTPS from GitHub Pages (Nov 1), which needs no custom headers because nothing uses OPFS |
 | Client | Installable PWA built and tested for desktop Chrome. Developed on `localhost`, which Chrome treats as secure, so installing, offline use and folder access all work without a certificate. On Android, opening and saving company folders depends on Chrome for Android's support for the folder picker, which sources disagree on; this is checked in the first technical test, against the development machine over USB port forwarding. If it's missing, Android is out of scope for the MVP. Other browsers best-effort |
 | Offline | Everything, including saving, works offline once the app is installed |
 | Accuracy | Money stored as integer cents, never floating point (SQLite has no exact decimal type, and its `NUMERIC` can store floating point); every report ties back to the ledger |
@@ -313,7 +313,8 @@ These are excluded from the MVP but the architecture leaves a slot for each. Num
 | Key output | On-demand P&L and balance sheet |
 | Sales tax, inventory | Not needed now; future modules |
 | Architecture | Standalone Chrome PWA with no backend. Each company is an encrypted folder on your own disk, opened like a document and unlocked with a passphrase; nothing is kept in the browser's own storage (decided Oct 26, replacing self-hosted Supabase) |
-| Hosting | Develop and run locally first; decide where to host later |
+| Hosting | GitHub Pages, published from the `release` branch; `develop` and `release` change only by PRs the owner merges (decided Nov 1) |
+| License | Free and open source under the GNU GPL, version 3 or later; the repository is public (decided Nov 1) |
 | Performance | No hard targets for the MVP; measured in the first technical test |
 | Key derivation | PBKDF2 (built into the browser), chosen over Argon2id |
 
@@ -324,4 +325,4 @@ Still open:
 - [x] ~~Payment-to-invoice and payment-to-bill links in QuickBooks exports (MG-10).~~ Not needed with cash-basis history.
 - [x] Before the migration milestone: export one year of one company from QuickBooks Online on Cash basis and confirm the rows can be grouped back into balanced transactions. Done Oct 27 (one company's 2025): QuickBooks's Export data gives the Journal (no accounting method; grouped by transaction) and cash-basis General Ledger, Trial Balance and Balance Sheet. The import uses the Journal where it matches the cash-basis General Ledger, and rebuilds from the General Ledger where it doesn't; that year tied out exactly.
 - [ ] First technical test results: Chrome for Android folder support, and time and memory to open and save a company with 17 years of history.
-- [ ] Where to host the app, once it's ready to leave the development machine.
+- [x] Where to host the app: GitHub Pages at https://mawadk.github.io/kmezBooks/ (Nov 1).

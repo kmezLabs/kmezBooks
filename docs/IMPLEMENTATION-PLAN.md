@@ -26,7 +26,7 @@ Reports come right after the ledger so every later milestone can be checked agai
 - **In-memory database, saved whole.** Open = read file → decrypt → `sqlite3_deserialize`. Save = `sqlite3_js_db_export` → encrypt → `createWritable()` → `close()`. Chrome writes to a temporary file and swaps it in on `close()`, so each save is atomic.
 - **Cash-basis ledger.** Only cash movements post. Invoices and bills don't post; their payments post pro rata over the document's lines (GL-8). No settlement or cash-view tables.
 - **Owner only.** Bookkeeper handoff comes after the MVP.
-- **PBKDF2** for the key derivation, **no hard performance targets**, **develop on `localhost`**, hosting later.
+- **PBKDF2** for the key derivation, **no hard performance targets**, **develop on `localhost`**, hosting later (decided Nov 1: GitHub Pages, published from `release`; see README).
 
 ## Repository layout
 

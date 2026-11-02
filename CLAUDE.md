@@ -14,6 +14,7 @@ Context for Claude Code. This project, **kmezBooks**, is a standalone, double-en
 | --- | --- |
 | Name | **kmezBooks** (that casing; package `kmezbooks`). Renamed from EasyBooks on 2026-10-31 because that name belongs to a licensed product. New files are `company.kmb` / `KMB1`, `attachments/<id>.kma` / `KMA1`, backups `.kmb`, settings keys `kmezbooks.*`; old `.ebk`/`.eba` files and `easybooks.*` keys are still read (a folder converts on its first save) and must stay readable |
 | Audience | Owner's own use for 4 US businesses; may become a sellable product later (keep the door open, don't build for it yet) |
+| License | **GPL-3.0-or-later**, free and open source, public repo (owner, 2026-11-01). Copies may be sold, but the code stays GPL; as copyright holder the owner can still offer other terms for code they hold the rights to. Runtime dependencies must stay GPL-compatible; `build:pages` collects their notices |
 | Users | **Owner only in the MVP.** Bookkeeper handoff by check-out (`DF-5`–`DF-8`, `US-2`, `US-4`) is S, first after the MVP. One editor per company at a time: lock file + on-disk change check (`DF-3`, `DF-4`); no sync |
 | Companies | 4, fully isolated (one folder and database each); **no intercompany transactions** |
 | Accounting basis | **Cash basis**, calendar fiscal year, all companies. **The ledger itself is cash basis**: only cash movements post. Invoices and bills are documents; their payments post pro rata over the document's lines (`GL-8`). No A/R or A/P postings except migrated history |
@@ -22,7 +23,7 @@ Context for Claude Code. This project, **kmezBooks**, is a standalone, double-en
 | Key output | On-demand cash-basis P&L and balance sheet |
 | Not needed now | Sales tax, inventory, payroll, multi-currency (future modules) |
 | Architecture | **Standalone PWA, no backend.** SQLite (WebAssembly) in a Web Worker. Each company is a **folder on the user's disk** (encrypted database + encrypted `attachments/`), opened with the File System Access API and unlocked with a per-company passphrase. **Do not use OPFS or other browser storage for books**; the browser keeps only the recent-folders list (handles in IndexedDB) |
-| Hosting | **Develop and run on `localhost`** for now (a secure context, so install, service worker and folder access work). Where to host is decided later |
+| Hosting | **GitHub Pages** (2026-11-01): home page `https://mawadk.github.io/kmezBooks/` (`site/`), the app at `…/app/`, the user guide at `…/guide/` (rendered from `docs/USER-GUIDE.md`). Built by `npm run build:pages` (`scripts/build-pages.mjs`, app with `KMB_BASE=/kmezBooks/app/`) and published by `.github/workflows/pages.yml` on every change to `release`. `localhost:4180` (base `/`) still works as a fallback |
 | Client | Installable **PWA targeting desktop Chrome**, fully offline once installed. Android only if Chrome for Android has the folder picker (checked in M1); otherwise out of MVP scope. Other browsers best-effort |
 | Performance | **No hard targets** for the MVP (opening over 5 s and reports over 2 s are acceptable); measured in M1 |
 
@@ -78,6 +79,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 11. At the owner's request: one Accounts register for any account, with a reconciled column for banks and cards (`GL-13`), and transfers between accounts (`GL-14`) (built 2026-10-29)
 12. At the owner's request: a status bar with save state, last backup, online/offline, messages after actions, and the version and build (`CO-6`) (built 2026-10-31)
 13. Renamed EasyBooks to kmezBooks (2026-10-31): app, files, settings keys, GitHub repo `mawadk/kmezBooks`, local folder `C:\KM\dev\kmezBooks`
+14. Hosting on GitHub Pages with a home page and the user guide, GPL-3.0-or-later, public repo, protected `develop` and `release` branches (2026-11-01)
 
 ## Conversation history (how we got here)
 
@@ -91,6 +93,9 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 - **2026-10-26, cash-basis ledger and other decisions.** To stay focused on cash basis, the ledger posts only cash movements and history comes from QBO's cash-basis reports, so every year ties out exactly and no payment links are needed (`MG-10` retired). This replaced the accrual ledger plus cash view, so Settlement and CashBasisLine are gone; accrual reporting later is real rework. Same day: bookkeeper handoff moved to S (owner-only MVP); develop on `localhost` and decide hosting later; no hard performance targets; PBKDF2 over Argon2id; build order agreed.
 
 ## Working agreements
+
+- **Branches:** work on a branch, PR to `develop` (squash merge only; the branch is deleted after). A PR `develop → release` is a release and deploys the site. Both branches are protected by rulesets: PRs only, the CI `check` job must pass (`.github/workflows/ci.yml`), no force-push or deletion. **Only the owner merges**; never merge a PR or push to `develop` or `release`, even though the token would allow it.
+- **The repo is public.** Never put real company names, amounts, bank or payroll text, account numbers or local paths to real data in code, tests, docs or commit messages; use made-up values (Acme LLC, Sample Holdings LLC).
 
 - Ask before changing scope: if a task needs something not in `docs/MVP-REQUIREMENTS.md`, propose it with a new requirement ID rather than silently adding it.
 - Every integrity rule gets a Vitest test against the real schema; every migration-importer edge case gets a Vitest test with a fixture file.

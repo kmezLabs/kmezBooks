@@ -252,7 +252,7 @@ function RecurringNotice({ status, onPage }: { status: SessionStatus; onPage: (p
   );
 }
 
-export function Workspace({ status }: { status: SessionStatus }) {
+export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout: () => void }) {
   // Transactions is the home panel (GL-9)
   const [page, setPage] = useState<Page>('register');
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
@@ -298,6 +298,9 @@ export function Workspace({ status }: { status: SessionStatus }) {
           {status.legalName}
           {status.test && <span className="test-mark"> – Test</span>}
         </div>
+        <button className="link" onClick={onAbout}>
+          About
+        </button>
         <button
           className="secondary"
           disabled={busy || status.saving}

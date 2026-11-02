@@ -62,15 +62,17 @@ Chrome keeps a few things for each address, so the web address starts without th
 
 ### The screen
 
-- **Top bar:** the open company's name and **Close company**. It stays in place while you scroll.
+- **Top bar:** the open company's name, **About** and **Close company**. It stays in place while you scroll.
 - **Sidebar** (left): the pages, in groups: Books, Sales, Purchases, Banking, Company (with **QuickBooks import** last), and Development in a test company. Pages of modules that are off aren't shown (see [Modules](#modules)). The sidebar and the page each scroll on their own.
 - **Status bar** (bottom):
   - whether your changes are saved ("Saved 2:14 PM" or "All changes saved")
   - when the last backup was made ("Backed up 2 hours ago"); hover over it for the exact time
   - **Online** or **Offline: everything still works**
   - a short message after you do something, such as an export or a posting
-  - on the far right, the version and the build it came from, for example `v0.1.0 · build b30b99c, Nov 1`. It tells you which version is running after an update.
+  - on the far right, the version and the build it came from, for example `v0.1.0 · build b30b99c, Nov 1`. It tells you which version is running after an update. Click it to open **About**.
 - **Window title:** the browser tab shows "Acme LLC – kmezBooks", and the installed app's title bar "kmezBooks - Acme LLC", so you can tell windows apart. With no company open it says just "kmezBooks".
+
+**About** (also on the start screen, next to the title) shows the version and build, a reminder that your books never leave your computer and that kmezBooks sends no usage data, links to the home page, this guide and the source code, and the copyright and license. Press **Esc** or **Close** to go back.
 
 On a phone-sized window the sidebar becomes a strip of page buttons under the top bar.
 

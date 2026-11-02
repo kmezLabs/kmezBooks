@@ -6,6 +6,7 @@ import * as Comlink from 'comlink';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { SessionStatus } from '../worker/companySession';
 import { db } from '../shared/workerClient';
+import { AboutDialog } from './AboutDialog';
 import { StartScreen } from './StartScreen';
 import { StatusBar } from './StatusBar';
 import { UpdateBanner } from './UpdateBanner';
@@ -62,6 +63,8 @@ function useInstalledWindow(): boolean {
 export function App() {
   const [status, setStatus] = useState<SessionStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [about, setAbout] = useState(false);
+  const showAbout = () => setAbout(true);
 
   useEffect(() => {
     const update = (s: SessionStatus) => {
@@ -110,9 +113,15 @@ export function App() {
     <div className="app-shell">
       <UpdateBanner status={status} />
       <div className="screen">
-        {status.open ? <Workspace status={status} /> : <StartScreen notice={notice} />}
+        {status.open ? (
+          <Workspace status={status} onAbout={showAbout} />
+        ) : (
+          <StartScreen notice={notice} onAbout={showAbout} />
+        )}
       </div>
-      <StatusBar status={status} />
+      <StatusBar status={status} onAbout={showAbout} />
+      {/* One About panel for every screen (CO-8) */}
+      {about && <AboutDialog onClose={() => setAbout(false)} />}
     </div>
   );
 }

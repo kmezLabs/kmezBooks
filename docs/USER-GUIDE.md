@@ -62,7 +62,7 @@ Chrome keeps a few things for each address, so the web address starts without th
 
 ### The screen
 
-- **Top bar:** the open company's name, **Close company** and, at the far right, **About**. It stays in place while you scroll.
+- **Top bar:** the open company's name, **Close company**, **?** for help with the page you're on, and, at the far right, **About**. It stays in place while you scroll.
 - **Sidebar** (left): the pages, in groups: Books, Sales, Purchases, Banking, Company (with **QuickBooks import** last), and Development in a test company. Pages of modules that are off aren't shown (see [Modules](#modules)). The sidebar and the page each scroll on their own.
 - **Status bar** (bottom):
   - whether your changes are saved ("Saved 2:14 PM" or "All changes saved")
@@ -74,7 +74,9 @@ Chrome keeps a few things for each address, so the web address starts without th
 
 The **About** button (also on the start screen, next to the title) shows the version and build, a reminder that your books never leave your computer and that kmezBooks sends no usage data, links to the home page, this guide and the source code, and the copyright and license. Press **Esc** or **Close** to go back.
 
-On a phone-sized window the sidebar becomes a strip of page buttons under the top bar.
+The **?** in the top bar, between **Close company** and **About** (and on the start screen, next to **About**), opens help for the page you're on: the parts of this guide that cover it, in a panel beside the page, so you can keep working while you read. Links in it take you to other parts of the guide, and **Back** returns. Help is built into kmezBooks, so it works offline; **Open the full guide online** at the bottom opens this guide in a new tab. Press **Esc** or **×** to close it; going to another page closes it too.
+
+On a phone-sized window the sidebar becomes a strip of page buttons under the top bar, and help covers the whole screen.
 
 ---
 

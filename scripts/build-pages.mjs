@@ -21,7 +21,7 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Marked } from 'marked';
+import { renderGuide } from './guide.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (name, fallback) => {
@@ -58,48 +58,9 @@ cpSync(join(root, 'LICENSE'), join(out, 'license.txt'));
 
 // ---- the user guide ----
 
-/** GitHub's heading ids, so the guide's own "#…" links work here too. */
-function slugger() {
-  const seen = new Map();
-  return (text) => {
-    const slug = text
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s_-]/gu, '')
-      .replace(/ /g, '-');
-    const n = seen.get(slug) ?? 0;
-    seen.set(slug, n + 1);
-    return n ? `${slug}-${n}` : slug;
-  };
-}
-
-const plain = (html) =>
-  html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
-
-const slug = slugger();
-const ids = new Set();
-const marked = new Marked({
-  gfm: true,
-  renderer: {
-    heading({ tokens, depth }) {
-      const inner = this.parser.parseInline(tokens);
-      const id = slug(plain(inner));
-      ids.add(id);
-      return `<h${depth} id="${id}">${inner}</h${depth}>\n`;
-    },
-  },
-});
-const guideHtml = marked.parse(readFileSync(join(root, 'docs/USER-GUIDE.md'), 'utf8'));
-const title = plain(/<h1[^>]*>(.*?)<\/h1>/s.exec(guideHtml)?.[1] ?? 'kmezBooks user guide');
-
-for (const [, id] of guideHtml.matchAll(/href="#([^"]*)"/g)) {
-  if (!ids.has(decodeURIComponent(id))) problems.push(`guide: "#${id}" matches no heading`);
-}
+const guide = renderGuide(readFileSync(join(root, 'docs/USER-GUIDE.md'), 'utf8'));
+const ids = new Set(guide.headings.map((h) => h.id));
+for (const id of guide.brokenLinks) problems.push(`guide: "#${id}" matches no heading`);
 
 mkdirSync(join(out, 'guide'), { recursive: true });
 writeFileSync(
@@ -112,7 +73,7 @@ writeFileSync(
     <meta name="theme-color" content="#1f4e79" />
     <link rel="icon" type="image/png" href="../icons/icon-192.png" />
     <link rel="stylesheet" href="../site.css" />
-    <title>${title}</title>
+    <title>${guide.title}</title>
   </head>
   <body>
     <header class="top">
@@ -125,7 +86,7 @@ writeFileSync(
       </div>
     </header>
     <main class="wrap guide">
-${guideHtml}
+${guide.html}
     </main>
   </body>
 </html>

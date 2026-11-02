@@ -7,7 +7,7 @@ import { Dialog } from './ui';
 import { versionText } from './statusText';
 
 /** The published site (GitHub Pages); its links work from localhost too. */
-const SITE = 'https://mawadk.github.io/kmezBooks/';
+export const SITE = 'https://mawadk.github.io/kmezBooks/';
 
 function Out({ href, children }: { href: string; children: string }) {
   return (

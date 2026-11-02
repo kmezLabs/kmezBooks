@@ -37,6 +37,8 @@ export interface TieOutRow {
 export interface TieOutCheck {
   report: 'Trial Balance' | 'Balance Sheet';
   asOf: string;
+  /** QuickBooks ran it for "All Dates": income and expenses since the start (MG-11) */
+  allDates: boolean;
   file: string;
   /** Accounts compared */
   checked: number;
@@ -352,9 +354,10 @@ export function computeTieOut(db: Database, analysis: Analysis, ids: Map<string,
     db.selectArrays('SELECT id, type FROM account').map((r) => [String(r[0]), r[1] as AccountType]),
   );
   const RE = 'retained earnings (no account)';
-  const ours = (asOf: string) => {
+  const ours = (asOf: string, since?: string) => {
     const out = new Map<string, number>();
-    for (const r of trialBalance(db, asOf).rows) out.set(r.accountId ?? RE, r.debit - r.credit);
+    for (const r of trialBalance(db, asOf, since).rows)
+      out.set(r.accountId ?? RE, r.debit - r.credit);
     return out;
   };
   const label = (key: string) => names.get(key) ?? key;
@@ -375,11 +378,12 @@ export function computeTieOut(db: Database, analysis: Analysis, ids: Map<string,
       const k = ids.get(name) ?? name;
       qbo.set(k, (qbo.get(k) ?? 0) + v);
     }
-    const mine = ours(tb.asOf);
+    const mine = ours(tb.asOf, tb.since);
     const keys = new Set([...qbo.keys(), ...mine.keys()]);
     checks.push({
       report: 'Trial Balance',
       asOf: tb.asOf,
+      allDates: !!tb.since,
       file: tb.file,
       checked: keys.size,
       differences: compare(qbo, mine, keys),
@@ -406,7 +410,7 @@ export function computeTieOut(db: Database, analysis: Analysis, ids: Map<string,
     }
     const mine = new Map<string, number>();
     let netIncome = 0;
-    for (const [k, v] of ours(bs.asOf)) {
+    for (const [k, v] of ours(bs.asOf, bs.since)) {
       const type = types.get(k);
       if (type === 'income' || type === 'expense') netIncome -= v;
       else mine.set(k, v);
@@ -416,6 +420,7 @@ export function computeTieOut(db: Database, analysis: Analysis, ids: Map<string,
     checks.push({
       report: 'Balance Sheet',
       asOf: bs.asOf,
+      allDates: !!bs.since,
       file: bs.file,
       checked: keys.size,
       differences: compare(qbo, mine, keys),

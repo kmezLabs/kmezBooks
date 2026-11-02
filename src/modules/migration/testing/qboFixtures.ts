@@ -153,6 +153,11 @@ export interface FxOptions {
   journalExtra?: Record<number, FxTxn[]>;
   /** Accounts left out of the Account List, as QuickBooks does with deleted ones */
   unlisted?: string[];
+  /**
+   * Run for "All Dates" (MG-11): one year spanning the whole history, "All Dates"
+   * on row 3 and loose files, so neither row 3 nor a folder name gives dates
+   */
+  allDates?: boolean;
 }
 
 /** Every file of the company's exports, as the owner would put them in one folder. */
@@ -182,11 +187,13 @@ export function exportFiles(c: FxCompany, opts: FxOptions = {}): SourceFile[] {
   const reName = c.accounts.find((a) => /retained/i.test(a.detail))?.name ?? 'Retained Earnings';
 
   c.years.forEach((y, yi) => {
-    const folder = `${c.company} ${y.from.replaceAll('-', '')}-${y.to.replaceAll('-', '')}`;
+    const folder = opts.allDates
+      ? c.company
+      : `${c.company} ${y.from.replaceAll('-', '')}-${y.to.replaceAll('-', '')}`;
     const head = (title: string, sub: string): (XCell[] | null)[] => [
       [c.company],
       [title],
-      [sub],
+      [opts.allDates ? 'All Dates' : sub],
       null,
     ];
 

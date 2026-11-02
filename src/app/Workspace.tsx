@@ -260,7 +260,8 @@ export function Workspace({
 }: {
   status: SessionStatus;
   onAbout: () => void;
-  onHelp: (topics: readonly string[]) => void;
+  /** Shows these guide sections in the help panel, or closes it (null) */
+  onHelp: (topics: readonly string[] | null) => void;
 }) {
   // Transactions is the home panel (GL-9)
   const [page, setPage] = useState<Page>('register');
@@ -285,6 +286,10 @@ export function Workspace({
   // Re-read on every page change too, so a restored backup's modules show up; the
   // Company page says when it switches one, so the sidebar follows at once
   useEffect(readModules, [status.companyId, page]);
+
+  // Help is for the page it was opened on: going to another page closes it
+  // (CO-9), whether from the sidebar or from a link such as a report's entry
+  useEffect(() => onHelp(null), [page, onHelp]);
 
   const shown = (p: Page) => {
     if (TEST_ONLY.has(p) && !status.test) return false;

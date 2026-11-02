@@ -1,6 +1,6 @@
 // The status bar at the bottom of every screen (CO-6): save state, the last
 // backup, online or offline, the latest message after an action, and on the
-// far right the app's version and the build it came from.
+// far right the app's version and the build it came from, which opens About (CO-8).
 
 import { useEffect, useState } from 'react';
 import type { SessionStatus } from '../worker/companySession';
@@ -44,7 +44,7 @@ function useMinuteTick() {
   }, []);
 }
 
-export function StatusBar({ status }: { status: SessionStatus }) {
+export function StatusBar({ status, onAbout }: { status: SessionStatus; onAbout: () => void }) {
   const online = useOnline();
   const message = useStatusMessage();
   useMinuteTick();
@@ -69,9 +69,13 @@ export function StatusBar({ status }: { status: SessionStatus }) {
       <span className="status-message" aria-live="polite">
         {message}
       </span>
-      <span className="status-version" title={version.title}>
+      <button
+        className="link status-version"
+        title={`${version.title}. Click for About kmezBooks.`}
+        onClick={onAbout}
+      >
         {version.short}
-      </span>
+      </button>
     </footer>
   );
 }

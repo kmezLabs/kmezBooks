@@ -252,7 +252,7 @@ function RecurringNotice({ status, onPage }: { status: SessionStatus; onPage: (p
   );
 }
 
-export function Workspace({ status }: { status: SessionStatus }) {
+export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout: () => void }) {
   // Transactions is the home panel (GL-9)
   const [page, setPage] = useState<Page>('register');
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
@@ -305,6 +305,9 @@ export function Workspace({ status }: { status: SessionStatus }) {
           onClick={() => run(() => db.close())}
         >
           Close company
+        </button>
+        <button className="secondary" onClick={onAbout}>
+          About
         </button>
       </header>
       <div className="body">

@@ -31,6 +31,7 @@ import { ReportsPage } from './pages/ReportsPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { ensureReadWrite, pickFolder, rememberFolder } from './recentFolders';
 import { formatDate } from './ledgerUi';
+import { HELP_TOPICS } from './helpTopics';
 import { ErrorText, formatDateTime, useAction } from './ui';
 
 const PAGES = {
@@ -57,7 +58,7 @@ const PAGES = {
   security: 'Passphrase and device',
   m1: 'Technical test (M1)',
 } as const;
-type Page = keyof typeof PAGES;
+export type Page = keyof typeof PAGES;
 
 const NAV: { group: string; pages: Page[] }[] = [
   {
@@ -252,7 +253,16 @@ function RecurringNotice({ status, onPage }: { status: SessionStatus; onPage: (p
   );
 }
 
-export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout: () => void }) {
+export function Workspace({
+  status,
+  onAbout,
+  onHelp,
+}: {
+  status: SessionStatus;
+  onAbout: () => void;
+  /** Shows these guide sections in the help panel, or closes it (null) */
+  onHelp: (topics: readonly string[] | null) => void;
+}) {
   // Transactions is the home panel (GL-9)
   const [page, setPage] = useState<Page>('register');
   const [accountFilter, setAccountFilter] = useState<string | null>(null);
@@ -276,6 +286,10 @@ export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout:
   // Re-read on every page change too, so a restored backup's modules show up; the
   // Company page says when it switches one, so the sidebar follows at once
   useEffect(readModules, [status.companyId, page]);
+
+  // Help is for the page it was opened on: going to another page closes it
+  // (CO-9), whether from the sidebar or from a link such as a report's entry
+  useEffect(() => onHelp(null), [page, onHelp]);
 
   const shown = (p: Page) => {
     if (TEST_ONLY.has(p) && !status.test) return false;
@@ -305,6 +319,15 @@ export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout:
           onClick={() => run(() => db.close())}
         >
           Close company
+        </button>
+        {/* In the top bar, so it stays in view while the page scrolls (CO-9) */}
+        <button
+          className="help-button"
+          aria-label={`Help: ${PAGES[page]}`}
+          title="Help for this page"
+          onClick={() => onHelp(HELP_TOPICS[page])}
+        >
+          ?
         </button>
         <button className="secondary" onClick={onAbout}>
           About

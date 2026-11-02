@@ -1,8 +1,11 @@
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { renderGuide } from './scripts/guide.mjs';
 
 // The version and build shown in the status bar (CO-6): package.json's
 // version, and the commit and date this build came from
@@ -26,6 +29,28 @@ function build(): string {
 // '/kmezBooks/app/' on GitHub Pages, set by scripts/build-pages.mjs
 const base = process.env.KMB_BASE ?? '/';
 
+// The user guide, built into the app for its help panel (CO-9): rendered from
+// docs/USER-GUIDE.md on every build, so help follows the guide and works offline
+function userGuide(): Plugin {
+  const id = 'virtual:user-guide';
+  const file = fileURLToPath(new URL('./docs/USER-GUIDE.md', import.meta.url));
+  return {
+    name: 'kmezbooks-user-guide',
+    resolveId: (source) => (source === id ? `\0${id}` : undefined),
+    load(loaded) {
+      if (loaded !== `\0${id}`) return;
+      this.addWatchFile(file);
+      const guide = renderGuide(readFileSync(file, 'utf8'));
+      if (guide.brokenLinks.length)
+        this.error(`docs/USER-GUIDE.md: "#${guide.brokenLinks.join('", "#')}" match no heading`);
+      const sections = Object.fromEntries(
+        guide.headings.map((h) => [h.id, { title: h.text, start: h.start, end: h.end }]),
+      );
+      return `export default ${JSON.stringify({ html: guide.html, sections })};`;
+    },
+  };
+}
+
 export default defineConfig({
   base,
   define: {
@@ -34,6 +59,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    userGuide(),
     VitePWA({
       // A new version waits until the owner updates, after saving (M8)
       registerType: 'prompt',

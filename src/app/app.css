@@ -218,20 +218,6 @@ button.help-button {
   line-height: 1;
 }
 
-/* Pinned to the page's top right corner, on its title line: past the
-   section's margin, border and padding */
-.page-help {
-  position: relative;
-  height: 0;
-}
-
-.page-help .help-button {
-  position: absolute;
-  top: 27px;
-  right: 15px;
-  z-index: 1;
-}
-
 /* Beside the screen, so the page stays usable while you read */
 .help-panel {
   flex: none;
@@ -948,7 +934,6 @@ table.report-gl td:first-child {
   .topbar,
   .sidebar,
   .help-panel,
-  .page-help,
   .banner,
   .status-bar,
   .report-controls,

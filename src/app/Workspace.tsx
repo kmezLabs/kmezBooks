@@ -320,6 +320,15 @@ export function Workspace({
         >
           Close company
         </button>
+        {/* In the top bar, so it stays in view while the page scrolls (CO-9) */}
+        <button
+          className="help-button"
+          aria-label={`Help: ${PAGES[page]}`}
+          title="Help for this page"
+          onClick={() => onHelp(HELP_TOPICS[page])}
+        >
+          ?
+        </button>
         <button className="secondary" onClick={onAbout}>
           About
         </button>
@@ -346,17 +355,6 @@ export function Workspace({
         <div className="main-pane">
           <main>
             <Problems status={status} onBackups={() => go('backups')} onPage={go} />
-            {/* At the top right of every page, on its title line (CO-9) */}
-            <div className="page-help">
-              <button
-                className="help-button"
-                aria-label={`Help: ${PAGES[page]}`}
-                title="Help for this page"
-                onClick={() => onHelp(HELP_TOPICS[page])}
-              >
-                ?
-              </button>
-            </div>
             {page === 'journal' && (
               <JournalPage
                 // Remount when the filter or opened entry changes, so the page starts over

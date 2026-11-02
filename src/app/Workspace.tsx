@@ -306,7 +306,7 @@ export function Workspace({ status, onAbout }: { status: SessionStatus; onAbout:
         >
           Close company
         </button>
-        <button className="link" onClick={onAbout}>
+        <button className="secondary" onClick={onAbout}>
           About
         </button>
       </header>

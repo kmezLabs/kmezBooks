@@ -21,7 +21,7 @@ function StartHeader({ onAbout }: { onAbout: () => void }) {
   return (
     <div className="start-header">
       <h1>kmezBooks</h1>
-      <button className="link" onClick={onAbout}>
+      <button className="secondary" onClick={onAbout}>
         About
       </button>
     </div>

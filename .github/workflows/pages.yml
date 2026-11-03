@@ -1,4 +1,4 @@
-# Publishes https://mawadk.github.io/kmezBooks/ (home page, app and user
+# Publishes https://kmezlabs.github.io/kmezBooks/ (home page, app and user
 # guide) whenever release changes; develop → release PRs are the releases.
 name: Deploy to GitHub Pages
 

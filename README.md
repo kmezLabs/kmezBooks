@@ -2,7 +2,7 @@
 
 Double-entry bookkeeping for small US businesses, as a standalone Chrome PWA. Each company's books are an encrypted folder on your own disk.
 
-**Use it:** https://mawadk.github.io/kmezBooks/ (home page, the app and the user guide).
+**Use it:** https://kmezlabs.github.io/kmezBooks/ (home page, the app and the user guide).
 
 - Scope: [docs/MVP-REQUIREMENTS.md](docs/MVP-REQUIREMENTS.md)
 - Build plan: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md)
@@ -60,7 +60,7 @@ db/tests/       schema and integrity-rule tests
 
 ## License
 
-Copyright (C) 2026 Khaleel Mawad
+Copyright (C) 2026 kmezLabs
 
 kmezBooks is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 

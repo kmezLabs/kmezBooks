@@ -37,7 +37,7 @@ This guide covers every screen. You don't need to read it all at once: start wit
 
 ### Starting kmezBooks
 
-1. Open Chrome at **https://mawadk.github.io/kmezBooks/app/**. The home page, https://mawadk.github.io/kmezBooks/, links to it and to this guide.
+1. Open Chrome at **https://kmezlabs.github.io/kmezBooks/app/**. The home page, https://kmezlabs.github.io/kmezBooks/, links to it and to this guide.
 2. To install it as an app, click the install icon at the right of Chrome's address bar. It then opens in its own window and works **offline**: no internet connection is needed to open, change or save your books.
 
 kmezBooks runs entirely in your browser. Nothing about your books is sent to that address or anywhere else; it only delivers the app.
@@ -55,10 +55,20 @@ New versions are published to the web address from time to time. When one is rea
 Chrome keeps a few things for each address, so the web address starts without the ones from `localhost:4180`. Your books aren't affected: they stay in their folders.
 
 1. Close every company in the old copy.
-2. Open https://mawadk.github.io/kmezBooks/app/ and install it.
+2. Open https://kmezlabs.github.io/kmezBooks/app/ and install it.
 3. Open each company with **Open company folder…**, once. After that it's in the recent list.
 4. Choose each company's backup folder again, under **Backups**, and set this computer's device name and idle time in **Settings** (the gear).
 5. Then uninstall the old copy, or keep it as a spare. Don't use both at once: the folder lock stops the second one from opening a company the first has open.
+
+### Moving from the old web address
+
+Until November 3, 2026, kmezBooks was at `https://mawadk.github.io/kmezBooks/`. That address no longer works. A copy installed from it still opens offline, but it can't be updated any more. Your books aren't affected: they stay in their folders.
+
+1. Close every company in the old copy.
+2. Open https://kmezlabs.github.io/kmezBooks/app/ and install it.
+3. Open each company with **Open company folder…**, once.
+4. Choose each company's backup folder again, under **Backups**, and set the device name, idle time and theme in **Settings** (the gear).
+5. Then uninstall the old copy.
 
 ### The screen
 
@@ -612,4 +622,4 @@ Keep this list somewhere safe and separate from this computer.
 
 ## License
 
-kmezBooks is free and open source software under the GNU General Public License, version 3 or later, and comes with no warranty. The source code is at https://github.com/mawadk/kmezBooks.
+kmezBooks is free and open source software under the GNU General Public License, version 3 or later, and comes with no warranty. The source code is at https://github.com/kmezLabs/kmezBooks.

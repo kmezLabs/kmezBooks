@@ -14,7 +14,7 @@ Context for Claude Code. This project, **kmezBooks**, is a standalone, double-en
 | --- | --- |
 | Name | **kmezBooks** (that casing; package `kmezbooks`). Renamed from EasyBooks on 2026-10-31 because that name belongs to a licensed product. New files are `company.kmb` / `KMB1`, `attachments/<id>.kma` / `KMA1`, backups `.kmb`, settings keys `kmezbooks.*`; old `.ebk`/`.eba` files and `easybooks.*` keys are still read (a folder converts on its first save) and must stay readable |
 | Audience | Owner's own use for 4 US businesses; may become a sellable product later (keep the door open, don't build for it yet) |
-| License | **GPL-3.0-or-later**, free and open source, public repo (owner, 2026-11-01). Copies may be sold, but the code stays GPL; as copyright holder the owner can still offer other terms for code they hold the rights to. Runtime dependencies must stay GPL-compatible; `build:pages` collects their notices |
+| License | **GPL-3.0-or-later**, free and open source, public repo (owner, 2026-11-01). Copies may be sold, but the code stays GPL; copyright notices name **kmezLabs** (owner, 2026-11-03); as copyright holder the owner can still offer other terms for code they hold the rights to. Runtime dependencies must stay GPL-compatible; `build:pages` collects their notices |
 | Users | **Owner only in the MVP.** Bookkeeper handoff by check-out (`DF-5`–`DF-8`, `US-2`, `US-4`) is S, first after the MVP. One editor per company at a time: lock file + on-disk change check (`DF-3`, `DF-4`); no sync |
 | Companies | 4, fully isolated (one folder and database each); **no intercompany transactions** |
 | Accounting basis | **Cash basis**, calendar fiscal year, all companies. **The ledger itself is cash basis**: only cash movements post. Invoices and bills are documents; their payments post pro rata over the document's lines (`GL-8`). No A/R or A/P postings except migrated history |
@@ -23,7 +23,7 @@ Context for Claude Code. This project, **kmezBooks**, is a standalone, double-en
 | Key output | On-demand cash-basis P&L and balance sheet |
 | Not needed now | Sales tax, inventory, payroll, multi-currency (future modules) |
 | Architecture | **Standalone PWA, no backend.** SQLite (WebAssembly) in a Web Worker. Each company is a **folder on the user's disk** (encrypted database + encrypted `attachments/`), opened with the File System Access API and unlocked with a per-company passphrase. **Do not use OPFS or other browser storage for books**; the browser keeps only the recent-folders list (handles in IndexedDB) |
-| Hosting | **GitHub Pages** (2026-11-01): home page `https://mawadk.github.io/kmezBooks/` (`site/`), the app at `…/app/`, the user guide at `…/guide/` (rendered from `docs/USER-GUIDE.md`). Built by `npm run build:pages` (`scripts/build-pages.mjs`, app with `KMB_BASE=/kmezBooks/app/`) and published by `.github/workflows/pages.yml` on every change to `release`. `localhost:4180` (base `/`) still works as a fallback |
+| Hosting | **GitHub Pages** (2026-11-01): home page `https://kmezlabs.github.io/kmezBooks/` (`site/`), the app at `…/app/`, the user guide at `…/guide/` (rendered from `docs/USER-GUIDE.md`). Built by `npm run build:pages` (`scripts/build-pages.mjs`, app with `KMB_BASE=/kmezBooks/app/`) and published by `.github/workflows/pages.yml` on every change to `release`. `localhost:4180` (base `/`) still works as a fallback |
 | Client | Installable **PWA targeting desktop Chrome**, fully offline once installed. Android only if Chrome for Android has the folder picker (checked in M1); otherwise out of MVP scope. Other browsers best-effort |
 | Performance | **No hard targets** for the MVP (opening over 5 s and reports over 2 s are acceptable); measured in M1 |
 
@@ -83,6 +83,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 15. About panel (`CO-8`): version, no telemetry, links, copyright and GPL notice (2026-11-02)
 16. Help on every page (`CO-9`): a **?** opens the page's user-guide sections in a side panel. The guide is rendered into the app from `docs/USER-GUIDE.md` at build time (`scripts/guide.mjs`, shared with the site build), so help follows the guide and works offline; `src/app/helpTopics.ts` maps pages to heading ids, and a test fails if a heading it names is gone (2026-11-02)
 17. Settings dialog with themes (`CO-10`): a gear in the top bar opens Settings; themes System, Light, Dark, Grey, High contrast and Warm are sets of the 14 colour variables in `src/app/app.css`, chosen per computer (`kmezbooks.theme`, applied before the page draws by `index.html`). `src/app/themes.test.ts` checks every theme is complete and readable. The device name and idle time moved there too, so the Passphrase and device page is now Passphrase (2026-11-02)
+18. Moved to the **kmezLabs** GitHub organization (2026-11-03): repo `kmezLabs/kmezBooks`, site `https://kmezlabs.github.io/kmezBooks/`; the old `mawadk.github.io` address is gone, so installed copies move once (`docs/USER-GUIDE.md`, "Moving from the old web address")
 
 ## Conversation history (how we got here)
 

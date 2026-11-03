@@ -622,4 +622,4 @@ Keep this list somewhere safe and separate from this computer.
 
 ## License
 
-kmezBooks is free and open source software under the GNU General Public License, version 3 or later, and comes with no warranty. The source code is at https://github.com/kmezlabs/kmezBooks.
+kmezBooks is free and open source software under the GNU General Public License, version 3 or later, and comes with no warranty. The source code is at https://github.com/kmezLabs/kmezBooks.

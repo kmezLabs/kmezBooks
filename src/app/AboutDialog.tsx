@@ -50,7 +50,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
           <Out href={`${SITE}guide/`}>User guide</Out>
         </li>
         <li>
-          <Out href="https://github.com/kmezlabs/kmezBooks">Source code on GitHub</Out>
+          <Out href="https://github.com/kmezLabs/kmezBooks">Source code on GitHub</Out>
         </li>
       </ul>
       <p className="muted">Links need an internet connection.</p>

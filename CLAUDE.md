@@ -83,7 +83,7 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 15. About panel (`CO-8`): version, no telemetry, links, copyright and GPL notice (2026-11-02)
 16. Help on every page (`CO-9`): a **?** opens the page's user-guide sections in a side panel. The guide is rendered into the app from `docs/USER-GUIDE.md` at build time (`scripts/guide.mjs`, shared with the site build), so help follows the guide and works offline; `src/app/helpTopics.ts` maps pages to heading ids, and a test fails if a heading it names is gone (2026-11-02)
 17. Settings dialog with themes (`CO-10`): a gear in the top bar opens Settings; themes System, Light, Dark, Grey, High contrast and Warm are sets of the 14 colour variables in `src/app/app.css`, chosen per computer (`kmezbooks.theme`, applied before the page draws by `index.html`). `src/app/themes.test.ts` checks every theme is complete and readable. The device name and idle time moved there too, so the Passphrase and device page is now Passphrase (2026-11-02)
-18. Moved to the **kmezLabs** GitHub organization (2026-11-03): repo `kmezlabs/kmezBooks`, site `https://kmezlabs.github.io/kmezBooks/`; the old `mawadk.github.io` address is gone, so installed copies move once (`docs/USER-GUIDE.md`, "Moving from the old web address")
+18. Moved to the **kmezLabs** GitHub organization (2026-11-03): repo `kmezLabs/kmezBooks`, site `https://kmezlabs.github.io/kmezBooks/`; the old `mawadk.github.io` address is gone, so installed copies move once (`docs/USER-GUIDE.md`, "Moving from the old web address")
 
 ## Conversation history (how we got here)
 

@@ -64,7 +64,7 @@ The app has no backend and no database server. The PWA holds the screens, the wo
 | Company files | Opened from and saved to your disk with Chrome's File System Access API; whole-file encryption with the browser's built-in WebCrypto: AES-GCM, with the key derived from the passphrase by PBKDF2 |
 | Money | Integer cents in SQLite (`INTEGER`); integer cents or a decimal library in TypeScript |
 | Migrations and tests | Numbered SQL migration files in git; Vitest for TypeScript logic and for integrity rules, run against the real schema |
-| Hosting | GitHub Pages (decided Nov 1): a home page at https://mawadk.github.io/kmezBooks/, the app at …/app/ and the user guide at …/guide/, published from the `release` branch. The local server (`localhost:4180`) still works |
+| Hosting | GitHub Pages (decided Nov 1): a home page at https://kmezlabs.github.io/kmezBooks/, the app at …/app/ and the user guide at …/guide/, published from the `release` branch. The local server (`localhost:4180`) still works |
 | Backups | Your usual file backups, plus encrypted versioned copies written by the app |
 
 The earlier plan, self-hosted Supabase over PostgreSQL on the home lab (Oct 24), was replaced on Oct 26 by this standalone design: no server to run, full offline use, and each company in files you control.
@@ -329,4 +329,4 @@ Still open:
 - [x] ~~Payment-to-invoice and payment-to-bill links in QuickBooks exports (MG-10).~~ Not needed with cash-basis history.
 - [x] Before the migration milestone: export one year of one company from QuickBooks Online on Cash basis and confirm the rows can be grouped back into balanced transactions. Done Oct 27 (one company's 2025): QuickBooks's Export data gives the Journal (no accounting method; grouped by transaction) and cash-basis General Ledger, Trial Balance and Balance Sheet. The import uses the Journal where it matches the cash-basis General Ledger, and rebuilds from the General Ledger where it doesn't; that year tied out exactly.
 - [ ] First technical test results: Chrome for Android folder support, and time and memory to open and save a company with 17 years of history.
-- [x] Where to host the app: GitHub Pages at https://mawadk.github.io/kmezBooks/ (Nov 1).
+- [x] Where to host the app: GitHub Pages at https://kmezlabs.github.io/kmezBooks/ (Nov 1; moved from mawadk.github.io to the kmezLabs organization Nov 3).

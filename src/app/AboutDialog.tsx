@@ -7,7 +7,7 @@ import { Dialog } from './ui';
 import { versionText } from './statusText';
 
 /** The published site (GitHub Pages); its links work from localhost too. */
-export const SITE = 'https://mawadk.github.io/kmezBooks/';
+export const SITE = 'https://kmezlabs.github.io/kmezBooks/';
 
 function Out({ href, children }: { href: string; children: string }) {
   return (
@@ -50,13 +50,13 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
           <Out href={`${SITE}guide/`}>User guide</Out>
         </li>
         <li>
-          <Out href="https://github.com/mawadk/kmezBooks">Source code on GitHub</Out>
+          <Out href="https://github.com/kmezlabs/kmezBooks">Source code on GitHub</Out>
         </li>
       </ul>
       <p className="muted">Links need an internet connection.</p>
 
       <h3>License</h3>
-      <p>Copyright (C) 2026 Khaleel Mawad</p>
+      <p>Copyright (C) 2026 kmezLabs</p>
       <p>
         kmezBooks is free software: you can redistribute it and/or modify it under the terms of the
         GNU General Public License, version 3 or later. It comes with ABSOLUTELY NO WARRANTY.

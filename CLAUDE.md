@@ -50,6 +50,7 @@ Node 24+ and Chrome.
 | `npm run check` | Typecheck, lint and every test: run before each PR. CI (`.github/workflows/ci.yml`) runs it plus `npm run build:pages`, which fails on a broken link in the home page or guide |
 | `npm run typecheck` | `tsc --noEmit` (use this, not `tsc -b`) |
 | `npx vitest run src/modules/migration/importer.test.ts -t "ties out"` | One test file, or the tests whose name matches `-t` |
+| `npm run e2e` | End-to-end tests: builds the site into `e2e-dist/`, serves it on a free localhost port and drives it in headless Chrome (`e2e/`). `-- --no-build` reuses the build, `-- ledger` runs only specs whose file name has that word, `-- --url <app url>` tests a published copy. Failures leave a screenshot and the page text in `e2e-results/`. CI runs it as the `e2e` job |
 | `npm run format` | Prettier |
 | `npm run build:pages` | The GitHub Pages site in `pages-dist/`; `node scripts/build-pages.mjs --out <dir>` builds it elsewhere |
 | `npm run build` / `npm run preview` | The app at base `/` in `dist/`, served on `localhost:4180` (pinned, `strictPort`) |
@@ -72,6 +73,7 @@ How a call travels, which takes several files to see:
   - `db/tests/testDb.ts`: `newTestDb()`, with the real schema, and `newCompanyDb()`, which adds a company, owner and session;
   - `db/tests/ledgerTestDb.ts`: `newLedgerDb()`, which also adds the default chart of accounts;
   - `src/modules/migration/testing/qboFixtures.ts`: writes made-up QuickBooks exports in their real layout.
+- **E2E (`e2e/`):** plain Node over the Chrome DevTools protocol, with no test dependency. `e2e/lib/browser.mjs` starts Chrome (`CHROME_PATH`, or the usual install places) with a fresh profile per spec and has the helpers (`click`, `fill`, `pick` for combo boxes, `nav`, `setFiles`). Headless Chrome has no folder picker, so `showDirectoryPicker` returns folders in the browser's private storage, named with `page.nextFolder()`; that is test-only, never where the app keeps books. Specs are `e2e/specs/NN-name.e2e.mjs`, each exporting `title` and `run({ page, app, step })`; the every-page spec reads `Workspace.tsx` and `helpTopics.ts`, so new pages are covered without editing it.
 
 ## Architecture rules (follow these when writing code)
 

@@ -162,7 +162,37 @@ describe('transactions register (GL-9)', () => {
     expect(register(db).rows.find((x) => x.id === complex)!.simple).toBeNull();
   });
 
-  it('turns the quick form into balanced lines, refusing what doesn’t add up', () => {
+  it('records an expense split across categories, with or without a payee (EX-1, EX-3)', () => {
+    const card = accountId(db, 'Credit Card');
+    const supplies = accountId(db, 'Office Supplies and Software');
+    const meals = accountId(db, 'Meals');
+    const entry = simpleToEntry(
+      {
+        kind: 'expense',
+        moneyAccountId: card,
+        lines: [
+          { accountId: supplies, amount: 12_34, memo: 'Toner' },
+          { accountId: meals, amount: 7_66, memo: null },
+          // A blank line left in the form is ignored
+          { accountId: '', amount: 0, memo: null },
+        ],
+      },
+      { date: '2026-02-02', ref: '1001' },
+    );
+    expect(entry.name).toBeUndefined();
+    expect(entry.lines).toEqual([
+      { accountId: card, debit: 0, credit: 20_00 },
+      { accountId: supplies, debit: 12_34, credit: 0, memo: 'Toner' },
+      { accountId: meals, debit: 7_66, credit: 0, memo: null },
+    ]);
+    const id = postEntry(db, { ...entry, sourceType: 'journal' });
+    const row = register(db).rows.find((x) => x.id === id)!;
+    expect(row).toMatchObject({ ref: '1001', name: null, status: 'posted' });
+    expect(row.simple).toMatchObject({ kind: 'expense', moneyAccountId: card });
+    expect(row.simple!.lines.map((l) => l.amount)).toEqual([12_34, 7_66]);
+  });
+
+  it('turns the quick form into balanced lines, refusing what doesn’t add up (EX-1)', () => {
     const utilities = accountId(db, 'Utilities');
     const entry = simpleToEntry(
       {

@@ -1,75 +1,14 @@
 // The debit and credit lines of a journal entry, as typed: used by the journal
 // entry form and by recurring entries (GL-4, GL-5). Amounts stay text until
-// saved; lineTotals() says whether they balance.
+// saved; lineTotals() says whether they balance. The pure helpers live in
+// lineDrafts.ts, so they can be tested without a browser.
 
 import type { AccountRow } from '../shared/accounts';
-import { formatMoney, parseMoney } from '../shared/money';
-import { AccountSelect, MoneyInput, cents } from './ledgerUi';
+import { formatMoney } from '../shared/money';
+import { AccountSelect, MoneyInput } from './ledgerUi';
+import { blankLine, lineTotals, type LineDraft } from './lineDrafts';
 
-export interface LineDraft {
-  key: number;
-  accountId: string;
-  debit: string;
-  credit: string;
-  memo: string;
-  /** A line's own payee (MG-3), kept from the entry it was filled from */
-  name?: string | null;
-}
-
-let nextKey = 1;
-export const blankLine = (): LineDraft => ({
-  key: nextKey++,
-  accountId: '',
-  debit: '',
-  credit: '',
-  memo: '',
-});
-
-/** Lines of a saved entry or template, ready to edit. */
-export function linesFrom(
-  lines: {
-    accountId: string;
-    debit: number;
-    credit: number;
-    memo: string | null;
-    name?: string | null;
-  }[],
-): LineDraft[] {
-  return lines.map((l) => ({
-    ...blankLine(),
-    accountId: l.accountId,
-    debit: l.debit ? formatMoney(l.debit) : '',
-    credit: l.credit ? formatMoney(l.credit) : '',
-    memo: l.memo ?? '',
-    name: l.name,
-  }));
-}
-
-/** The lines in use, their totals, and whether every amount reads as money. */
-export function lineTotals(lines: LineDraft[]) {
-  const used = lines.filter((l) => l.accountId || l.debit.trim() || l.credit.trim());
-  const debits = used.reduce((s, l) => s + cents(l.debit), 0);
-  const credits = used.reduce((s, l) => s + cents(l.credit), 0);
-  return {
-    used,
-    debits,
-    credits,
-    difference: debits - credits,
-    badAmount: lines.some((l) => parseMoney(l.debit) === null || parseMoney(l.credit) === null),
-    /** At least two lines, with something on them, that balance */
-    balanced: debits - credits === 0 && debits > 0 && used.length >= 2,
-  };
-}
-
-/** The lines as cents, for saving. */
-export const linesToCents = (used: LineDraft[]) =>
-  used.map((l) => ({
-    accountId: l.accountId,
-    debit: cents(l.debit),
-    credit: cents(l.credit),
-    memo: l.memo,
-    name: l.name ?? null,
-  }));
+export { blankLine, lineTotals, linesFrom, linesToCents, type LineDraft } from './lineDrafts';
 
 export function LineEditor(props: {
   accounts: AccountRow[];

@@ -114,5 +114,13 @@ export default defineConfig({
     // (schema.ts finds them with import.meta.glob), so tests would silently
     // run without the newest migration. The suite is fast enough without it.
     fsModuleCache: false,
+    // `npm run coverage`: line and branch coverage of the app's own code, as a
+    // summary in the terminal and a browsable report in coverage/index.html
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.ts', 'src/**/testing/**', 'src/types/**', 'src/main.tsx'],
+      reporter: ['text-summary', 'text', 'html'],
+    },
   },
 });

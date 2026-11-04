@@ -213,6 +213,8 @@ export function RegisterPage(props: {
 
   return (
     <section className="register">
+      {/* Every page has a heading, so screen readers can find where it starts */}
+      {!single && <h2>Transactions</h2>}
       {single && (
         <>
           <h2>Accounts register</h2>

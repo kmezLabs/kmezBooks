@@ -3,6 +3,8 @@ dist/
 pages-dist/
 dev-dist/
 coverage/
+e2e-dist/
+e2e-results/
 *.log
 .DS_Store
 .vscode/*

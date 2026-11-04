@@ -329,4 +329,4 @@ Still open:
 - [x] ~~Payment-to-invoice and payment-to-bill links in QuickBooks exports (MG-10).~~ Not needed with cash-basis history.
 - [x] Before the migration milestone: export one year of one company from QuickBooks Online on Cash basis and confirm the rows can be grouped back into balanced transactions. Done Oct 27 (one company's 2025): QuickBooks's Export data gives the Journal (no accounting method; grouped by transaction) and cash-basis General Ledger, Trial Balance and Balance Sheet. The import uses the Journal where it matches the cash-basis General Ledger, and rebuilds from the General Ledger where it doesn't; that year tied out exactly.
 - [ ] First technical test results: Chrome for Android folder support, and time and memory to open and save a company with 17 years of history.
-- [x] Where to host the app: GitHub Pages at https://kmezlabs.github.io/kmezBooks/ (Nov 1; moved from mawadk.github.io to the kmezLabs organization Nov 3).
+- [x] Where to host the app: GitHub Pages at https://kmezlabs.github.io/kmezBooks/ (Nov 1; under the kmezLabs organization since Nov 3).

@@ -28,7 +28,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <p>{versionText().title}</p>
-      <p>Designed and Developed by Khaleel Mawad.</p>
+      <p>Designed and Developed by kmezLabs.</p>
 
       <h3>Your books and your privacy</h3>
       <p>
@@ -39,7 +39,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         No telemetry: kmezBooks sends no usage data, analytics or crash reports. It goes online only
         to load itself and to check for a new version.
       </p>
-      <p>This project is maintained by Khaleel Mawad and is open to contributions and feedback.</p>
+      <p>This project is maintained by kmezLabs and is open to contributions and feedback.</p>
 
       <h3>Links</h3>
       <ul className="about-links">

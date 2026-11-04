@@ -28,6 +28,18 @@ npm run check      # typecheck + lint + tests
 | `npm run build:pages`       | The GitHub Pages site in `pages-dist/`: home page, app and user guide      |
 | `npm run icons`             | Redraw `public/icons`                                                      |
 
+### Running the app from this computer
+
+Besides the web address, the app can run from the project folder: `npm run build`, then `npx vite preview` and open **http://localhost:4180**. That copy is separate from the one at the web address: Chrome keeps a few things for each address (the recent companies list, backup folder choices, the theme, device name and idle time), so each starts without the other's. The books aren't affected: they stay in their folders.
+
+To move from `localhost:4180` to the web address:
+
+1. Close every company in the old copy.
+2. Open https://kmezlabs.github.io/kmezBooks/app/ and install it.
+3. Open each company with **Open company folder…**, once. After that it's in the recent list.
+4. Choose each company's backup folder again, under **Backups**, and set the device name, idle time and theme in **Settings** (the gear).
+5. Then uninstall the old copy, or keep it as a spare. Don't use both at once: the folder lock stops the second one from opening a company the first has open.
+
 ## Branches and releases
 
 - Work happens on a branch and goes to `develop` by a pull request, squash-merged; the branch is then deleted.

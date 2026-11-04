@@ -1754,7 +1754,18 @@ export class CompanySession {
     if (!c) return;
     if (!c.readOnly && !this.lockLost) {
       recordEvent(c.db, 'lock', this.device);
-      await this.save();
+      // The last save isn't reported: pages reload on a save, and would ask a
+      // company that is gone a moment later. The UI hears once, when it's closed.
+      this.quiet++;
+      try {
+        await this.save();
+      } catch (e) {
+        // Still open: say why, so the owner can keep their work
+        this.quiet--;
+        this.emit();
+        throw e;
+      }
+      this.quiet--;
     }
     await this.discard();
   }

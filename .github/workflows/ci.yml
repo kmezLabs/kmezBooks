@@ -22,3 +22,22 @@ jobs:
       - run: npm run check
       # The GitHub Pages site: home page, app and user guide, with its link checks
       - run: npm run build:pages
+
+  # The built app in headless Chrome (the runner's own Chrome). Not yet one of
+  # the checks the rulesets require; the owner can add it once it has proven steady.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: e2e-results/
+          retention-days: 7

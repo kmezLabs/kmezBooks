@@ -86,6 +86,42 @@ describe('company session: create, autosave, close (DF-1, DF-2, DF-9)', () => {
     expect(actions.slice(0, 2)).toEqual(['unlock:Laptop', 'lock:Office PC']);
   });
 
+  it('reports a close once, as closed, without an open "saved" status first (DF-2)', async () => {
+    // Pages reload when a save is reported; a report while closing made them
+    // ask a company that was gone a moment later ("No company is open")
+    const dir = await createdCompany();
+    const seen: { open: boolean; saved: string | null }[] = [];
+    const { session } = newSession({
+      saveDelayMs: 10_000,
+      onStatus: (s) => seen.push({ open: s.open, saved: s.lastSavedAt }),
+    });
+    await session.open(asDir(dir), 'pw', { device: 'PC' });
+    session.updateDetails({ city: 'Saved on close' });
+    seen.length = 0;
+    await session.close();
+    expect(seen.map((s) => s.open)).toEqual([false]);
+
+    const check = newSession().session;
+    await check.open(asDir(dir), 'pw', { device: 'PC' });
+    expect(check.details().city).toBe('Saved on close');
+  });
+
+  it('when the save on close fails, stays open and reports why', async () => {
+    const dir = await createdCompany();
+    const seen: { open: boolean; error: string | null }[] = [];
+    const { session } = newSession({
+      saveDelayMs: 10_000,
+      onStatus: (s) => seen.push({ open: s.open, error: s.error?.name ?? null }),
+    });
+    await session.open(asDir(dir), 'pw', { device: 'PC' });
+    session.updateDetails({ city: 'Not lost' });
+    dir.denyAccess = true;
+    seen.length = 0;
+    await expect(session.close()).rejects.toMatchObject({ name: 'FolderAccessError' });
+    expect(seen.at(-1)).toEqual({ open: true, error: 'FolderAccessError' });
+    expect(session.status()).toMatchObject({ open: true, dirty: true });
+  });
+
   it('backs up the first save of the day and then every 4 hours, not every save', async () => {
     const dir = new FakeDir();
     const { session, advance } = newSession();

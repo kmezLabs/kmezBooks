@@ -1,6 +1,8 @@
-# CLAUDE.md — Accounting App (MVP)
+# CLAUDE.md
 
-Context for Claude Code. This project, **kmezBooks**, is a standalone, double-entry accounting PWA, inspired by QuickBooks Online, for the owner's four US small businesses. Each company's books are an encrypted company folder on the user's own disk, which the app opens like a document.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+This project, **kmezBooks**, is a standalone, double-entry accounting PWA, inspired by QuickBooks Online, for the owner's four US small businesses. Each company's books are an encrypted company folder on the user's own disk, which the app opens like a document.
 
 **Source of truth for scope:** `docs/MVP-REQUIREMENTS.md` (exported from the requirements doc). Every requirement has a stable ID (e.g. `GL-3`, `BK-6`, `MG-5`) with priority **M** (must) or **S** (should). Reference these IDs in commits, PRs, tests and code comments. If this file and the requirements doc disagree, the requirements doc wins; flag the conflict to the user.
 
@@ -37,6 +39,42 @@ Context for Claude Code. This project, **kmezBooks**, is a standalone, double-en
 - **Schema changes:** numbered SQL migration files in `db/migrations/` (one sequence across modules), bundled with the app, applied when a company is opened (`PRAGMA user_version`); take a backup first and refuse companies from a newer version (`DF-11`). Never edit a company database by hand
 - **DB tests:** Vitest against the real schema (SQLite in Node, same `@sqlite.org/sqlite-wasm` package, migrations loaded through the same `import.meta.glob` as the app). Vitest runs in one reused worker (`isolate: false, maxWorkers: 1`) because the dev PC is short of memory; tests must not depend on module isolation. Its on-disk module cache is off (`fsModuleCache: false`) because it missed new migration files
 - **Backups:** the user's normal file backups cover the company folders; the app adds versioned encrypted backups and restore (`DF-9`, `DF-10`)
+
+## Commands
+
+Node 24+ and Chrome.
+
+| Command | What |
+| --- | --- |
+| `npm run dev` | Dev server on 5173 (`PWA_DEV=1 npm run dev` also serves the service worker) |
+| `npm run check` | Typecheck, lint and every test: run before each PR. CI (`.github/workflows/ci.yml`) runs it plus `npm run build:pages`, which fails on a broken link in the home page or guide |
+| `npm run typecheck` | `tsc --noEmit` (use this, not `tsc -b`) |
+| `npx vitest run src/modules/migration/importer.test.ts -t "ties out"` | One test file, or the tests whose name matches `-t` |
+| `npm run coverage` | The tests with line and branch coverage of `src/`: a summary in the terminal and a report in `coverage/index.html`. The screens (`.tsx`) show 0%: `npm run e2e` tests them, and coverage doesn't measure it |
+| `npm run e2e` | End-to-end tests: builds the site into `e2e-dist/`, serves it on a free localhost port and drives it in headless Chrome (`e2e/`). `-- --no-build` reuses the build, `-- ledger` runs only specs whose file name has that word, `-- --url <app url>` tests a published copy. Failures leave a screenshot and the page text in `e2e-results/`. CI runs it as the `e2e` job |
+| `npm run format` | Prettier |
+| `npm run build:pages` | The GitHub Pages site in `pages-dist/`; `node scripts/build-pages.mjs --out <dir>` builds it elsewhere |
+| `npm run build` / `npm run preview` | The app at base `/` in `dist/`, served on `localhost:4180` (pinned, `strictPort`) |
+
+- **Run Vitest from `C:\…` with an upper-case drive letter.** From `c:\…` every test file fails before running ("Cannot read properties of undefined (reading 'config')", "failed to find the runner"), because Vitest loads its own modules twice.
+- **Real-data tests are opt-in and never commit their data:** `QBO_DIR="<folder of QuickBooks exports>" npx vitest run src/modules/migration/realData.test.ts --silent=false` dry-runs an import; `src/modules/banking/realStatements.test.ts` does the same for `.qbo` statements.
+- The test runner settings (one reused worker, no module cache) are in Tech stack.
+
+## Code map
+
+How a call travels, which takes several files to see:
+
+- **UI → worker:** React screens (`src/app/`, module screens in `src/modules/<name>/`) call `db` from `src/shared/workerClient.ts`, a Comlink proxy for `WorkerApi` in `src/worker/db.worker.ts`. Worker errors arrive as plain `Error`s whose `name` comes from `src/worker/errors.ts`.
+- **One open company:** `db.worker.ts` delegates to `CompanySession` (`src/worker/companySession.ts`): open, unlock, autosave, the folder lock and heartbeat (`lockFile.ts`), backups and restore, close. Browser-only pieces (Web Locks, timers, clock) are passed in, so the whole flow runs under Node in tests. `SessionStatus` is pushed to the UI through `db.subscribe`, and `App.tsx` shows the start screen or `Workspace.tsx`, whose `PAGES` names every page.
+- **Files on disk:** `companyFolder.ts` (folder layout and atomic writes), `kmbFormat.ts` (the encrypted `KMB1` file), `attachments.ts`, `sqlite.ts` (loading the in-memory database).
+- **Schema:** `src/worker/schema.ts` (`applySchema`) applies `db/migrations/NNNN_*.sql` by `PRAGMA user_version`, then regenerates the audit triggers (`audit.ts`).
+- **Ledger and modules:** `src/ledger/` holds the accounting core: `postEntry()`, `balances.ts` (`trialBalance()`), `reports.ts`, `allocate.ts`, `events.ts`. Modules (`banking`, `bills`, `sales`, `migration`) put their logic in `src/modules/<name>/` and call the ledger, never the tables.
+- **Help:** `scripts/guide.mjs` renders `docs/USER-GUIDE.md` both for the site (`build-pages.mjs`) and into the app as `virtual:user-guide` (a Vite plugin in `vite.config.ts`). `src/app/helpTopics.ts` maps each page to guide heading ids.
+- **Test helpers:**
+  - `db/tests/testDb.ts`: `newTestDb()`, with the real schema, and `newCompanyDb()`, which adds a company, owner and session;
+  - `db/tests/ledgerTestDb.ts`: `newLedgerDb()`, which also adds the default chart of accounts;
+  - `src/modules/migration/testing/qboFixtures.ts`: writes made-up QuickBooks exports in their real layout.
+- **E2E (`e2e/`):** plain Node over the Chrome DevTools protocol, with no test dependency. `e2e/lib/browser.mjs` starts Chrome (`CHROME_PATH`, or the usual install places) with a fresh profile per spec and has the helpers (`click`, `fill`, `pick` for combo boxes, `nav`, `setFiles`). Headless Chrome has no folder picker, so `showDirectoryPicker` returns folders in the browser's private storage, named with `page.nextFolder()`; that is test-only, never where the app keeps books. Specs are `e2e/specs/NN-name.e2e.mjs`, each exporting `title` and `run({ page, app, step })`; the every-page spec reads `Workspace.tsx` and `helpTopics.ts`, so new pages are covered without editing it.
 
 ## Architecture rules (follow these when writing code)
 

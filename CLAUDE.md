@@ -50,6 +50,7 @@ Node 24+ and Chrome.
 | `npm run check` | Typecheck, lint and every test: run before each PR. CI (`.github/workflows/ci.yml`) runs it plus `npm run build:pages`, which fails on a broken link in the home page or guide |
 | `npm run typecheck` | `tsc --noEmit` (use this, not `tsc -b`) |
 | `npx vitest run src/modules/migration/importer.test.ts -t "ties out"` | One test file, or the tests whose name matches `-t` |
+| `npm run coverage` | The tests with line and branch coverage of `src/`: a summary in the terminal and a report in `coverage/index.html`. The screens (`.tsx`) show 0% until the E2E suite covers them |
 | `npm run format` | Prettier |
 | `npm run build:pages` | The GitHub Pages site in `pages-dist/`; `node scripts/build-pages.mjs --out <dir>` builds it elsewhere |
 | `npm run build` / `npm run preview` | The app at base `/` in `dist/`, served on `localhost:4180` (pinned, `strictPort`) |

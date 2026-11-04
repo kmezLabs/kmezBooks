@@ -24,6 +24,7 @@ npm run check      # typecheck + lint + tests
 | --------------------------- | -------------------------------------------------------------------------- |
 | `npm run dev`               | Development server. `PWA_DEV=1 npm run dev` also serves the service worker |
 | `npm test`                  | Vitest: TypeScript logic and integrity rules against the real schema       |
+| `npm run coverage`          | The tests with coverage of `src/`; report in `coverage/index.html`         |
 | `npm run build` / `preview` | Production build (needs free memory; see the M1 results)                   |
 | `npm run build:pages`       | The GitHub Pages site in `pages-dist/`: home page, app and user guide      |
 | `npm run icons`             | Redraw `public/icons`                                                      |

@@ -78,12 +78,12 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 10. **M9** Invoices and bills, cash basis, per-company modules that start off (planned 2026-10-28): slice 1 products & services, estimates, invoices, customer payments, slice 2 the invoice PDF and sending it, slice 3 recurring invoices, slice 4 bills and bill payments (built)
 11. At the owner's request: one Accounts register for any account, with a reconciled column for banks and cards (`GL-13`), and transfers between accounts (`GL-14`) (built 2026-10-29)
 12. At the owner's request: a status bar with save state, last backup, online/offline, messages after actions, and the version and build (`CO-6`) (built 2026-10-31)
-13. Renamed EasyBooks to kmezBooks (2026-10-31): app, files, settings keys, GitHub repo `mawadk/kmezBooks`, local folder `C:\KM\dev\kmezBooks`
+13. Renamed EasyBooks to kmezBooks (2026-10-31): app, files, settings keys, local folder `C:\KM\dev\kmezBooks`
 14. Hosting on GitHub Pages with a home page and the user guide, GPL-3.0-or-later, public repo, protected `develop` and `release` branches (2026-11-01)
 15. About panel (`CO-8`): version, no telemetry, links, copyright and GPL notice (2026-11-02)
 16. Help on every page (`CO-9`): a **?** opens the page's user-guide sections in a side panel. The guide is rendered into the app from `docs/USER-GUIDE.md` at build time (`scripts/guide.mjs`, shared with the site build), so help follows the guide and works offline; `src/app/helpTopics.ts` maps pages to heading ids, and a test fails if a heading it names is gone (2026-11-02)
 17. Settings dialog with themes (`CO-10`): a gear in the top bar opens Settings; themes System, Light, Dark, Grey, High contrast and Warm are sets of the 14 colour variables in `src/app/app.css`, chosen per computer (`kmezbooks.theme`, applied before the page draws by `index.html`). `src/app/themes.test.ts` checks every theme is complete and readable. The device name and idle time moved there too, so the Passphrase and device page is now Passphrase (2026-11-02)
-18. Moved to the **kmezLabs** GitHub organization (2026-11-03): repo `kmezLabs/kmezBooks`, site `https://kmezlabs.github.io/kmezBooks/`; the old `mawadk.github.io` address is gone, so installed copies move once (`docs/USER-GUIDE.md`, "Moving from the old web address")
+18. Moved to the **kmezLabs** GitHub organization (2026-11-03): repo `kmezLabs/kmezBooks`, site `https://kmezlabs.github.io/kmezBooks/`
 
 ## Conversation history (how we got here)
 

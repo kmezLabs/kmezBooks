@@ -48,16 +48,6 @@ kmezBooks is made for **Chrome on a computer**. A browser that can't open folder
 
 New versions are published to the web address from time to time. When one is ready, a bar at the top says **"A new version of kmezBooks is ready"**. Click **Save, close and update**. Your open company is saved and closed first, then the new version starts; open the company again afterwards. If the save fails, nothing updates and the bar tells you why. With no company open, the button is **Update now**.
 
-### Moving from the old web address
-
-Until November 3, 2026, kmezBooks was at `https://mawadk.github.io/kmezBooks/`. That address no longer works. A copy installed from it still opens offline, but it can't be updated any more. Your books aren't affected: they stay in their folders.
-
-1. Close every company in the old copy.
-2. Open https://kmezlabs.github.io/kmezBooks/app/ and install it.
-3. Open each company with **Open company folder…**, once.
-4. Choose each company's backup folder again, under **Backups**, and set the device name, idle time and theme in **Settings** (the gear).
-5. Then uninstall the old copy.
-
 ### The screen
 
 - **Top bar:** the open company's name, **Close company**, **?** for help with the page you're on, the gear for **Settings** (see [Settings](#settings)), and, at the far right, **About**. It stays in place while you scroll.

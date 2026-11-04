@@ -1,4 +1,4 @@
-// Every page opens without errors and its ? shows the right sections of the
+// Every page opens without errors, has a heading, and its ? shows the right sections of the
 // user guide (CO-9); help closes when the page or the company changes; the
 // installed app works offline. The pages and their sections are read from
 // Workspace.tsx and helpTopics.ts, so this follows the code.
@@ -87,19 +87,27 @@ export async function run({ page, app, step }) {
   });
 
   for (const [key, label] of Object.entries(PAGES)) {
-    await step(`${label}: opens, and ? shows ${TOPICS[key].join(', ')}`, async () => {
-      const before = page.problems.length;
-      await page.nav(label);
-      await page.waitFor(
-        `document.querySelector('.sidebar [aria-current=page]')?.textContent === ${JSON.stringify(label)} && document.querySelector('main')?.innerText.trim().length > 0`,
-      );
-      // Help from the previous page closes when you go to another one
-      await page.waitFor(closed, 3_000);
-      await page.js(`document.querySelector('.topbar .help-button').click(), true`);
-      await page.waitFor(open);
-      expectTopics(await shownIds(page), TOPICS[key], label);
-      if (page.problems.length > before) throw new Error(page.problems.slice(before).join('\n'));
-    });
+    await step(
+      `${label}: opens with a heading, and ? shows ${TOPICS[key].join(', ')}`,
+      async () => {
+        const before = page.problems.length;
+        await page.nav(label);
+        await page.waitFor(
+          `document.querySelector('.sidebar [aria-current=page]')?.textContent === ${JSON.stringify(label)} && document.querySelector('main')?.innerText.trim().length > 0`,
+        );
+        // Every page has a heading, so screen readers can find where it starts
+        const heading = await page.js(
+          `document.querySelector('main h2')?.textContent.trim() ?? ''`,
+        );
+        if (!heading) throw new Error('the page has no heading (h2)');
+        // Help from the previous page closes when you go to another one
+        await page.waitFor(closed, 3_000);
+        await page.js(`document.querySelector('.topbar .help-button').click(), true`);
+        await page.waitFor(open);
+        expectTopics(await shownIds(page), TOPICS[key], label);
+        if (page.problems.length > before) throw new Error(page.problems.slice(before).join('\n'));
+      },
+    );
   }
 
   await step('Close company closes help too', async () => {

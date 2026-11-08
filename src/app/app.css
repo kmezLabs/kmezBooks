@@ -24,11 +24,12 @@
   background: var(--bg);
 }
 
-/* Themes (CO-10). With no theme chosen ("System") the page follows the
-   computer: light above, dark here. A chosen theme sets data-theme on <html>
-   (settings.ts, and index.html before the page draws); the theme previews in
-   Settings carry their own data-theme. themes.test.ts checks every theme has
-   all the colours, readable contrast, and that the two dark sets match. */
+/* Themes (CO-11), one per company. With no theme ("Follow this computer", and
+   always on the start screen) the page follows the computer: light above, dark
+   here. A company's theme sets data-theme on <html> (App.tsx, from the session
+   status); the samples on the Company page carry their own data-theme.
+   themes.test.ts checks every theme in src/shared/themes.ts has a block here
+   with all the colours and readable contrast, and that the two dark sets match. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --fg: #e6e9ed;
@@ -142,6 +143,195 @@
   color-scheme: light;
 }
 
+/* Soft green-grey */
+[data-theme='sage'] {
+  --fg: #1e2620;
+  --muted: #485349;
+  --bg: #eef2ee;
+  --panel: #e2e9e3;
+  --line: #c4cfc6;
+  --accent: #355a47;
+  --accent-fg: #ffffff;
+  --error: #962226;
+  --error-bg: #f4dcdc;
+  --warn-bg: #f1e6c2;
+  --warn: #664000;
+  --ok: #275e31;
+  --notice-bg: #dbe6de;
+  --overlay: rgb(20 30 25 / 0.35);
+  color-scheme: light;
+}
+
+/* Soft violet-grey */
+[data-theme='lavender'] {
+  --fg: #221f2b;
+  --muted: #4e485b;
+  --bg: #f1eff6;
+  --panel: #e6e2ef;
+  --line: #cbc5da;
+  --accent: #524584;
+  --accent-fg: #ffffff;
+  --error: #962230;
+  --error-bg: #f5dde2;
+  --warn-bg: #f3e8c6;
+  --warn: #664000;
+  --ok: #275e31;
+  --notice-bg: #e1dcef;
+  --overlay: rgb(25 20 40 / 0.35);
+  color-scheme: light;
+}
+
+/* Deep navy, light text */
+[data-theme='midnight'] {
+  --fg: #e3e8f2;
+  --muted: #9aa6bd;
+  --bg: #0f1626;
+  --panel: #162036;
+  --line: #2a3755;
+  --accent: #8fb4ff;
+  --accent-fg: #0d1424;
+  --error: #ff8f96;
+  --error-bg: #3a1b26;
+  --warn-bg: #3a3218;
+  --warn: #f0c25e;
+  --ok: #7fd69a;
+  --notice-bg: #1a2a48;
+  --overlay: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+/* Neutral dark grey */
+[data-theme='charcoal'] {
+  --fg: #e8e8e8;
+  --muted: #a8a8a8;
+  --bg: #1c1c1c;
+  --panel: #262626;
+  --line: #3d3d3d;
+  --accent: #9ec5e8;
+  --accent-fg: #111111;
+  --error: #ff8a8a;
+  --error-bg: #3d1f1f;
+  --warn-bg: #3d3518;
+  --warn: #f0c060;
+  --ok: #86d697;
+  --notice-bg: #23303b;
+  --overlay: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+/* Warm dark brown, cream text */
+[data-theme='espresso'] {
+  --fg: #efe4d6;
+  --muted: #bba792;
+  --bg: #1f1712;
+  --panel: #2a201a;
+  --line: #45372c;
+  --accent: #e0a96d;
+  --accent-fg: #1f1712;
+  --error: #ff9a8a;
+  --error-bg: #40221c;
+  --warn-bg: #403518;
+  --warn: #f2c66a;
+  --ok: #9fd68a;
+  --notice-bg: #33291f;
+  --overlay: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+/* White on black with white rules: every colour pair reaches 7:1 */
+[data-theme='contrast-dark'] {
+  --fg: #ffffff;
+  --muted: #e0e0e0;
+  --bg: #000000;
+  --panel: #121212;
+  --line: #ffffff;
+  --accent: #8cc8ff;
+  --accent-fg: #000000;
+  --error: #ff9e9e;
+  --error-bg: #2a0000;
+  --warn-bg: #2a2200;
+  --warn: #ffd75e;
+  --ok: #8af0a0;
+  --notice-bg: #001a33;
+  --overlay: rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+/* Light pages, blue accent */
+[data-theme='ocean'] {
+  --fg: #14202b;
+  --muted: #485665;
+  --bg: #f3f8fc;
+  --panel: #e6f0f8;
+  --line: #c3d6e6;
+  --accent: #0b5a8c;
+  --accent-fg: #ffffff;
+  --error: #a4262c;
+  --error-bg: #fde7e9;
+  --warn-bg: #fff4ce;
+  --warn: #7a4a00;
+  --ok: #1e7a34;
+  --notice-bg: #dcebf7;
+  --overlay: rgb(0 20 40 / 0.35);
+  color-scheme: light;
+}
+
+/* Light pages, green accent */
+[data-theme='forest'] {
+  --fg: #17241b;
+  --muted: #49584e;
+  --bg: #f4f8f4;
+  --panel: #e5efe6;
+  --line: #c2d6c5;
+  --accent: #1d6537;
+  --accent-fg: #ffffff;
+  --error: #a4262c;
+  --error-bg: #fbe4e4;
+  --warn-bg: #fbf0c9;
+  --warn: #7a4a00;
+  --ok: #1d6b2f;
+  --notice-bg: #dcecdf;
+  --overlay: rgb(10 30 15 / 0.35);
+  color-scheme: light;
+}
+
+/* Light pages, purple accent */
+[data-theme='plum'] {
+  --fg: #221a28;
+  --muted: #554a5d;
+  --bg: #f8f5fa;
+  --panel: #efe8f3;
+  --line: #d6c8de;
+  --accent: #66298a;
+  --accent-fg: #ffffff;
+  --error: #a4262c;
+  --error-bg: #fbe4e6;
+  --warn-bg: #fcf1cc;
+  --warn: #7a4a00;
+  --ok: #1e6e32;
+  --notice-bg: #ebe0f2;
+  --overlay: rgb(30 10 40 / 0.35);
+  color-scheme: light;
+}
+
+/* Light pages, deep red accent */
+[data-theme='rose'] {
+  --fg: #2a1a1d;
+  --muted: #5c494e;
+  --bg: #fcf6f7;
+  --panel: #f5e8eb;
+  --line: #e2c6cd;
+  --accent: #961b38;
+  --accent-fg: #ffffff;
+  --error: #a3201b;
+  --error-bg: #fbe0dc;
+  --warn-bg: #fcf1cc;
+  --warn: #7a4a00;
+  --ok: #1e6e32;
+  --notice-bg: #f5e1e6;
+  --overlay: rgb(40 10 15 / 0.35);
+  color-scheme: light;
+}
 * {
   box-sizing: border-box;
 }
@@ -323,50 +513,25 @@ button.icon-button {
   flex: none;
 }
 
-/* ---- settings and themes (CO-10) ---- */
+/* ---- the company's theme (CO-11): a dropdown and a sample beside it ---- */
 
-.theme-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 10px;
-  margin: 8px 0;
-  padding: 0;
-  border: none;
+.theme-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 24px;
 }
 
-.theme-card {
+.theme-picker > label {
+  flex: 0 1 320px;
+}
+
+.theme-sample {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.theme-card:has(input:checked) {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-
-.theme-card:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.theme-card .theme-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-}
-
-.theme-card input {
-  width: auto;
-  margin: 0;
-}
-
-.theme-card .muted {
+  gap: 4px;
+  flex: 0 1 220px;
+  min-width: 180px;
   font-size: 0.85rem;
 }
 

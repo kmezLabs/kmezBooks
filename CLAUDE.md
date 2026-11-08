@@ -120,8 +120,9 @@ Details in `docs/IMPLEMENTATION-PLAN.md`.
 14. Hosting on GitHub Pages with a home page and the user guide, GPL-3.0-or-later, public repo, protected `develop` and `release` branches (2026-11-01)
 15. About panel (`CO-8`): version, no telemetry, links, copyright and GPL notice (2026-11-02)
 16. Help on every page (`CO-9`): a **?** opens the page's user-guide sections in a side panel. The guide is rendered into the app from `docs/USER-GUIDE.md` at build time (`scripts/guide.mjs`, shared with the site build), so help follows the guide and works offline; `src/app/helpTopics.ts` maps pages to heading ids, and a test fails if a heading it names is gone (2026-11-02)
-17. Settings dialog with themes (`CO-10`): a gear in the top bar opens Settings; themes System, Light, Dark, Grey, High contrast and Warm are sets of the 14 colour variables in `src/app/app.css`, chosen per computer (`kmezbooks.theme`, applied before the page draws by `index.html`). `src/app/themes.test.ts` checks every theme is complete and readable. The device name and idle time moved there too, so the Passphrase and device page is now Passphrase (2026-11-02)
+17. Settings dialog (`CO-10`): a gear in the top bar opens Settings, this computer's settings (device name, idle time); more app-wide settings can join it. The Passphrase and device page is now Passphrase (2026-11-02)
 18. Moved to the **kmezLabs** GitHub organization (2026-11-03): repo `kmezLabs/kmezBooks`, site `https://kmezlabs.github.io/kmezBooks/`
+19. A theme per company (`CO-11`, 2026-11-08): chosen on the Company page from a dropdown, saved in the company file (`company.theme`, migration 0022; `NULL` follows the computer). The 16 themes are listed in `src/shared/themes.ts`, and each one except "follow the computer" is a `[data-theme]` block of the 14 colour variables in `src/app/app.css`. `App.tsx` applies the open company's theme from the session status; the start screen follows the computer. `src/app/themes.test.ts` checks the list and the CSS match and every theme is readable (AA, AAA for both high-contrast themes)
 
 ## Conversation history (how we got here)
 

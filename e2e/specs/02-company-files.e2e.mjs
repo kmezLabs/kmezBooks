@@ -2,7 +2,7 @@
 // folder while it is open (the lock, DF-4) and after closing it, and open it
 // again from the recent list with its passphrase (US-1).
 
-export const title = 'Company files: create, close, reopen (DF-1, DF-2, DF-4, US-1)';
+export const title = 'Company files: create, close, reopen, theme (DF-1, DF-2, DF-4, US-1, CO-11)';
 
 const PASSPHRASE = 'e2e correct horse battery';
 
@@ -66,6 +66,34 @@ export async function run({ page, app, step }) {
     await page.fill('Passphrase', PASSPHRASE);
     await page.click('Open', { exact: true });
     await page.waitFor(`document.querySelector('.company-name')?.textContent === 'Acme LLC'`);
+  });
+
+  await step('a theme chosen on the Company page is saved with the company (CO-11)', async () => {
+    await page.nav('Company');
+    const select = `[...document.querySelectorAll('main label')].find((l) => l.firstChild?.textContent.trim() === 'Colours for this company')?.querySelector('select')`;
+    await page.waitFor(`!!${select}`);
+    const background = () => page.js(`getComputedStyle(document.body).backgroundColor`);
+    const before = await background();
+    await page.fill('Colours for this company', 'ocean', { scope: 'document' });
+    await page.waitFor(`document.documentElement.dataset.theme === 'ocean'`);
+    const ocean = await background();
+    if (ocean === before) throw new Error(`the page stayed ${before}`);
+    const options = await page.js(`(${select}).options.length`);
+
+    // Closing goes back to the computer's colours; reopening brings Ocean back
+    await page.waitFor(
+      `/^(Saved|All changes saved)/.test(document.querySelector('.save-state')?.textContent ?? '')`,
+    );
+    await page.click('Close company', { exact: true, scope: 'document' });
+    await page.waitFor(`!!document.querySelector('.start-header')`);
+    if (await page.js(`document.documentElement.dataset.theme ?? ''`)) {
+      throw new Error('the start screen kept the company theme');
+    }
+    await page.click('Acme LLC', { scope: 'document' });
+    await page.fill('Passphrase', PASSPHRASE);
+    await page.click('Open', { exact: true });
+    await page.waitFor(`document.documentElement.dataset.theme === 'ocean'`);
+    return `${options} themes; ${before} → ${ocean}`;
   });
 
   await step('no console errors or failed requests', async () => {

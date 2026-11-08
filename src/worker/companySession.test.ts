@@ -122,6 +122,30 @@ describe('company session: create, autosave, close (DF-1, DF-2, DF-9)', () => {
     expect(session.status()).toMatchObject({ open: true, dirty: true });
   });
 
+  it('keeps a theme with the company: reported at once, and back after reopening (CO-11)', async () => {
+    const dir = await createdCompany();
+    const themes: string[] = [];
+    const { session } = newSession({ onStatus: (s) => themes.push(s.theme) });
+    await session.open(asDir(dir), 'pw', { device: 'PC' });
+    expect(session.status().theme).toBe('system');
+    session.setTheme('plum');
+    expect(themes.at(-1)).toBe('plum');
+    expect(() => session.setTheme('neon' as never)).toThrow('Choose one of the themes');
+    await session.close();
+    // Closed: the start screen follows the computer
+    expect(session.status().theme).toBe('system');
+
+    const again = newSession().session;
+    await again.open(asDir(dir), 'pw', { device: 'Laptop' });
+    expect(again.status().theme).toBe('plum');
+    await again.close();
+
+    const ro = newSession().session;
+    await ro.open(asDir(dir), 'pw', { device: 'Laptop', mode: 'readOnly' });
+    expect(ro.status().theme).toBe('plum');
+    expect(() => ro.setTheme('rose')).toThrow(expect.objectContaining({ name: 'ReadOnlyError' }));
+  });
+
   it('backs up the first save of the day and then every 4 hours, not every save', async () => {
     const dir = new FakeDir();
     const { session, advance } = newSession();

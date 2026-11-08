@@ -1,4 +1,4 @@
-// The start screen, About (CO-8) and Settings with themes (CO-10).
+// The start screen, About (CO-8) and Settings, which is this computer's (CO-10).
 
 export const title = 'Start screen, About and Settings (CO-8, CO-10)';
 
@@ -49,33 +49,23 @@ export async function run({ page, app, step }) {
   });
 
   await step(
-    'Settings: a theme applies at once and is set before the app runs on reload',
+    'Settings holds This device, and no theme: the start screen follows the computer',
     async () => {
       await page.js(`document.querySelector('.start-header .settings-button').click(), true`);
       await page.waitFor(dialog);
-      const themes = await page.js(
-        `[...document.querySelectorAll('.theme-card .theme-name')].map((n) => n.textContent.trim())`,
-      );
-      if (themes.join('|') !== 'System|Light|Dark|Grey|High contrast|Warm')
-        throw new Error(themes.join('|'));
-      const background = () => page.js(`getComputedStyle(document.body).backgroundColor`);
-      const light = await background();
-      await page.js(`document.querySelector('.theme-card input[value="dark"]').click(), true`);
-      await page.waitFor(`document.documentElement.dataset.theme === 'dark'`);
-      const dark = await background();
-      if (dark === light) throw new Error(`the page stayed ${light}`);
-      await page.js(escape);
-      await page.reload();
-      // index.html's inline script sets the theme before the app's code runs
-      if ((await page.js(`document.documentElement.dataset.theme`)) !== 'dark') {
-        throw new Error('the theme was lost on reload');
+      const text = await page.js(`document.querySelector('.dialog').innerText`);
+      for (const s of ['This device', 'Device name', 'Close company after (minutes idle)']) {
+        if (!text.includes(s)) throw new Error(`Settings is missing: ${s}`);
       }
-      await page.js(`document.querySelector('.start-header .settings-button').click(), true`);
-      await page.waitFor(dialog);
-      await page.js(`document.querySelector('.theme-card input[value="system"]').click(), true`);
-      await page.waitFor(`!document.documentElement.dataset.theme`);
+      if (await page.js(`!!document.querySelector('.dialog select, .dialog .theme-preview')`)) {
+        throw new Error('Settings still has a theme picker');
+      }
       await page.js(escape);
-      return `${light} → ${dark} and back`;
+      await page.waitFor(noDialog);
+      // The start screen never has a company's theme
+      if (await page.js(`document.documentElement.dataset.theme ?? ''`)) {
+        throw new Error('the start screen has a theme');
+      }
     },
   );
 

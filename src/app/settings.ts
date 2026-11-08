@@ -1,12 +1,12 @@
 // Per-device preferences (not books): this device's name, shown to other
 // devices in the lock file (DF-4), the inactivity lock (US-1), the
-// register's account filter per company (GL-9), and the theme (CO-10). Browser storage may be
+// register's account filter per company (GL-9). Browser storage may be
 // unavailable or cleared, so every access has a fallback.
 
 const DEVICE_KEY = 'kmezbooks.deviceName';
 const INACTIVITY_KEY = 'kmezbooks.lockAfterMinutes';
-// index.html reads this key too, to set the theme before the page draws
-const THEME_KEY = 'kmezbooks.theme';
+// Where the theme was kept per computer before it moved into each company (CO-11)
+const OLD_THEME_KEY = 'kmezbooks.theme';
 // Keys were "easybooks.*" before the rename; read once, then moved
 const PREFIX = 'kmezbooks.';
 const LEGACY_PREFIX = 'easybooks.';
@@ -121,31 +121,11 @@ export function setRegisterAccount(companyId: string, accountId: string | null, 
   write(registerAccountKey(companyId, kind), accountId ?? '');
 }
 
-/** The themes in Settings (CO-10); System follows the computer's light or dark setting. */
-export const THEMES = [
-  { id: 'system', name: 'System', about: "Follows this computer's light or dark setting." },
-  { id: 'light', name: 'Light', about: 'White pages, dark text.' },
-  { id: 'dark', name: 'Dark', about: 'Dark pages, light text, for dim rooms.' },
-  { id: 'grey', name: 'Grey', about: 'Softer than Light, with less glare.' },
-  { id: 'contrast', name: 'High contrast', about: 'Black on white with stronger lines.' },
-  { id: 'warm', name: 'Warm', about: 'Cream paper and brown ink, for long sessions.' },
-] as const;
-
-export type ThemeId = (typeof THEMES)[number]['id'];
-
-export function themeChoice(): ThemeId {
-  const id = read(THEME_KEY);
-  return THEMES.find((t) => t.id === id)?.id ?? 'system';
-}
-
-/** Saves the theme for this device and shows it at once. */
-export function setThemeChoice(id: ThemeId) {
-  write(THEME_KEY, id);
-  applyTheme(id);
-}
-
-export function applyTheme(id: ThemeId) {
-  const root = document.documentElement;
-  if (id === 'system') delete root.dataset.theme;
-  else root.dataset.theme = id;
+/** The theme is now the company's (CO-11): forget the one this computer kept before. */
+export function forgetComputerTheme() {
+  try {
+    localStorage.removeItem(OLD_THEME_KEY);
+  } catch {
+    // Browser storage blocked: nothing was kept
+  }
 }

@@ -7,10 +7,9 @@ import {
   registerAccount,
   setDeviceName,
   setLockAfterMinutes,
-  setThemeChoice,
-  THEMES,
-  themeChoice,
+  forgetComputerTheme,
 } from './settings';
+import { applyTheme, isThemeId, THEMES } from '../shared/themes';
 
 describe('device settings', () => {
   let store: Map<string, string>;
@@ -90,7 +89,7 @@ describe('guessing the device name', () => {
   });
 });
 
-describe('theme (CO-10)', () => {
+describe('the theme (CO-11)', () => {
   let store: Map<string, string>;
   const root = { dataset: {} as Record<string, string> };
   beforeEach(() => {
@@ -107,35 +106,30 @@ describe('theme (CO-10)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('follows the computer until a theme is chosen', () => {
-    expect(themeChoice()).toBe('system');
-  });
-
-  it('keeps every theme, and marks the page with it at once', () => {
+  it('marks the page with a theme at once, and following the computer clears it', () => {
     for (const { id } of THEMES) {
-      setThemeChoice(id);
-      expect(themeChoice()).toBe(id);
-      expect(store.get('kmezbooks.theme')).toBe(id);
+      applyTheme(id);
       expect(root.dataset.theme).toBe(id === 'system' ? undefined : id);
     }
   });
 
-  it('ignores a theme it does not know', () => {
-    store.set('kmezbooks.theme', 'neon');
-    expect(themeChoice()).toBe('system');
+  it('knows its themes', () => {
+    expect(isThemeId('ocean')).toBe(true);
+    expect(isThemeId('neon')).toBe(false);
+    expect(isThemeId(null)).toBe(false);
   });
 
-  it('falls back to System when browser storage is blocked', () => {
+  it('forgets the theme this computer kept before themes moved into companies', () => {
+    store.set('kmezbooks.theme', 'dark');
+    store.set('kmezbooks.deviceName', 'Office PC');
+    forgetComputerTheme();
+    expect(store.has('kmezbooks.theme')).toBe(false);
+    expect(store.get('kmezbooks.deviceName')).toBe('Office PC');
     vi.stubGlobal('localStorage', {
-      getItem: () => {
-        throw new Error('blocked');
-      },
-      setItem: () => {
+      removeItem: () => {
         throw new Error('blocked');
       },
     });
-    expect(themeChoice()).toBe('system');
-    setThemeChoice('dark');
-    expect(root.dataset.theme).toBe('dark');
+    expect(() => forgetComputerTheme()).not.toThrow();
   });
 });

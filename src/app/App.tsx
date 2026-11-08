@@ -13,7 +13,8 @@ import { StartScreen } from './StartScreen';
 import { StatusBar } from './StatusBar';
 import { UpdateBanner } from './UpdateBanner';
 import { Workspace } from './Workspace';
-import { lockAfterMinutes } from './settings';
+import { applyTheme } from '../shared/themes';
+import { forgetComputerTheme, lockAfterMinutes } from './settings';
 import { companyLabel, windowTitle } from './statusText';
 
 const ACTIVITY = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
@@ -104,6 +105,11 @@ export function App() {
   useEffect(() => {
     document.title = title;
   }, [title]);
+
+  // The open company's colours (CO-11); the start screen follows the computer
+  const theme = status?.open ? status.theme : 'system';
+  useEffect(() => applyTheme(theme), [theme]);
+  useEffect(forgetComputerTheme, []);
 
   const unsaved = !!status && (status.dirty || status.saving);
   useEffect(() => {

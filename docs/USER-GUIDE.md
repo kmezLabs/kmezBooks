@@ -68,20 +68,7 @@ On a phone-sized window the sidebar becomes a strip of page buttons under the to
 
 ### Settings
 
-The gear in the top bar, next to **?** (and on the start screen), opens **Settings**. Settings belong to this computer, not to a company: they apply to every company you open here, and to the start screen. Press **Esc** or **Close** when you're done.
-
-**Theme** sets the colours. Click one and it applies at once:
-
-| Theme | Looks like |
-| --- | --- |
-| **System** (the default) | follows your computer's light or dark setting, and changes when it does |
-| **Light** | white pages, dark text |
-| **Dark** | dark pages, light text, for dim rooms |
-| **Grey** | softer than Light, with less glare |
-| **High contrast** | black on white with stronger lines, easiest to read |
-| **Warm** | cream paper and brown ink, for long sessions |
-
-Each choice shows a small sample in its own colours. Printed reports and PDFs are always light, whatever the theme. The theme is remembered by this browser.
+The gear in the top bar, next to **?** (and on the start screen), opens **Settings**: the settings for this computer, which apply to every company you open here. Each company's colours are on its own Company page (see [Company page](#company-page)). Press **Esc** or **Close** when you're done.
 
 **This device:**
 
@@ -437,11 +424,26 @@ Keep the QuickBooks subscription until every company has been imported and check
 ### Company page
 
 - **Details:** legal name, EIN, address and fiscal year, as when the company was created.
+- **Theme:** the company's colours, from the dropdown (see below).
 - **On invoices and estimates:** email, phone, website, and a **footer** printed at the foot of every invoice and estimate (how to pay, a thank-you).
 - **Logo:** **Add logo…** takes any picture and makes it small; it's shown at the top of invoices and estimates.
 - **Posted transactions:** **Allow changing and deleting posted transactions**; see [Correcting a posted transaction](#correcting-a-posted-transaction).
 - **Modules:** see below.
 - When the company was created, and its id.
+
+#### Theme
+
+**Colours for this company** sets how kmezBooks looks while this company is open. The choice applies at once and is saved with the company, so it looks the same on every computer that opens it, and the change is in the audit log. A different theme for each company makes it easy to see at a glance which one you're in. The start screen, with no company open, always follows your computer's light or dark setting. Printed reports and PDFs are always light, whatever the theme.
+
+| Group | Themes |
+| --- | --- |
+| Follows this computer (the default) | **Follow this computer**: light or dark, as the computer is set |
+| Light | **Light** (white pages, dark text), **Grey** (softer, less glare), **Warm** (cream paper, brown ink), **Sage** (soft green-grey), **Lavender** (soft violet-grey) |
+| Dark | **Dark**, **Midnight** (deep navy), **Charcoal** (neutral dark grey), **Espresso** (warm dark brown) |
+| High contrast | **High contrast** (black on white with strong lines), **High contrast dark** (white on black) |
+| Colour | **Ocean** (blue), **Forest** (green), **Plum** (purple), **Rose** (deep red): light pages with a coloured accent |
+
+Beside the dropdown, a small sample shows the theme's page, panel, text and button. A company opened read-only shows its theme but can't change it.
 
 ### Modules
 

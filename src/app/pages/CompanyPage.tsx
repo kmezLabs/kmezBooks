@@ -1,11 +1,13 @@
-// Company details (CO-1), what invoices show about the company (AR-8),
-// changing posted entries (GL-6) and the company's modules (CO-4).
+// Company details (CO-1), the company's theme (CO-11), what invoices show about
+// the company (AR-8), changing posted entries (GL-6) and its modules (CO-4).
 
 import { useEffect, useState } from 'react';
 import { normalizeDetails, validateDetails, type CompanyDetails } from '../../shared/company';
+import { THEME_GROUPS, THEMES, isThemeId, type ThemeId } from '../../shared/themes';
 import type { SessionStatus } from '../../worker/companySession';
 import { db } from '../../shared/workerClient';
 import { CompanyFields } from '../CompanyFields';
+import { ThemePreview } from '../ThemePreview';
 import { Dialog, ErrorText, TextField, formatDateTime, useAction } from '../ui';
 import { ModulesSection } from './ModulesSection';
 
@@ -129,6 +131,7 @@ export function CompanyPage({
           </div>
         )}
       </form>
+      <ThemeSection status={status} />
       <InvoiceLogo status={status} />
       <PostedEdits status={status} />
       <ModulesSection status={status} onChange={onModulesChanged} />
@@ -226,6 +229,54 @@ function InvoiceLogo({ status }: { status: SessionStatus }) {
           )}
         </div>
       )}
+      <ErrorText>{error}</ErrorText>
+    </>
+  );
+}
+
+/**
+ * The company's colours (CO-11), saved with it and shown whenever it is open,
+ * on any computer. Choosing applies at once; the status brings it back.
+ */
+function ThemeSection({ status }: { status: SessionStatus }) {
+  const { busy, error, run } = useAction();
+  const theme = THEMES.find((t) => t.id === status.theme) ?? THEMES[0];
+  const choose = (id: ThemeId) => run(() => db.setTheme(id));
+
+  return (
+    <>
+      <h3>Theme</h3>
+      <div className="theme-picker">
+        <label>
+          Colours for this company
+          <select
+            value={status.theme}
+            disabled={status.readOnly || busy}
+            onChange={(e) => {
+              if (isThemeId(e.target.value)) void choose(e.target.value);
+            }}
+          >
+            {THEME_GROUPS.map((group) => (
+              <optgroup key={group} label={group}>
+                {THEMES.filter((t) => t.group === group).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <span className="hint">
+            {status.readOnly
+              ? 'Open read-only: the theme can be changed when the company is open to edit.'
+              : 'Saved with the company, so it looks the same on every computer. Printed reports are always light.'}
+          </span>
+        </label>
+        <div className="theme-sample">
+          <ThemePreview theme={theme.id} />
+          <span className="muted">{theme.about}</span>
+        </div>
+      </div>
       <ErrorText>{error}</ErrorText>
     </>
   );

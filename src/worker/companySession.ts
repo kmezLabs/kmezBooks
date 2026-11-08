@@ -199,6 +199,7 @@ import {
 import type { Cents } from '../shared/money';
 import type { Report, ReportRequest } from '../shared/report';
 import type { AccountInput, AccountRow } from '../shared/accounts';
+import type { ThemeId } from '../shared/themes';
 import {
   ATTACHMENT_DIR,
   attachmentFile,
@@ -230,7 +231,9 @@ import {
   writeLogo,
   readLogo,
   readModules,
+  readTheme,
   setModule,
+  setTheme,
   updateDetails,
   type AuditEvent,
   type CompanyDetails,
@@ -264,6 +267,8 @@ export interface SessionStatus {
   legalName: string | null;
   /** A test company (CO-7): "– Test" after its name, and the Development pages */
   test: boolean;
+  /** Its colours while open (CO-11); 'system' with no company open */
+  theme: ThemeId;
   readOnly: boolean;
   dirty: boolean;
   saving: boolean;
@@ -369,6 +374,7 @@ export class CompanySession {
       companyId: c ? c.id : null,
       legalName: c ? readDetails(c.db).legalName : null,
       test: c ? isTestCompany(c.db) : false,
+      theme: c ? readTheme(c.db) : 'system',
       readOnly: c ? c.readOnly || this.lockLost : false,
       dirty: c ? c.dirty : false,
       saving: this.saving,
@@ -854,6 +860,12 @@ export class CompanySession {
 
   setModule(module: Module, enabled: boolean): void {
     setModule(this.writable().db, module, enabled);
+    this.touch();
+  }
+
+  /** The company's theme (CO-11), saved with it; touch() reports it at once. */
+  setTheme(id: ThemeId): void {
+    setTheme(this.writable().db, id);
     this.touch();
   }
 

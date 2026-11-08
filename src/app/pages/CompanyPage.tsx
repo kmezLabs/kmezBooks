@@ -131,7 +131,7 @@ export function CompanyPage({
           </div>
         )}
       </form>
-      <ThemeSection status={status} />
+      <ThemeSection key={status.companyId} status={status} />
       <InvoiceLogo status={status} />
       <PostedEdits status={status} />
       <ModulesSection status={status} onChange={onModulesChanged} />
@@ -236,12 +236,20 @@ function InvoiceLogo({ status }: { status: SessionStatus }) {
 
 /**
  * The company's colours (CO-11), saved with it and shown whenever it is open,
- * on any computer. Choosing applies at once; the status brings it back.
+ * on any computer. Choosing one shows its sample; Apply saves it and the app
+ * takes it on, through the status.
  */
 function ThemeSection({ status }: { status: SessionStatus }) {
   const { busy, error, run } = useAction();
-  const theme = THEMES.find((t) => t.id === status.theme) ?? THEMES[0];
-  const choose = (id: ThemeId) => run(() => db.setTheme(id));
+  const [picked, setPicked] = useState<ThemeId>(status.theme);
+  const [applied, setApplied] = useState(false);
+  const shown = THEMES.find((t) => t.id === picked) ?? THEMES[0];
+  const changed = picked !== status.theme;
+  const apply = () =>
+    run(async () => {
+      await db.setTheme(picked);
+      setApplied(true);
+    });
 
   return (
     <>
@@ -250,10 +258,11 @@ function ThemeSection({ status }: { status: SessionStatus }) {
         <label>
           Colours for this company
           <select
-            value={status.theme}
+            value={picked}
             disabled={status.readOnly || busy}
             onChange={(e) => {
-              if (isThemeId(e.target.value)) void choose(e.target.value);
+              if (isThemeId(e.target.value)) setPicked(e.target.value);
+              setApplied(false);
             }}
           >
             {THEME_GROUPS.map((group) => (
@@ -273,11 +282,29 @@ function ThemeSection({ status }: { status: SessionStatus }) {
           </span>
         </label>
         <div className="theme-sample">
-          <ThemePreview theme={theme.id} />
-          <span className="muted">{theme.about}</span>
+          <ThemePreview theme={shown.id} />
+          <span className="muted">{shown.about}</span>
         </div>
       </div>
       <ErrorText>{error}</ErrorText>
+      {!status.readOnly && (
+        <div className="buttons">
+          <button type="button" disabled={busy || !changed} onClick={() => void apply()}>
+            Apply theme
+          </button>
+          {changed && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => setPicked(status.theme)}
+            >
+              Undo
+            </button>
+          )}
+          {applied && !changed && <span className="muted">Theme applied.</span>}
+        </div>
+      )}
     </>
   );
 }

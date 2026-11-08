@@ -433,7 +433,7 @@ Keep the QuickBooks subscription until every company has been imported and check
 
 #### Theme
 
-**Colours for this company** sets how kmezBooks looks while this company is open. The choice applies at once and is saved with the company, so it looks the same on every computer that opens it, and the change is in the audit log. A different theme for each company makes it easy to see at a glance which one you're in. The start screen, with no company open, always follows your computer's light or dark setting. Printed reports and PDFs are always light, whatever the theme.
+**Colours for this company** sets how kmezBooks looks while this company is open. Choosing a theme shows a sample of it with a one-line description; **Apply theme** puts it on and saves it with the company (**Undo** goes back to the current one). It's saved with the company, so it looks the same on every computer that opens it, and the change is in the audit log. A different theme for each company makes it easy to see at a glance which one you're in. The start screen, with no company open, always follows your computer's light or dark setting. Printed reports and PDFs are always light, whatever the theme.
 
 | Group | Themes |
 | --- | --- |
@@ -443,7 +443,7 @@ Keep the QuickBooks subscription until every company has been imported and check
 | High contrast | **High contrast** (black on white with strong lines), **High contrast dark** (white on black) |
 | Colour | **Ocean** (blue), **Forest** (green), **Plum** (purple), **Rose** (deep red): light pages with a coloured accent |
 
-Beside the dropdown, a small sample shows the theme's page, panel, text and button. A company opened read-only shows its theme but can't change it.
+The sample beside the dropdown shows the chosen theme's page, panel, text and button. A company opened read-only shows its theme but can't change it.
 
 ### Modules
 

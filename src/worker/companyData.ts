@@ -9,6 +9,7 @@ import {
   type Module,
   type NewCompany,
 } from '../shared/company';
+import { isThemeId, type ThemeId } from '../shared/themes';
 import { seedDefaultChart } from '../ledger/accounts';
 import { recordEvent } from './audit';
 import type { Database } from './sqlite';
@@ -55,6 +56,21 @@ export function readDetails(db: Database): CompanyDetails & { id: string; create
 /** Whether this is a test company (CO-7); set at creation and never changed. */
 export function isTestCompany(db: Database): boolean {
   return db.selectValue('SELECT test FROM company') === 1;
+}
+
+/** The company's theme (CO-11); one this version doesn't know follows the computer. */
+export function readTheme(db: Database): ThemeId {
+  const id = db.selectValue('SELECT theme FROM company');
+  return isThemeId(id) ? id : 'system';
+}
+
+/** Save the company's theme; following the computer is stored as NULL. */
+export function setTheme(db: Database, id: ThemeId): void {
+  if (!isThemeId(id)) throw new Error('Choose one of the themes in the list.');
+  db.exec({
+    sql: 'UPDATE company SET theme = ?',
+    bind: [id === 'system' ? null : id],
+  });
 }
 
 /** The company's logo, a PNG, for invoices (AR-8); null without one. */

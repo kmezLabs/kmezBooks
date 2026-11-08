@@ -1,8 +1,8 @@
-// CO-10: every theme in app.css has all the colours, and they're readable.
+// CO-11: every company theme has a block in app.css with all the colours, readable.
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { THEMES } from './settings';
+import { THEMES } from '../shared/themes';
 
 const css = readFileSync(new URL('./app.css', import.meta.url), 'utf8');
 
@@ -73,14 +73,26 @@ const PAIRS = [
   ['--fg', '--warn-bg'],
 ] as const;
 
-describe('themes (CO-10)', () => {
+describe('themes (CO-11)', () => {
+  it('every theme in the list has a block in app.css, and every block is in the list', () => {
+    const blocks = [...css.matchAll(/^\[data-theme='([\w-]+)'\] \{/gm)].map((m) => m[1]);
+    const listed = THEMES.filter((t) => t.id !== 'system').map((t) => t.id);
+    expect([...blocks].sort()).toEqual([...listed].sort());
+  });
+
+  it('names and ids are unique', () => {
+    expect(new Set(THEMES.map((t) => t.id)).size).toBe(THEMES.length);
+    expect(new Set(THEMES.map((t) => t.name)).size).toBe(THEMES.length);
+  });
+
   it.each(Object.entries(themes))('%s has every colour and a color-scheme', (_, t) => {
     expect(COLOURS.filter((c) => !t[c])).toEqual([]);
     expect(['light', 'dark']).toContain(t['color-scheme']);
   });
 
   it.each(Object.entries(themes))('%s is readable: every pair reaches 4.5:1', (name, t) => {
-    const need = name === 'contrast' ? 7 : 4.5;
+    // The two high-contrast themes reach WCAG AAA
+    const need = name === 'contrast' || name === 'contrast-dark' ? 7 : 4.5;
     const weak = PAIRS.filter(([fg, bg]) => contrast(t[fg]!, t[bg]!) < need).map(
       ([fg, bg]) => `${fg} on ${bg}: ${contrast(t[fg]!, t[bg]!).toFixed(2)}`,
     );

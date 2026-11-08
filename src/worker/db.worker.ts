@@ -17,6 +17,7 @@ import type { CategorizeInput, QueueView } from '../modules/banking/review';
 import type { RuleInput } from '../modules/banking/rules';
 import type { AccountChoices } from '../modules/migration/importer';
 import type { AccountInput } from '../shared/accounts';
+import type { ThemeId } from '../shared/themes';
 import type { ReportRequest } from '../shared/report';
 import type { NewCompany, CompanyDetails, Module } from './companyData';
 import { COMPANY_FILE } from './companyFolder';
@@ -64,6 +65,7 @@ const api = {
   updateDetails: (changes: Partial<CompanyDetails>) => session.updateDetails(changes),
   modules: () => session.modules(),
   setModule: (module: Module, enabled: boolean) => session.setModule(module, enabled),
+  setTheme: (id: ThemeId) => session.setTheme(id),
   changePassphrase: (oldPassphrase: string, newPassphrase: string) =>
     session.changePassphrase(oldPassphrase, newPassphrase),
   audit: (opts?: { limit?: number; beforeId?: number; entity?: string }) => session.audit(opts),

@@ -20,26 +20,56 @@ npm run dev        # http://localhost:5173
 npm run check      # typecheck + lint + tests
 ```
 
-| Script                      | What                                                                       |
-| --------------------------- | -------------------------------------------------------------------------- |
-| `npm run dev`               | Development server. `PWA_DEV=1 npm run dev` also serves the service worker |
-| `npm test`                  | Vitest: TypeScript logic and integrity rules against the real schema       |
-| `npm run coverage`          | The tests with coverage of `src/`; report in `coverage/index.html`         |
-| `npm run e2e`               | Build the site and test it in headless Chrome (`e2e/`); needs Chrome       |
-| `npm run build` / `preview` | Production build (needs free memory; see the M1 results)                   |
-| `npm run build:pages`       | The GitHub Pages site in `pages-dist/`: home page, app and user guide      |
-| `npm run icons`             | Redraw `public/icons`                                                      |
+Every script in `package.json`:
+
+**Develop**
+
+| Command                 | What                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run dev`           | Development server on http://localhost:5173, reloading on every change                   |
+| `PWA_DEV=1 npm run dev` | The same, with the service worker too (off by default: generating it slows every reload) |
+| `npm run format`        | Format every file with Prettier                                                          |
+| `npm run icons`         | Redraw the app icons in `public/icons`                                                   |
+
+**Check and test**
+
+| Command                              | What                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `npm run check`                      | Typecheck, lint and every test, in that order. Run it before each pull request; CI runs it too         |
+| `npm run typecheck`                  | TypeScript only (`tsc --noEmit`)                                                                       |
+| `npm run lint`                       | ESLint only                                                                                            |
+| `npm test`                           | Vitest once: the TypeScript logic, and the integrity rules against the real schema                     |
+| `npm run test:watch`                 | Vitest in watch mode: reruns the tests a change affects                                                |
+| `npx vitest run <file> -t "<name>"`  | One test file, or only the tests whose name matches                                                    |
+| `npm run coverage`                   | The tests with line and branch coverage of `src/`; the report is in `coverage/index.html`              |
+| `npm run e2e`                        | End-to-end: builds the site into `e2e-dist/`, serves it on a free port and tests it in headless Chrome |
+| `npm run e2e -- --no-build`          | The same, reusing the last build                                                                       |
+| `npm run e2e -- ledger help`         | Only the specs whose file name has one of these words                                                  |
+| `npm run e2e -- --url <app address>` | Test a published copy, such as https://kmezlabs.github.io/kmezBooks/app/                               |
+
+On Windows, run Vitest from `C:\…` with a capital C: from `c:\…` every test file fails before it starts. A failing end-to-end step leaves a screenshot and the page text in `e2e-results/`; set `CHROME_PATH` if Chrome isn't in its usual place.
+
+**Build and run**
+
+| Command                                       | What                                                                                                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run build`                               | Typecheck, then the production app in `dist/`, served from `/`. Needs free memory (see the M1 results)                                            |
+| `npm run preview`                             | Serve `dist/` at http://localhost:4180 (always that port, so the browser keeps its folder permissions)                                            |
+| `npm run build:pages`                         | Typecheck, then the GitHub Pages site in `pages-dist/`: home page, the app under `app/` and the user guide under `guide/`. A broken link fails it |
+| `node scripts/build-pages.mjs --out <folder>` | The site somewhere else (no typecheck)                                                                                                            |
+| `node scripts/build-pages.mjs --base <path>`  | The site for another address path (default `/kmezBooks/`)                                                                                         |
+| `KMB_BASE=<path> npm run build`               | The app alone, for another address path (what `build:pages` does with `<base>app/`)                                                               |
 
 ### Running the app from this computer
 
-Besides the web address, the app can run from the project folder: `npm run build`, then `npx vite preview` and open **http://localhost:4180**. That copy is separate from the one at the web address: Chrome keeps a few things for each address (the recent companies list, backup folder choices, the theme, device name and idle time), so each starts without the other's. The books aren't affected: they stay in their folders.
+Besides the web address, the app can run from the project folder: `npm run build`, then `npm run preview` and open **http://localhost:4180**. That copy is separate from the one at the web address: Chrome keeps a few things for each address (the recent companies list, backup folder choices, device name and idle time), so each starts without the other's. Each company's theme is saved in its file, so it's the same in both. The books aren't affected: they stay in their folders.
 
 To move from `localhost:4180` to the web address:
 
 1. Close every company in the old copy.
 2. Open https://kmezlabs.github.io/kmezBooks/app/ and install it.
 3. Open each company with **Open company folder…**, once. After that it's in the recent list.
-4. Choose each company's backup folder again, under **Backups**, and set the device name, idle time and theme in **Settings** (the gear).
+4. Choose each company's backup folder again, under **Backups**, and set the device name and idle time in **Settings** (the gear).
 5. Then uninstall the old copy, or keep it as a spare. Don't use both at once: the folder lock stops the second one from opening a company the first has open.
 
 ## Branches and releases
